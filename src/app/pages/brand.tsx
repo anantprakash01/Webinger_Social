@@ -60,7 +60,6 @@ export function BrandCampaignDetail() {
   const { id } = useParams();
   return <Placeholder eyebrow="Campaign" title={id ?? ''} week={5} frs={['FR-40', 'FR-42']} />;
 }
-export const BrandProfile = () => <Placeholder title="Company profile" week={3} frs={['FR-05']} />;
 
 /** Checkout is blocked until the email is verified (FR-02). The screen itself arrives in Week 4. */
 export function CheckoutPage() {

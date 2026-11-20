@@ -101,3 +101,23 @@ export function formatCompact(n: number): string {
   return `${trim(n / 1_000_000)}M`;
 }
 const trim = (x: number) => (x >= 100 ? Math.round(x).toString() : (Math.floor(x * 10) / 10).toString().replace(/\.0$/, ''));
+
+/** Brand industries (FR-05). Codes match the BrandIndustry enum in the contract. */
+export const INDUSTRIES = [
+  { value: 'BEAUTY', label: 'Beauty & personal care' },
+  { value: 'FASHION', label: 'Fashion & accessories' },
+  { value: 'FOOD', label: 'Food & beverage' },
+  { value: 'HEALTH', label: 'Health & fitness' },
+  { value: 'HOME', label: 'Home & living' },
+  { value: 'TECH', label: 'Technology & apps' },
+  { value: 'TRAVEL', label: 'Travel & hospitality' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'EDUCATION', label: 'Education' },
+  { value: 'PETS', label: 'Pets' },
+  { value: 'AGENCY', label: 'Agency' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+export const INDUSTRY_LABEL: Record<string, string> = Object.fromEntries(INDUSTRIES.map((i) => [i.value, i.label]));
+
+/** Usernames that would clash with routes or confuse people. */
+export const RESERVED_USERNAMES = ['me', 'admin', 'api', 'u', 'search', 'login', 'signup', 'support', 'help', 'brand', 'creator', 'checkout', 'settings', 'webinger', 'collab'];

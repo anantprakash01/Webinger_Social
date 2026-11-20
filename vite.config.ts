@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Webinger Social — Creator Marketplace',
-        short_name: 'Webinger Social',
+        name: 'Webinger Collab — Creator Marketplace',
+        short_name: 'Webinger Collab',
         description: 'Book and pay social media creators, with payment held in escrow until you approve the work.',
         theme_color: '#D40000',
         background_color: '#FFFFFF',
@@ -35,6 +35,8 @@ export default defineConfig({
     css: false,
     // Page-level tests type, wait for debounces and render whole pages; 5 s is too tight for them.
     testTimeout: 20_000,
+    // Page-level jsdom tests are CPU-heavy; running every file at once starved them and made them flaky.
+    maxWorkers: 4,
     env: { VITE_API_MODE: 'mock', VITE_MOCK_DELAY_MS: '0' },
   },
 });

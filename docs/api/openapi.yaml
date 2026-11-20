@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 0.2.0
+  version: 0.3.0
   description: |
-    Contract v0.2 (Phase 0, Week 2): authentication, `/me`, shared schemas, public creator search and profile.
+    Contract v0.3 (Phase 0, Week 3): authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
     This file is the single source of truth between the React app and the Spring Boot API.
     Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
 
@@ -24,6 +24,10 @@ tags:
   - name: Auth
   - name: Users
   - name: Creators
+  - name: Creator workspace
+  - name: Brand workspace
+  - name: Files
+  - name: Payouts
 
 paths:
   /auth/register:
@@ -241,6 +245,191 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CreatorSearchPage' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/me:
+    get:
+      tags: [Creator workspace]
+      summary: The signed-in creator's own profile, including private and draft fields
+      operationId: getMyCreatorProfile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: The profile., content: { application/json: { schema: { $ref: '#/components/schemas/CreatorMe' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /creators/me/profile:
+    put:
+      tags: [Creator workspace]
+      summary: Save profile details (FR-10)
+      description: |
+        Replaces the editable profile fields. The username can change only until the profile is first approved
+        (409 USERNAME_LOCKED afterwards), must be unique (409 USERNAME_TAKEN) and not reserved (422).
+      operationId: updateMyCreatorProfile
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatorProfileInput' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/CreatorMe' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/me/social-accounts:
+    post:
+      tags: [Creator workspace]
+      summary: Link a social account (FR-11)
+      description: One account per platform (409 PLATFORM_EXISTS). New accounts are unverified until our team checks them.
+      operationId: addMySocialAccount
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SocialAccountInput' } } } }
+      responses:
+        '201': { description: Linked., content: { application/json: { schema: { $ref: '#/components/schemas/SocialAccount' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/me/social-accounts/{id}:
+    delete:
+      tags: [Creator workspace]
+      summary: Remove a linked social account
+      operationId: removeMySocialAccount
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '204': { description: Removed. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /creators/me/packages:
+    post:
+      tags: [Creator workspace]
+      summary: Create a package (FR-12, FR-13)
+      description: Price at least 1000 cents ($10), delivery 1–60 days, at most 8 active packages (409 PACKAGE_LIMIT).
+      operationId: createMyPackage
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackageInput' } } } }
+      responses:
+        '201': { description: Created., content: { application/json: { schema: { $ref: '#/components/schemas/OwnPackage' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/me/packages/{id}:
+    patch:
+      tags: [Creator workspace]
+      summary: Edit a package, or switch it on or off
+      description: Switching a package on counts toward the limit of 8 active packages. Prices of existing orders never change.
+      operationId: updateMyPackage
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PackagePatch' } } } }
+      responses:
+        '200': { description: Updated., content: { application/json: { schema: { $ref: '#/components/schemas/OwnPackage' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    delete:
+      tags: [Creator workspace]
+      summary: Delete a package
+      operationId: deleteMyPackage
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /creators/me/portfolio:
+    post:
+      tags: [Creator workspace]
+      summary: Add a portfolio image or video link (FR-14)
+      description: At most 12 items (409 PORTFOLIO_LIMIT). Image URLs come from `POST /files/presign`.
+      operationId: addMyPortfolioItem
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PortfolioItemInput' } } } }
+      responses:
+        '201': { description: Added., content: { application/json: { schema: { $ref: '#/components/schemas/PortfolioItem' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/me/portfolio/{id}:
+    delete:
+      tags: [Creator workspace]
+      summary: Remove a portfolio item
+      operationId: removeMyPortfolioItem
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '204': { description: Removed. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /creators/me/submit-for-review:
+    post:
+      tags: [Creator workspace]
+      summary: Send the profile to our team for vetting (FR-16)
+      description: |
+        DRAFT or REJECTED → PENDING_REVIEW. Needs a complete profile with photo, at least one social account,
+        one active package and payouts set up; otherwise 422 with one error per missing item
+        (`field` = profile | photo | socials | packages | payouts). Any other status → 409.
+      operationId: submitMyProfileForReview
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Submitted., content: { application/json: { schema: { $ref: '#/components/schemas/CreatorMe' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/me/stats:
+    get:
+      tags: [Creator workspace]
+      summary: Dashboard numbers (FR-70)
+      operationId: getMyCreatorStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Stats., content: { application/json: { schema: { $ref: '#/components/schemas/CreatorStats' } } } }
+
+  /brands/me/profile:
+    get:
+      tags: [Brand workspace]
+      summary: The signed-in brand's company profile (FR-05)
+      operationId: getMyBrandProfile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: The profile., content: { application/json: { schema: { $ref: '#/components/schemas/BrandProfile' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Brand workspace]
+      summary: Save the company profile (FR-05)
+      operationId: updateMyBrandProfile
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BrandProfileInput' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/BrandProfile' } } } }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /files/presign:
+    post:
+      tags: [Files]
+      summary: Get a pre-signed URL to upload an image straight to storage
+      description: |
+        The browser PUTs the file to `uploadUrl` with `headers`, then saves `fileUrl` on the profile.
+        Images only (JPEG, PNG, WebP), at most 10 MB. Videos are added as links, not uploads.
+      operationId: presignUpload
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PresignRequest' } } } }
+      responses:
+        '200': { description: Upload target., content: { application/json: { schema: { $ref: '#/components/schemas/PresignResponse' } } } }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /payouts/onboarding-link:
+    post:
+      tags: [Payouts]
+      summary: Start or continue Stripe Connect Express onboarding (FR-62)
+      description: |
+        Creates the connected account on first use and returns a one-time Stripe-hosted onboarding URL.
+        Stripe sends the creator back to `returnUrl`; the payout status changes when Stripe's
+        `account.updated` webhook arrives.
+      operationId: createPayoutOnboardingLink
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OnboardingLinkRequest' } } } }
+      responses:
+        '200': { description: The link., content: { application/json: { schema: { $ref: '#/components/schemas/OnboardingLink' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /creators/{username}:
     get:
@@ -547,6 +736,187 @@ components:
             vettingStatus:
               $ref: '#/components/schemas/VettingStatus'
               description: Always APPROVED for the public; other values only in an owner or admin preview.
+
+    # ---------- Creator workspace (Week 3) ----------
+    CreatorProfileInput:
+      type: object
+      required: [username, displayName, bio, city, country, languages, niches]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 30, pattern: '^[a-z][a-z0-9._]{2,29}$' }
+        displayName: { type: string, minLength: 2, maxLength: 60 }
+        bio: { type: string, minLength: 30, maxLength: 1000 }
+        city: { type: string, minLength: 2, maxLength: 80 }
+        country: { type: string, minLength: 2, maxLength: 2 }
+        gender:
+          oneOf: [{ $ref: '#/components/schemas/Gender' }, { type: 'null' }]
+          description: Optional. Used only as a search filter, never shown on the profile.
+        birthYear: { type: [integer, 'null'], description: 'Optional, age 16–90. Search filter only, never shown.' }
+        languages: { type: array, minItems: 1, maxItems: 5, items: { type: string, minLength: 2, maxLength: 2 } }
+        niches: { type: array, minItems: 1, maxItems: 3, uniqueItems: true, items: { $ref: '#/components/schemas/Niche' } }
+        photoUrl: { type: [string, 'null'] }
+        coverUrls: { type: array, maxItems: 3, items: { type: string } }
+
+    SocialAccountInput:
+      type: object
+      required: [platform, handle, followers]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        handle: { type: string, minLength: 2, maxLength: 40, pattern: '^[A-Za-z0-9._]+$', description: Without the @. }
+        followers: { type: integer, minimum: 0, maximum: 1000000000 }
+
+    PackageInput:
+      type: object
+      required: [platform, title, description, deliverables, priceCents, deliveryDays]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        title: { type: string, minLength: 3, maxLength: 80 }
+        description: { type: string, minLength: 10, maxLength: 1000 }
+        deliverables: { type: array, minItems: 1, maxItems: 10, items: { type: string, minLength: 2, maxLength: 120 } }
+        priceCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
+        deliveryDays: { type: integer, minimum: 1, maximum: 60 }
+        active: { type: boolean, default: true }
+
+    PackagePatch:
+      type: object
+      description: Any subset of PackageInput fields.
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        title: { type: string, minLength: 3, maxLength: 80 }
+        description: { type: string, minLength: 10, maxLength: 1000 }
+        deliverables: { type: array, minItems: 1, maxItems: 10, items: { type: string, minLength: 2, maxLength: 120 } }
+        priceCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
+        deliveryDays: { type: integer, minimum: 1, maximum: 60 }
+        active: { type: boolean }
+
+    OwnPackage:
+      allOf:
+        - $ref: '#/components/schemas/Package'
+        - type: object
+          required: [active]
+          properties:
+            active: { type: boolean }
+
+    PortfolioItemInput:
+      type: object
+      required: [type, url]
+      properties:
+        type: { type: string, enum: [IMAGE, VIDEO_LINK] }
+        url: { type: string, maxLength: 2000000, description: 'IMAGE: a fileUrl from /files/presign. VIDEO_LINK: an https URL.' }
+        caption: { type: [string, 'null'], maxLength: 140 }
+
+    PayoutStatus:
+      type: string
+      description: NOT_STARTED → PENDING (details submitted, Stripe checking) → ENABLED.
+      enum: [NOT_STARTED, PENDING, ENABLED]
+
+    CreatorChecklist:
+      type: object
+      description: What is still needed before the profile can be submitted. Portfolio is recommended, not required.
+      required: [profile, photo, socials, packages, portfolio, payouts]
+      properties:
+        profile: { type: boolean }
+        photo: { type: boolean }
+        socials: { type: boolean }
+        packages: { type: boolean }
+        portfolio: { type: boolean }
+        payouts: { type: boolean }
+
+    CreatorMe:
+      type: object
+      required: [username, displayName, bio, city, country, gender, birthYear, languages, niches, photoUrl, coverUrls, vettingStatus, rejectionReason, submittedAt, socials, packages, portfolio, payoutStatus, checklist, usernameLocked]
+      properties:
+        username: { type: [string, 'null'] }
+        displayName: { type: string }
+        bio: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        country: { type: [string, 'null'] }
+        gender: { oneOf: [{ $ref: '#/components/schemas/Gender' }, { type: 'null' }] }
+        birthYear: { type: [integer, 'null'] }
+        languages: { type: array, items: { type: string } }
+        niches: { type: array, items: { $ref: '#/components/schemas/Niche' } }
+        photoUrl: { type: [string, 'null'] }
+        coverUrls: { type: array, items: { type: string } }
+        vettingStatus: { $ref: '#/components/schemas/VettingStatus' }
+        rejectionReason: { type: [string, 'null'] }
+        submittedAt: { type: [string, 'null'], format: date-time }
+        socials: { type: array, items: { $ref: '#/components/schemas/SocialAccount' } }
+        packages: { type: array, description: Active and inactive., items: { $ref: '#/components/schemas/OwnPackage' } }
+        portfolio: { type: array, items: { $ref: '#/components/schemas/PortfolioItem' } }
+        payoutStatus: { $ref: '#/components/schemas/PayoutStatus' }
+        checklist: { $ref: '#/components/schemas/CreatorChecklist' }
+        usernameLocked: { type: boolean, description: True once the profile has been approved. }
+
+    CreatorStats:
+      type: object
+      required: [currency, availableCents, inEscrowCents, lifetimeEarnedCents, ordersByStatus, profileViews, activePackages]
+      properties:
+        currency: { type: string }
+        availableCents: { type: integer, format: int64, description: Creator balance not yet paid out. }
+        inEscrowCents: { type: integer, format: int64, description: What the creator will receive for accepted orders not yet approved. }
+        lifetimeEarnedCents: { type: integer, format: int64 }
+        ordersByStatus:
+          type: object
+          description: Count per order status; every status is present.
+          additionalProperties: { type: integer }
+        profileViews: { type: integer }
+        activePackages: { type: integer }
+
+    BrandIndustry:
+      type: string
+      enum: [BEAUTY, FASHION, FOOD, HEALTH, HOME, TECH, TRAVEL, FINANCE, EDUCATION, PETS, AGENCY, OTHER]
+
+    BrandProfile:
+      type: object
+      required: [companyName, website, logoUrl, industry, country, plan]
+      properties:
+        companyName: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        logoUrl: { type: [string, 'null'] }
+        industry: { oneOf: [{ $ref: '#/components/schemas/BrandIndustry' }, { type: 'null' }] }
+        country: { type: [string, 'null'] }
+        plan: { type: string, enum: [FREE], description: Pro / Premium arrive in v2. }
+
+    BrandProfileInput:
+      type: object
+      required: [companyName, industry, country]
+      properties:
+        companyName: { type: string, minLength: 2, maxLength: 100 }
+        website: { type: [string, 'null'], maxLength: 200, description: 'https://… (http:// accepted and upgraded).' }
+        logoUrl: { type: [string, 'null'] }
+        industry: { $ref: '#/components/schemas/BrandIndustry' }
+        country: { type: string, minLength: 2, maxLength: 2 }
+
+    PresignRequest:
+      type: object
+      required: [purpose, fileName, contentType, sizeBytes]
+      properties:
+        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO] }
+        fileName: { type: string, maxLength: 200 }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
+
+    PresignResponse:
+      type: object
+      required: [uploadUrl, method, headers, fileUrl, expiresAt]
+      properties:
+        uploadUrl: { type: string }
+        method: { type: string, enum: [PUT] }
+        headers: { type: object, additionalProperties: { type: string } }
+        fileUrl: { type: string, description: Where the file will be served from once uploaded. }
+        expiresAt: { type: string, format: date-time }
+
+    OnboardingLinkRequest:
+      type: object
+      required: [returnUrl]
+      properties:
+        returnUrl: { type: string, description: App path Stripe sends the creator back to, e.g. /creator/onboarding?step=payouts. }
+
+    OnboardingLink:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { type: string }
+        expiresAt: { type: string, format: date-time }
 
     # ---------- Auth ----------
     AuthSession:

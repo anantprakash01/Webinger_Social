@@ -1,4 +1,4 @@
-# Webinger Social — Creator Marketplace (frontend)
+# Webinger Collab — Creator Marketplace (frontend)
 
 React 19 + TypeScript + Vite prototype of a two-sided creator marketplace with escrow payments.
 Phase 0 runs entirely on an in-browser mock API; Phase 1 switches each module to the Spring Boot API.
@@ -43,6 +43,11 @@ npm run dev                  # http://localhost:5173
 The marketplace has 59 invented, approved creators to search (plus 4 not yet approved, which never appear).
 Try `/search`, `/u/leomakes`, or press **Buy** on a profile while logged out.
 
+To walk the creator setup (Week 3), log in as `newcreator@demo.test`: the wizard covers profile, socials,
+packages, portfolio, payouts (a clearly labelled mock of the Stripe page) and submit for review. While the
+profile is in review, the demo bar shows **Simulate review: Approve / Reject**. Brands edit their company at
+`/brand/profile`.
+
 "Continue with Google" signs in as an invented Google identity. Emails (verification, password reset)
 appear in a **demo inbox** box on the relevant screens. The demo bar inside the app has **View as** and
 **Reset demo data**. Demo state lives in `sessionStorage`, so it survives a refresh but not a new tab.
@@ -55,7 +60,10 @@ src/app/                  routes, auth context, guards, layouts (AppShell, Publi
 src/features/auth/        schemas (Zod), hooks (TanStack Query), components, pages
 src/features/landing/     landing page
 src/features/search/      search page, filters, creator card, URL <-> query mapping
-src/features/creators/    public creator profile
+src/features/creators/    public creator profile, creator workspace (wizard, packages, dashboard)
+src/features/brands/      brand company profile
+src/features/files/       image uploads (presign) and the image picker
+src/features/payouts/     payout onboarding (Stripe Connect, mocked)
 src/api/client.ts         the only module that talks to a backend (mock | http), 401 → refresh → retry
 src/api/mock/             db, seed, fees, ledger, orderMachine, server (router) and handlers
 src/components/ui/        Webinger base components

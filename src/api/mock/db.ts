@@ -6,7 +6,7 @@
  * Week 1: demo accounts. Week 2: ~60 invented creators with socials, packages, portfolio, reviews
  * (src/api/mock/seed/creators.ts). Orders and campaigns arrive with their weeks.
  */
-import type { Gender, Niche, Platform, Role, UserStatus, VettingStatus } from '@/types';
+import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
 import type { LedgerEntry } from './ledger';
 import type { MockOrder, OrderEvent } from './orderMachine';
@@ -48,8 +48,12 @@ export interface CreatorProfileRow {
   vettingStatus: VettingStatus;
   rejectionReason: string | null;
   approvedAt: string | null;
+  /** When the creator last sent the profile for review. */
+  submittedAt: string | null;
   profileViews: number;
   stripeAccountId: string | null;
+  /** Mock of the Stripe Connect account state (FR-62). */
+  payoutStatus: PayoutStatus;
   createdAt: string;
 }
 
@@ -103,6 +107,12 @@ export interface ReviewRow {
 export interface BrandProfileRow {
   userId: string;
   companyName: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  industry: BrandIndustry | null;
+  country: string | null;
+  plan: 'FREE';
+  stripeCustomerId: string | null;
 }
 
 export interface OneTimeTokenRow {
@@ -201,7 +211,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -245,8 +255,9 @@ function seed(now: Date): Db {
     portfolioItems: creators.portfolioItems,
     reviews: creators.reviews,
     brandProfiles: [
-      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.' },
-      { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House' },
+      // Websites use example.com (reserved for documentation), so they never point at a real company.
+      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'US', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
+      { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House', website: null, logoUrl: null, industry: 'FOOD', country: 'GB', plan: 'FREE', stripeCustomerId: null },
     ],
     oneTimeTokens: [],
     accessTokens: [],

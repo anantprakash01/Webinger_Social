@@ -25,7 +25,15 @@ const PUBLIC = [
 ];
 const AS_BRAND = [
   ['brand-dashboard', '/brand/dashboard'],
+  ['brand-profile', '/brand/profile'],
   ['profile-as-brand', '/u/leomakes'],
+];
+// Week 3: a draft creator walks the setup wizard; an approved creator sees the workspace.
+const AS_DRAFT_CREATOR = ['profile', 'socials', 'packages', 'portfolio', 'payouts', 'review'].map((s) => [`onboarding-${s}`, `/creator/onboarding?step=${s}`]);
+const AS_CREATOR = [
+  ['creator-dashboard', '/creator/dashboard'],
+  ['creator-packages', '/creator/packages'],
+  ['creator-onboarding-live', '/creator/onboarding?step=profile'],
 ];
 
 const problems = [];
@@ -56,6 +64,24 @@ for (const width of [360, 1280]) {
   await check(page, width, 'checkout');
   for (const [name, path] of AS_BRAND) await check(page, width, name, path);
   await ctx.close();
+
+  for (const [email, pages] of [['newcreator@demo.test', AS_DRAFT_CREATOR], ['creator@demo.test', AS_CREATOR]]) {
+    const c = await browser.newContext({ viewport: { width, height: 800 } });
+    const p = await c.newPage();
+    p.on('pageerror', (e) => problems.push(`${width}px page error: ${e.message}`));
+    p.on('console', (m) => m.type() === 'error' && problems.push(`${width}px console error: ${m.text()}`));
+    await p.goto(`${base}/login`, { waitUntil: 'networkidle' });
+    await p.getByLabel('Email').fill(email);
+    await p.getByLabel('Password', { exact: true }).fill('demo1234');
+    await p.getByRole('button', { name: 'Log in' }).click();
+    await p.waitForURL((url) => url.pathname.startsWith('/creator/'));
+    for (const [name, path] of pages) await check(p, width, name, path);
+    // The package editor drawer.
+    await p.goto(`${base}/creator/packages`, { waitUntil: 'networkidle' });
+    await p.getByRole('button', { name: 'Add package' }).click();
+    await check(p, width, `package-editor-${email.split('@')[0]}`);
+    await c.close();
+  }
 }
 await browser.close();
 

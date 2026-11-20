@@ -10,6 +10,8 @@ import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
 import { Logo } from '@/components/Logo';
 import { Avatar, Button, PageSkeleton } from '@/components/ui';
 import { VerifyEmailBanner } from '@/features/auth/components/VerifyEmailGate';
+import { VettingBanner } from '@/features/creators/components/VettingBanner';
+import { useDemoVettingDecision } from '@/features/creators/workspaceHooks';
 import { ROLE_LABEL } from '@/types';
 import { homePath, useAuth } from '../AuthContext';
 import { AREA_TITLE, NAV } from '../nav';
@@ -74,6 +76,11 @@ export function AppShell() {
           <Avatar name={user.name} size={32} />
         </header>
         <VerifyEmailBanner />
+        {user.role === 'CREATOR' && user.creator && !location.pathname.startsWith('/creator/onboarding') && !location.pathname.startsWith('/creator/dashboard') && (
+          <div className="shell-banner">
+            <VettingBanner status={user.creator.vettingStatus} reason={user.creator.rejectionReason} />
+          </div>
+        )}
         <main id="content" tabIndex={-1}>
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
@@ -166,9 +173,33 @@ function DemoBar() {
           </option>
         ))}
       </select>
+      {user.role === 'CREATOR' && user.creator?.vettingStatus === 'PENDING_REVIEW' && <DemoVetting />}
       <button type="button" className="demo-bar__btn" onClick={() => void reset()}>
         Reset demo data
       </button>
     </div>
+  );
+}
+
+/**
+ * Mock-only stand-in for the admin vetting queue (FR-80 arrives in Week 6): lets a reviewer see
+ * a profile in review get approved or rejected without switching accounts.
+ */
+function DemoVetting() {
+  const decide = useDemoVettingDecision();
+  const reject = () => {
+    const reason = window.prompt('Reason shown to the creator:', 'Please add a clearer profile photo.');
+    if (reason?.trim()) decide.mutate({ decision: 'REJECT', reason: reason.trim() });
+  };
+  return (
+    <span className="demo-bar__group" role="group" aria-label="Simulate review">
+      <span>Simulate review:</span>
+      <button type="button" className="demo-bar__btn" disabled={decide.isPending} onClick={() => decide.mutate({ decision: 'APPROVE' })}>
+        Approve
+      </button>
+      <button type="button" className="demo-bar__btn" disabled={decide.isPending} onClick={reject}>
+        Reject
+      </button>
+    </span>
   );
 }

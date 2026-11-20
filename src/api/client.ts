@@ -8,7 +8,26 @@
  * Both modes share one request path, including the 401 → refresh → retry-once logic,
  * so switching a module from mock to real changes nothing in any screen.
  */
-import { ApiError, type AuthSession, type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
+import { uploadProblem } from '@/features/files/schemas';
+import {
+  ApiError,
+  type AuthSession,
+  type BrandProfile,
+  type BrandProfileInput,
+  type CreatorMe,
+  type CreatorProfileInput,
+  type CreatorStats,
+  type OnboardingLink,
+  type OwnPackage,
+  type PackageInput,
+  type PackagePatch,
+  type PortfolioItem,
+  type PortfolioItemInput,
+  type PresignRequest,
+  type PresignResponse,
+  type SocialAccount,
+  type SocialAccountInput,
+  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -204,6 +223,37 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
   return res.body as T;
 }
 
+const enc = encodeURIComponent;
+
+/** Longest side per upload purpose, so demo images stay small enough for sessionStorage. */
+const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600 };
+
+/** Mock mode only: a JPEG data URL of the image, downscaled when the browser can. */
+async function toDemoDataUrl(file: File, purpose: PresignRequest['purpose']): Promise<string> {
+  if (typeof createImageBitmap === 'function' && typeof document !== 'undefined') {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, DEMO_MAX_SIDE[purpose] / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.82);
+      }
+    } catch {
+      /* fall through to the plain copy */
+    }
+  }
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new ApiError({ type: 'about:blank', status: 422, title: 'Validation failed', detail: 'That image could not be read.' }));
+    r.readAsDataURL(file);
+  });
+}
+
 /** Key for money-moving requests; reuse the same key when retrying the same action. */
 export const newIdempotencyKey = () => crypto.randomUUID();
 
@@ -278,12 +328,60 @@ export const api = {
     /** Public profile (FR-15). Sends the token when signed in, so owners and admins can preview. */
     profile: (username: string) => request<CreatorProfile>('GET', `/creators/${encodeURIComponent(username)}`),
   },
+  /** The signed-in creator's workspace (Week 3). */
+  creatorMe: {
+    get: () => request<CreatorMe>('GET', '/creators/me'),
+    updateProfile: (body: CreatorProfileInput) => request<CreatorMe>('PUT', '/creators/me/profile', { body }),
+    addSocial: (body: SocialAccountInput) => request<SocialAccount>('POST', '/creators/me/social-accounts', { body }),
+    removeSocial: (id: string) => request<void>('DELETE', `/creators/me/social-accounts/${enc(id)}`),
+    createPackage: (body: PackageInput) => request<OwnPackage>('POST', '/creators/me/packages', { body }),
+    updatePackage: (id: string, body: PackagePatch) => request<OwnPackage>('PATCH', `/creators/me/packages/${enc(id)}`, { body }),
+    deletePackage: (id: string) => request<void>('DELETE', `/creators/me/packages/${enc(id)}`),
+    addPortfolioItem: (body: PortfolioItemInput) => request<PortfolioItem>('POST', '/creators/me/portfolio', { body }),
+    removePortfolioItem: (id: string) => request<void>('DELETE', `/creators/me/portfolio/${enc(id)}`),
+    submitForReview: () => request<CreatorMe>('POST', '/creators/me/submit-for-review'),
+    stats: () => request<CreatorStats>('GET', '/creators/me/stats'),
+  },
+  brands: {
+    getProfile: () => request<BrandProfile>('GET', '/brands/me/profile'),
+    updateProfile: (body: BrandProfileInput) => request<BrandProfile>('PUT', '/brands/me/profile', { body }),
+  },
+  payouts: {
+    /** FR-62: Stripe Connect Express onboarding. The browser then goes to `url`. */
+    onboardingLink: (returnUrl: string) => request<OnboardingLink>('POST', '/payouts/onboarding-link', { body: { returnUrl } }),
+  },
+  files: {
+    /**
+     * Uploads an image and returns the URL to save on the profile.
+     * http: presign → PUT the file to storage → the presigned `fileUrl`.
+     * mock: presign (so validation matches) → a downscaled data URL kept in the demo data.
+     */
+    async upload(file: File, purpose: PresignRequest['purpose']): Promise<string> {
+      const problem = uploadProblem(file);
+      if (problem) throw new ApiError({ type: 'about:blank', status: 422, title: 'Validation failed', detail: problem, errors: [{ field: 'file', message: problem }] });
+      const target = await request<PresignResponse>('POST', '/files/presign', {
+        body: { purpose, fileName: file.name.slice(0, 200), contentType: file.type as PresignRequest['contentType'], sizeBytes: file.size } satisfies PresignRequest,
+      });
+      if (isMock) return toDemoDataUrl(file, purpose);
+      const res = await fetch(target.uploadUrl, { method: target.method, headers: target.headers, body: file });
+      if (!res.ok) throw new ApiError({ type: 'about:blank', status: res.status, title: 'Upload failed', detail: 'The image could not be uploaded. Try again.' });
+      return target.fileUrl;
+    },
+  },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {
     outbox: (to?: string) => request<OutboxEmail[]>('GET', '/dev/outbox', { query: { to }, auth: false }),
     async reset(): Promise<void> {
       await request<void>('POST', '/dev/reset', { auth: false });
       clearSession(null);
+    },
+    /** Stands in for Stripe's account.updated webhook after the mock onboarding page. */
+    completeConnectOnboarding: (accountId: string) => request<{ payoutStatus: string }>('POST', '/dev/stripe/connect-complete', { body: { accountId } }),
+    /** Stands in for the admin vetting queue (Week 6) so every vetting state can be demoed. */
+    async vettingDecision(decision: 'APPROVE' | 'REJECT', reason?: string): Promise<CreatorMe> {
+      const me = await request<CreatorMe>('POST', '/dev/vetting-decision', { body: { decision, reason } });
+      await api.me.get();
+      return me;
     },
   },
 };

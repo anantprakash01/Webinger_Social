@@ -220,8 +220,10 @@ function build(spec: Spec, r: Rand, now: Date, out: SeedResult, opts: { photo: s
     vettingStatus: spec.vetting,
     rejectionReason: spec.vetting === 'REJECTED' ? 'Please link at least one social account with public posts.' : null,
     approvedAt: spec.vetting === 'APPROVED' ? new Date(t - (spec.createdDaysAgo - 2) * DAY).toISOString() : null,
+    submittedAt: spec.vetting === 'DRAFT' ? null : new Date(t - (spec.createdDaysAgo - 1) * DAY).toISOString(),
     profileViews: spec.vetting === 'APPROVED' ? between(r, 40, 2_400) : 0,
     stripeAccountId: spec.vetting === 'APPROVED' ? `acct_demo${spec.username}` : null,
+    payoutStatus: spec.vetting === 'APPROVED' ? 'ENABLED' : 'NOT_STARTED',
     createdAt: created,
   });
 
@@ -334,8 +336,10 @@ export function seedCreators(now: Date, ids: { leoId: string; newCreatorId: stri
     vettingStatus: 'DRAFT',
     rejectionReason: null,
     approvedAt: null,
+    submittedAt: null,
     profileViews: 0,
     stripeAccountId: null,
+    payoutStatus: 'NOT_STARTED',
     createdAt: new Date(now.getTime() - 2 * DAY).toISOString(),
   });
 

@@ -54,12 +54,14 @@ function createUser(input: { email: string; name: string; role: 'BRAND' | 'CREAT
       vettingStatus: 'DRAFT',
       rejectionReason: null,
       approvedAt: null,
+      submittedAt: null,
       profileViews: 0,
       stripeAccountId: null,
+      payoutStatus: 'NOT_STARTED',
       createdAt: at,
     });
   } else {
-    db.brandProfiles.push({ userId: user.id, companyName: null });
+    db.brandProfiles.push({ userId: user.id, companyName: null, website: null, logoUrl: null, industry: null, country: null, plan: 'FREE', stripeCustomerId: null });
   }
   return user;
 }
