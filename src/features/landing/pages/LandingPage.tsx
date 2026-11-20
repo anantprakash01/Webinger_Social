@@ -3,10 +3,12 @@
  */
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LuArrowRight, LuSearch } from 'react-icons/lu';
+import { LuArrowRight, LuSearch, LuShieldCheck } from 'react-icons/lu';
 import { PlatformIcon } from '@/components/creator';
 import { Button } from '@/components/ui';
 import { NICHES, PLATFORMS } from '@/lib/catalog';
+import { formatMoney } from '@/lib/money';
+import type { CreatorCard as CreatorCardType } from '@/types';
 import { CreatorCard, CreatorCardSkeleton, CreatorGrid } from '@/features/search/components/CreatorCard';
 import { useCreatorSearch } from '@/features/search/hooks';
 
@@ -34,25 +36,28 @@ export function LandingPage() {
   return (
     <>
       <section className="hero">
-        <h1>
-          Book creators. <em>Pay when you approve.</em>
-        </h1>
-        <p>Find vetted Instagram, TikTok, YouTube and UGC creators with prices up front. Your payment waits in escrow until you approve the work.</p>
-        <form className="hero-search" role="search" onSubmit={submit}>
-          <label htmlFor="hero-q" className="sr-only">
-            Search creators
-          </label>
-          <LuSearch aria-hidden className="hero-search__icon" />
-          <input id="hero-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Try “skincare”, “fitness” or “Austin”" />
-          <Button type="submit">Search</Button>
-        </form>
-        <div className="hero__tags" aria-label="Popular niches">
-          {POPULAR_NICHES.map((n) => (
-            <Link key={n} to={`/search?niche=${n.toLowerCase()}`} className="tag">
-              {NICHES.find((x) => x.value === n)?.label}
-            </Link>
-          ))}
+        <div className="hero__text">
+          <h1>
+            Book creators. <em>Pay when you approve.</em>
+          </h1>
+          <p>Find vetted Instagram, TikTok, YouTube and UGC creators with prices up front. Your payment waits in escrow until you approve the work.</p>
+          <form className="hero-search" role="search" onSubmit={submit}>
+            <label htmlFor="hero-q" className="sr-only">
+              Search creators
+            </label>
+            <LuSearch aria-hidden className="hero-search__icon" />
+            <input id="hero-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Try “skincare”, “fitness” or “Austin”" />
+            <Button type="submit">Search</Button>
+          </form>
+          <div className="hero__tags" aria-label="Popular niches">
+            {POPULAR_NICHES.map((n) => (
+              <Link key={n} to={`/search?niche=${n.toLowerCase()}`} className="tag">
+                {NICHES.find((x) => x.value === n)?.label}
+              </Link>
+            ))}
+          </div>
         </div>
+        {!featured.isError && <HeroVisual creators={featured.data?.content} />}
       </section>
 
       <section className="section" aria-labelledby="platforms-h">
@@ -126,6 +131,39 @@ export function LandingPage() {
         </Link>
       </section>
     </>
+  );
+}
+
+/**
+ * Wide screens only: three featured creators as overlapping cards, plus an escrow badge that shows
+ * the product's main promise. Uses the same query as the featured section, so no extra request.
+ * The cards are real links to the profiles; only the shapes and the badge are decorative.
+ */
+function HeroVisual({ creators }: { creators: CreatorCardType[] | undefined }) {
+  // Prefer creators with a photo; they make a better first impression.
+  const picks = creators ? [...creators.filter((c) => c.photoUrl), ...creators.filter((c) => !c.photoUrl)].slice(0, 3) : [];
+  const front = picks[1] ?? picks[0];
+  return (
+    <aside className="hero__visual" aria-label="Creators you can book">
+      <span className="hero__blob" aria-hidden />
+      <span className="hero__blob hero__blob--navy" aria-hidden />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={`hero__card hero__card--${i + 1}`}>
+          {picks[i] ? <CreatorCard creator={picks[i]} /> : <CreatorCardSkeleton />}
+        </div>
+      ))}
+      {front?.startingPriceCents != null && (
+        <div className="hero__escrow" aria-hidden>
+          <span className="hero__escrow-icon">
+            <LuShieldCheck aria-hidden />
+          </span>
+          <span>
+            <strong>{formatMoney(front.startingPriceCents, front.currency, { whole: true })} held in escrow</strong>
+            <span className="small muted">Released to {front.displayName.split(' ')[0]} when you approve</span>
+          </span>
+        </div>
+      )}
+    </aside>
   );
 }
 

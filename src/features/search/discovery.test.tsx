@@ -40,7 +40,7 @@ describe('search page', () => {
     const user = userEvent.setup();
     await user.type(await screen.findByRole('searchbox', { name: 'Search creators' }), 'leomakes');
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('leomakes'));
-    expect(await screen.findByRole('heading', { name: '1 creator' }, { timeout: 4000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '1 creator' })).toBeInTheDocument();
     expect(within(cards()[0]).getByText('Leo Marin')).toBeInTheDocument();
   });
 
@@ -111,6 +111,10 @@ describe('landing page', () => {
     renderAt('/');
     const featured = await screen.findByRole('region', { name: 'Featured creators' });
     await waitFor(() => expect(within(featured).getAllByRole('article')).toHaveLength(8));
+    // Hero visual: three of the featured creators, each linking to its profile.
+    const heroLinks = within(screen.getByRole('complementary', { name: 'Creators you can book' })).getAllByRole('link');
+    expect(heroLinks).toHaveLength(3);
+    for (const a of heroLinks) expect(a.getAttribute('href')).toMatch(/^\/u\/[a-z0-9]+$/);
     const user = userEvent.setup();
     await user.type(screen.getByRole('searchbox', { name: 'Search creators' }), 'fitness');
     await user.click(screen.getByRole('button', { name: 'Search' }));
