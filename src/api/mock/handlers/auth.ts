@@ -38,7 +38,26 @@ function createUser(input: { email: string; name: string; role: 'BRAND' | 'CREAT
   };
   db.users.push(user);
   if (input.role === 'CREATOR') {
-    db.creatorProfiles.push({ userId: user.id, username: null, displayName: input.name, vettingStatus: 'DRAFT', rejectionReason: null });
+    db.creatorProfiles.push({
+      userId: user.id,
+      username: null,
+      displayName: input.name,
+      bio: null,
+      city: null,
+      country: null,
+      gender: null,
+      birthYear: null,
+      languages: [],
+      niches: [],
+      photoUrl: null,
+      coverUrls: [],
+      vettingStatus: 'DRAFT',
+      rejectionReason: null,
+      approvedAt: null,
+      profileViews: 0,
+      stripeAccountId: null,
+      createdAt: at,
+    });
   } else {
     db.brandProfiles.push({ userId: user.id, companyName: null });
   }

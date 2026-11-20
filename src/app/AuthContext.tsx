@@ -73,6 +73,10 @@ export function homePath(user: Me): string {
 export const AREA_PREFIX = { BRAND: ['/brand', '/checkout'], CREATOR: ['/creator'], ADMIN: ['/admin'] } as const;
 export const SHARED_PREFIXES = ['/messages', '/notifications'];
 
+/** Public pages anyone may return to after signing in (e.g. the profile they were looking at). */
+const PUBLIC_PREFIXES = ['/search', '/u'];
+
 export function canOpen(user: Me, path: string): boolean {
-  return [...AREA_PREFIX[user.role], ...SHARED_PREFIXES].some((p) => path === p || path.startsWith(`${p}/`));
+  const pathname = path.split(/[?#]/)[0];
+  return [...AREA_PREFIX[user.role], ...SHARED_PREFIXES, ...PUBLIC_PREFIXES].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }

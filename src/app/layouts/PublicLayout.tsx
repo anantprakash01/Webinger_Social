@@ -31,7 +31,10 @@ export function PublicLayout() {
                 Log in
               </NavLink>
               <Link to="/signup?role=creator" className="btn btn--primary btn--sm">
-                Join<span className="public-nav__label--wide">&nbsp;as creator</span>
+                {/* One text box: the button's flex gap would otherwise split "Join" from "as creator". */}
+                <span>
+                  Join<span className="public-nav__label--wide"> as creator</span>
+                </span>
               </Link>
             </>
           )}

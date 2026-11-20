@@ -9,6 +9,7 @@ import { HttpError, type Handler, type MockRequest, type MockResponse } from './
 import { findUnbalancedTxns } from './ledger';
 import { TransitionError } from './orderMachine';
 import * as auth from './handlers/auth';
+import * as creators from './handlers/creators';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
 import { authenticate } from './handlers/session';
@@ -16,8 +17,8 @@ import { authenticate } from './handlers/session';
 interface Route {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
-  /** true = a valid access token is required (401 otherwise). */
-  auth: boolean;
+  /** true = a valid access token is required (401 otherwise). 'optional' = used when sent. */
+  auth: boolean | 'optional';
   handler: Handler;
 }
 
@@ -33,6 +34,8 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/auth/forgot-password', auth: false, handler: auth.forgotPassword },
   { method: 'POST', path: '/auth/reset-password', auth: false, handler: auth.resetPassword },
   { method: 'GET', path: '/me', auth: true, handler: me.getMe },
+  { method: 'GET', path: '/creators', auth: false, handler: creators.searchCreators },
+  { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
   // Mock only
   { method: 'GET', path: '/dev/outbox', auth: false, handler: dev.outbox },
@@ -65,7 +68,8 @@ export function handle(req: MockRequest): MockResponse {
     pathMatched = true;
     if (route.method !== req.method) continue;
     try {
-      const user = route.auth ? authenticate(req.headers.authorization) : (undefined as never);
+      const wantsUser = route.auth === true || (route.auth === 'optional' && !!req.headers.authorization);
+      const user = wantsUser ? authenticate(req.headers.authorization) : (undefined as never);
       return route.handler({ req, params, user });
     } catch (e) {
       if (e instanceof HttpError) return { status: e.problem.status, body: e.problem };
@@ -74,12 +78,11 @@ export function handle(req: MockRequest): MockResponse {
       console.error('[mock] handler crashed', e);
       return problem(500, 'Internal server error', 'Something went wrong on our side.');
     } finally {
-      if (req.method !== 'GET') {
-        saveDb();
-        if (import.meta.env.DEV) {
-          const bad = findUnbalancedTxns(getDb().ledgerEntries);
-          if (bad.length) console.error('[mock] ledger transactions do not sum to zero:', bad);
-        }
+      // GETs can write too (e.g. profile view counts), so persist after every request.
+      saveDb();
+      if (req.method !== 'GET' && import.meta.env.DEV) {
+        const bad = findUnbalancedTxns(getDb().ledgerEntries);
+        if (bad.length) console.error('[mock] ledger transactions do not sum to zero:', bad);
       }
     }
   }

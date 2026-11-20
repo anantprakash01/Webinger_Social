@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-label="Abstract cover image">
+<defs><linearGradient id="g" gradientTransform="rotate(279 .5 .5)"><stop offset="0" stop-color="#e6fbff"/><stop offset="1" stop-color="#004e64" stop-opacity="0.55"/></linearGradient></defs>
+<rect width="1200" height="360" fill="#e6fbff"/><rect width="1200" height="360" fill="url(#g)"/>
+<circle cx="1152.7" cy="273.2" r="94.75" fill="#004e64" opacity="0.8"/><path d="M997.4 65.6 L1036.6 144 L958.2 144 Z" fill="#e6fbff" opacity="0.9"/><path d="M345 60.9 L367 104.8 L323.1 104.8 Z" fill="#e6fbff" opacity="0.8"/><path d="M202.8 325 L236.6 392.5 L169.1 392.5 Z" fill="#e6fbff" opacity="0.4"/><path d="M219 217.3 L279.4 338 L158.7 338 Z" fill="#9fffcb" opacity="0.7"/><path d="M191.1 215.2 L282.3 397.6 L99.9 397.6 Z" fill="#e6fbff" opacity="0.9"/><path d="M660.2 226.4 L722.8 351.6 L597.6 351.6 Z" fill="#e6fbff" opacity="0.9"/><circle cx="1177.7" cy="91.3" r="100.95" fill="#004e64" opacity="0.7"/><path d="M885.3 230.6 L955.6 371.2 L815 371.2 Z" fill="#e6fbff" opacity="0.9"/>
+</svg>

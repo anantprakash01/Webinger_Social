@@ -195,6 +195,51 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/creators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search approved creators (FR-20 – FR-24)
+         * @description Public. Only creators with vetting status APPROVED are returned. All filters combine with AND.
+         *     When `platform` is given, follower and price filters, the card's `reach` and `startingPriceCents`
+         *     all refer to that platform; otherwise to the creator's largest platform and cheapest active package.
+         *     Target p95 under 500 ms.
+         */
+        get: operations["searchCreators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public creator profile (FR-15)
+         * @description Public, no login needed. 404 unless the creator is APPROVED — except that the creator themself and
+         *     admins can preview an unapproved profile (then `vettingStatus` tells them it is not live).
+         *     Each view by someone other than the creator counts toward profile views (FR-70).
+         */
+        get: operations["getCreatorProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -281,6 +326,108 @@ export interface components {
         };
         UpdateMeRequest: {
             name?: string;
+        };
+        /** @enum {string} */
+        Platform: "INSTAGRAM" | "TIKTOK" | "YOUTUBE" | "UGC";
+        /** @enum {string} */
+        Niche: "BEAUTY" | "FASHION" | "FITNESS" | "FOOD" | "TRAVEL" | "TECH" | "GAMING" | "LIFESTYLE" | "PARENTING" | "FINANCE" | "HOME" | "PETS" | "MUSIC" | "EDUCATION" | "COMEDY" | "WELLNESS" | "SUSTAINABILITY" | "AUTOMOTIVE";
+        /** @enum {string} */
+        Gender: "FEMALE" | "MALE" | "NON_BINARY";
+        PlatformReach: {
+            platform: components["schemas"]["Platform"];
+            /** @example leomakes */
+            handle: string;
+            /** Format: int64 */
+            followers: number;
+        };
+        /** @description Search result card (FR-24). */
+        CreatorCard: {
+            username: string;
+            displayName: string;
+            photoUrl: string | null;
+            city: string | null;
+            /** @description ISO 3166-1 alpha-2. */
+            country: string | null;
+            niches: components["schemas"]["Niche"][];
+            /** @description The filtered platform's account, or else the creator's largest. Null if no socials. */
+            reach: components["schemas"]["PlatformReach"] | null;
+            /**
+             * Format: int64
+             * @description Cheapest active package (on the filtered platform, if any). Null if none.
+             */
+            startingPriceCents: number | null;
+            /** @example USD */
+            currency: string;
+            /**
+             * @description Average of review ratings, one decimal. Null when there are no reviews.
+             * @example 4.8
+             */
+            ratingAvg: number | null;
+            ratingCount: number;
+            /** @description At least one social account was verified by our team (badge). */
+            verified: boolean;
+        };
+        CreatorSearchPage: components["schemas"]["PageMeta"] & {
+            content: components["schemas"]["CreatorCard"][];
+        };
+        SocialAccount: {
+            id: components["schemas"]["Ulid"];
+            platform: components["schemas"]["Platform"];
+            handle: string;
+            /** Format: uri */
+            url: string | null;
+            /** Format: int64 */
+            followers: number;
+            /** @description Engagement rate in basis points, e.g. 345 = 3.45 %. */
+            engagementRateBps: number | null;
+            verified: boolean;
+        };
+        /** @description A priced offer (FR-12). Price is integer cents, minimum 1000. */
+        Package: {
+            id: components["schemas"]["Ulid"];
+            platform: components["schemas"]["Platform"];
+            title: string;
+            description: string;
+            deliverables: string[];
+            /** Format: int64 */
+            priceCents: number;
+            /** @example USD */
+            currency: string;
+            deliveryDays: number;
+        };
+        PortfolioItem: {
+            id: components["schemas"]["Ulid"];
+            /** @enum {string} */
+            type: "IMAGE" | "VIDEO_LINK";
+            /** Format: uri-reference */
+            url: string;
+            caption: string | null;
+        };
+        Review: {
+            id: components["schemas"]["Ulid"];
+            rating: number;
+            comment: string | null;
+            brandName: string;
+            /** Format: date-time */
+            createdAt: string;
+            creatorReply: string | null;
+            /** Format: date-time */
+            repliedAt: string | null;
+        };
+        CreatorProfile: components["schemas"]["CreatorCard"] & {
+            bio: string | null;
+            languages: string[];
+            coverUrls: string[];
+            socials: components["schemas"]["SocialAccount"][];
+            /** @description Active packages only, cheapest first. */
+            packages: components["schemas"]["Package"][];
+            portfolio: components["schemas"]["PortfolioItem"][];
+            /** @description Latest 20 reviews; `ratingCount` has the total. */
+            reviews: components["schemas"]["Review"][];
+            /** Format: date-time */
+            memberSince: string;
+            /** @description Always APPROVED for the public; other values only in an owner or admin preview. */
+            vettingStatus: components["schemas"]["VettingStatus"];
         };
         AuthSession: {
             /** @description JWT */
@@ -634,6 +781,73 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    searchCreators: {
+        parameters: {
+            query?: {
+                /** @description Keywords; every word must match the name, username, bio or a niche (FR-20). */
+                q?: string;
+                platform?: components["schemas"]["Platform"];
+                niche?: components["schemas"]["Niche"];
+                /** @description ISO 3166-1 alpha-2. */
+                country?: string;
+                city?: string;
+                followersMin?: number;
+                followersMax?: number;
+                /** @description Starting price at least this. */
+                priceMinCents?: number;
+                /** @description Starting price at most this. */
+                priceMaxCents?: number;
+                /** @description ISO 639-1. */
+                language?: string;
+                gender?: components["schemas"]["Gender"];
+                ageMin?: number;
+                ageMax?: number;
+                sort?: "relevance" | "price_asc" | "followers_desc" | "rating_desc" | "newest";
+                page?: number;
+                /** @description FR-23: 24 per page. */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of creator cards. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorSearchPage"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getCreatorProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorProfile"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
 }

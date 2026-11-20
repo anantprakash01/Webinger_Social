@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 0.1.0
+  version: 0.2.0
   description: |
-    Contract v0 (Phase 0, Week 1): authentication, `/me`, and shared schemas.
+    Contract v0.2 (Phase 0, Week 2): authentication, `/me`, shared schemas, public creator search and profile.
     This file is the single source of truth between the React app and the Spring Boot API.
     Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
 
@@ -23,6 +23,7 @@ servers:
 tags:
   - name: Auth
   - name: Users
+  - name: Creators
 
 paths:
   /auth/register:
@@ -204,6 +205,62 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
+  /creators:
+    get:
+      tags: [Creators]
+      summary: Search approved creators (FR-20 – FR-24)
+      description: |
+        Public. Only creators with vetting status APPROVED are returned. All filters combine with AND.
+        When `platform` is given, follower and price filters, the card's `reach` and `startingPriceCents`
+        all refer to that platform; otherwise to the creator's largest platform and cheapest active package.
+        Target p95 under 500 ms.
+      operationId: searchCreators
+      parameters:
+        - { name: q, in: query, description: 'Keywords; every word must match the name, username, bio or a niche (FR-20).', schema: { type: string, maxLength: 100 } }
+        - { name: platform, in: query, schema: { $ref: '#/components/schemas/Platform' } }
+        - { name: niche, in: query, schema: { $ref: '#/components/schemas/Niche' } }
+        - { name: country, in: query, description: ISO 3166-1 alpha-2., schema: { type: string, minLength: 2, maxLength: 2 } }
+        - { name: city, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: followersMin, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: followersMax, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: priceMinCents, in: query, description: Starting price at least this., schema: { type: integer, minimum: 0 } }
+        - { name: priceMaxCents, in: query, description: Starting price at most this., schema: { type: integer, minimum: 0 } }
+        - { name: language, in: query, description: ISO 639-1., schema: { type: string, minLength: 2, maxLength: 2 } }
+        - { name: gender, in: query, schema: { $ref: '#/components/schemas/Gender' } }
+        - { name: ageMin, in: query, schema: { type: integer, minimum: 13, maximum: 100 } }
+        - { name: ageMax, in: query, schema: { type: integer, minimum: 13, maximum: 100 } }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [relevance, price_asc, followers_desc, rating_desc, newest], default: relevance }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, description: 'FR-23: 24 per page.', schema: { type: integer, minimum: 1, maximum: 24, default: 24 } }
+      responses:
+        '200':
+          description: One page of creator cards.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreatorSearchPage' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /creators/{username}:
+    get:
+      tags: [Creators]
+      summary: Public creator profile (FR-15)
+      description: |
+        Public, no login needed. 404 unless the creator is APPROVED — except that the creator themself and
+        admins can preview an unapproved profile (then `vettingStatus` tells them it is not live).
+        Each view by someone other than the creator counts toward profile views (FR-70).
+      operationId: getCreatorProfile
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreatorProfile' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -341,6 +398,155 @@ components:
       type: object
       properties:
         name: { type: string, minLength: 2, maxLength: 80 }
+
+    # ---------- Creators ----------
+    Platform:
+      type: string
+      enum: [INSTAGRAM, TIKTOK, YOUTUBE, UGC]
+
+    Niche:
+      type: string
+      enum: [BEAUTY, FASHION, FITNESS, FOOD, TRAVEL, TECH, GAMING, LIFESTYLE, PARENTING, FINANCE, HOME, PETS, MUSIC, EDUCATION, COMEDY, WELLNESS, SUSTAINABILITY, AUTOMOTIVE]
+
+    Gender:
+      type: string
+      enum: [FEMALE, MALE, NON_BINARY]
+
+    PlatformReach:
+      type: object
+      required: [platform, handle, followers]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        handle: { type: string, examples: [leomakes] }
+        followers: { type: integer, format: int64 }
+
+    CreatorCard:
+      type: object
+      description: Search result card (FR-24).
+      required: [username, displayName, photoUrl, city, country, niches, reach, startingPriceCents, currency, ratingAvg, ratingCount, verified]
+      properties:
+        username: { type: string }
+        displayName: { type: string }
+        photoUrl: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        country: { type: [string, 'null'], description: ISO 3166-1 alpha-2. }
+        niches:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/Niche' }
+        reach:
+          description: The filtered platform's account, or else the creator's largest. Null if no socials.
+          oneOf:
+            - $ref: '#/components/schemas/PlatformReach'
+            - type: 'null'
+        startingPriceCents:
+          type: [integer, 'null']
+          format: int64
+          description: Cheapest active package (on the filtered platform, if any). Null if none.
+        currency: { type: string, examples: [USD] }
+        ratingAvg:
+          type: [number, 'null']
+          description: Average of review ratings, one decimal. Null when there are no reviews.
+          examples: [4.8]
+        ratingCount: { type: integer }
+        verified:
+          type: boolean
+          description: At least one social account was verified by our team (badge).
+
+    CreatorSearchPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/CreatorCard' }
+
+    SocialAccount:
+      type: object
+      required: [id, platform, handle, url, followers, engagementRateBps, verified]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        platform: { $ref: '#/components/schemas/Platform' }
+        handle: { type: string }
+        url: { type: [string, 'null'], format: uri }
+        followers: { type: integer, format: int64 }
+        engagementRateBps:
+          type: [integer, 'null']
+          description: Engagement rate in basis points, e.g. 345 = 3.45 %.
+        verified: { type: boolean }
+
+    Package:
+      type: object
+      description: A priced offer (FR-12). Price is integer cents, minimum 1000.
+      required: [id, platform, title, description, deliverables, priceCents, currency, deliveryDays]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        platform: { $ref: '#/components/schemas/Platform' }
+        title: { type: string, maxLength: 80 }
+        description: { type: string, maxLength: 1000 }
+        deliverables:
+          type: array
+          items: { type: string, maxLength: 120 }
+        priceCents: { type: integer, format: int64, minimum: 1000 }
+        currency: { type: string, examples: [USD] }
+        deliveryDays: { type: integer, minimum: 1, maximum: 60 }
+
+    PortfolioItem:
+      type: object
+      required: [id, type, url, caption]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        type: { type: string, enum: [IMAGE, VIDEO_LINK] }
+        url: { type: string, format: uri-reference }
+        caption: { type: [string, 'null'], maxLength: 140 }
+
+    Review:
+      type: object
+      required: [id, rating, comment, brandName, createdAt, creatorReply, repliedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: [string, 'null'] }
+        brandName: { type: string }
+        createdAt: { type: string, format: date-time }
+        creatorReply: { type: [string, 'null'] }
+        repliedAt: { type: [string, 'null'], format: date-time }
+
+    CreatorProfile:
+      allOf:
+        - $ref: '#/components/schemas/CreatorCard'
+        - type: object
+          required: [bio, languages, coverUrls, socials, packages, portfolio, reviews, memberSince, vettingStatus]
+          properties:
+            bio: { type: [string, 'null'] }
+            languages:
+              type: array
+              items: { type: string, description: ISO 639-1. }
+            coverUrls:
+              type: array
+              maxItems: 3
+              items: { type: string, format: uri-reference }
+            socials:
+              type: array
+              items: { $ref: '#/components/schemas/SocialAccount' }
+            packages:
+              type: array
+              description: Active packages only, cheapest first.
+              items: { $ref: '#/components/schemas/Package' }
+            portfolio:
+              type: array
+              maxItems: 12
+              items: { $ref: '#/components/schemas/PortfolioItem' }
+            reviews:
+              type: array
+              description: Latest 20 reviews; `ratingCount` has the total.
+              items: { $ref: '#/components/schemas/Review' }
+            memberSince: { type: string, format: date-time }
+            vettingStatus:
+              $ref: '#/components/schemas/VettingStatus'
+              description: Always APPROVED for the public; other values only in an owner or admin preview.
 
     # ---------- Auth ----------
     AuthSession:

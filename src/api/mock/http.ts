@@ -28,7 +28,7 @@ export interface MockResponse {
 export interface HandlerContext {
   req: MockRequest;
   params: Record<string, string>;
-  /** Present on routes marked `auth: true`. */
+  /** Present on routes marked `auth: true`; on `auth: 'optional'` routes only when a token was sent. */
   user: UserRow;
 }
 

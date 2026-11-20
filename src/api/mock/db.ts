@@ -3,13 +3,15 @@
  * Persists to sessionStorage so a page refresh keeps demo state; `resetDb()` restores the seed.
  *
  * Shapes follow the MySQL data model in CLAUDE.md section 7, trimmed to what the mock needs.
- * Week 1 seeds the demo accounts only; creators, orders and campaigns arrive with their weeks.
+ * Week 1: demo accounts. Week 2: ~60 invented creators with socials, packages, portfolio, reviews
+ * (src/api/mock/seed/creators.ts). Orders and campaigns arrive with their weeks.
  */
-import type { Role, UserStatus, VettingStatus } from '@/types';
+import type { Gender, Niche, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
 import type { LedgerEntry } from './ledger';
 import type { MockOrder, OrderEvent } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
+import { seedCreators } from './seed/creators';
 
 /* ---------- Row types ---------- */
 
@@ -31,8 +33,71 @@ export interface CreatorProfileRow {
   userId: string;
   username: string | null;
   displayName: string;
+  bio: string | null;
+  city: string | null;
+  /** ISO 3166-1 alpha-2 */
+  country: string | null;
+  gender: Gender | null;
+  birthYear: number | null;
+  /** ISO 639-1 codes */
+  languages: string[];
+  /** Max 3 (FR-10). The backend keeps these in creator_niches. */
+  niches: Niche[];
+  photoUrl: string | null;
+  coverUrls: string[];
   vettingStatus: VettingStatus;
   rejectionReason: string | null;
+  approvedAt: string | null;
+  profileViews: number;
+  stripeAccountId: string | null;
+  createdAt: string;
+}
+
+export interface SocialAccountRow {
+  id: string;
+  creatorId: string;
+  platform: Platform;
+  handle: string;
+  url: string | null;
+  followers: number;
+  engagementRateBps: number | null;
+  verifiedAt: string | null;
+}
+
+export interface PackageRow {
+  id: string;
+  creatorId: string;
+  platform: Platform;
+  title: string;
+  description: string;
+  deliverables: string[];
+  priceCents: number;
+  deliveryDays: number;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface PortfolioItemRow {
+  id: string;
+  creatorId: string;
+  type: 'IMAGE' | 'VIDEO_LINK';
+  url: string;
+  caption: string | null;
+  sortOrder: number;
+}
+
+export interface ReviewRow {
+  id: string;
+  /** Seeded "historic" reviews point at orders that are not in the mock. */
+  orderId: string;
+  creatorId: string;
+  /** Denormalised for the mock; the backend joins order → brand profile. */
+  brandName: string;
+  rating: number;
+  comment: string | null;
+  creatorReply: string | null;
+  repliedAt: string | null;
+  createdAt: string;
 }
 
 export interface BrandProfileRow {
@@ -79,6 +144,10 @@ export interface Db {
   clockOffsetMs: number;
   users: UserRow[];
   creatorProfiles: CreatorProfileRow[];
+  socialAccounts: SocialAccountRow[];
+  packages: PackageRow[];
+  portfolioItems: PortfolioItemRow[];
+  reviews: ReviewRow[];
   brandProfiles: BrandProfileRow[];
   oneTimeTokens: OneTimeTokenRow[];
   accessTokens: AccessTokenRow[];
@@ -131,7 +200,8 @@ export function mockHash(password: string): string {
 
 /* ---------- Seed ---------- */
 
-export const SCHEMA_VERSION = 1;
+/** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
+export const SCHEMA_VERSION = 2;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -157,6 +227,7 @@ function seed(now: Date): Db {
     createdAt: at,
     updatedAt: at,
   });
+  const creators = seedCreators(now, { leoId: SEED_IDS.creator, newCreatorId: SEED_IDS.newCreator, passwordHash: pw });
   return {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
@@ -166,11 +237,13 @@ function seed(now: Date): Db {
       user(SEED_IDS.newCreator, 'newcreator@demo.test', 'Ivy Sandoval', 'CREATOR'),
       user(SEED_IDS.admin, 'admin@demo.test', 'Sam Ortega', 'ADMIN'),
       user(SEED_IDS.unverifiedBrand, 'unverified@demo.test', 'Theo Lindqvist', 'BRAND', false),
+      ...creators.users,
     ],
-    creatorProfiles: [
-      { userId: SEED_IDS.creator, username: 'leomakes', displayName: 'Leo Marin', vettingStatus: 'APPROVED', rejectionReason: null },
-      { userId: SEED_IDS.newCreator, username: null, displayName: 'Ivy Sandoval', vettingStatus: 'DRAFT', rejectionReason: null },
-    ],
+    creatorProfiles: creators.creatorProfiles,
+    socialAccounts: creators.socialAccounts,
+    packages: creators.packages,
+    portfolioItems: creators.portfolioItems,
+    reviews: creators.reviews,
     brandProfiles: [
       { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.' },
       { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House' },
