@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Abstract profile image">
+<defs><linearGradient id="g" gradientTransform="rotate(97 .5 .5)"><stop offset="0" stop-color="#f7f3e3"/><stop offset="1" stop-color="#e0a458" stop-opacity="0.55"/></linearGradient></defs>
+<rect width="240" height="240" fill="#f7f3e3"/><rect width="240" height="240" fill="url(#g)"/>
+<path d="M164.3 -28.8 L204.5 51.5 L124.2 51.5 Z" fill="#1b263b" opacity="0.7"/><rect x="104.7" y="91.5" width="108.7" height="114.3" rx="13" fill="#f7f3e3" opacity="0.7" transform="rotate(1 159 145.8)"/><circle cx="128.5" cy="15.6" r="59.95" fill="#f7f3e3" opacity="0.9"/><rect x="4.1" y="88.5" width="93" height="79.8" rx="11.2" fill="#1b263b" opacity="0.9" transform="rotate(-32 50.6 135)"/><circle cx="49.1" cy="188.8" r="37.85" fill="#f7f3e3" opacity="0.6"/>
+</svg>

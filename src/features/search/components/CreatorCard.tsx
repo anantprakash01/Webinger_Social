@@ -1,0 +1,69 @@
+import { Link } from 'react-router-dom';
+import { CreatorPhoto, PlatformIcon, Rating, VerifiedBadge, placeLabel } from '@/components/creator';
+import { formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
+import { formatMoney } from '@/lib/money';
+import type { CreatorCard as Card } from '@/types';
+
+/** Search result card (FR-24): photo, name, top platform, followers, starting price, rating. */
+export function CreatorCard({ creator: c }: { creator: Card }) {
+  const place = placeLabel(c.city, c.country);
+  return (
+    <article className="ccard">
+      <Link to={`/u/${c.username}`} className="ccard__link">
+        <div className="ccard__media">
+          <CreatorPhoto name={c.displayName} url={c.photoUrl} seed={c.username} className="ccard__photo" />
+          {c.reach && (
+            <span className="ccard__reach">
+              <PlatformIcon platform={c.reach.platform} size={14} />
+              <span>
+                {formatCompact(c.reach.followers)}
+                <span className="sr-only"> followers on {PLATFORM_LABEL[c.reach.platform]}</span>
+              </span>
+            </span>
+          )}
+        </div>
+        <div className="ccard__body">
+          <h3 className="ccard__name">
+            <span className="ccard__name-text">{c.displayName}</span>
+            {c.verified && <VerifiedBadge />}
+          </h3>
+          <div className="ccard__meta">{place || `@${c.username}`}</div>
+          {c.niches.length > 0 && <div className="ccard__niches">{c.niches.slice(0, 2).map((n) => NICHE_LABEL[n]).join(' · ')}</div>}
+          <div className="ccard__foot">
+            <span className="ccard__price">
+              {c.startingPriceCents !== null ? (
+                <>
+                  From <strong>{formatMoney(c.startingPriceCents, c.currency, { whole: true })}</strong>
+                </>
+              ) : (
+                <span className="muted">No packages yet</span>
+              )}
+            </span>
+            <Rating avg={c.ratingAvg} count={c.ratingCount} />
+          </div>
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+export function CreatorCardSkeleton() {
+  return (
+    <div className="ccard ccard--skeleton" aria-hidden>
+      <div className="skeleton ccard__media" />
+      <div className="ccard__body">
+        <div className="skeleton" style={{ height: 18, width: '70%' }} />
+        <div className="skeleton" style={{ height: 14, width: '50%' }} />
+        <div className="skeleton" style={{ height: 14, width: '40%' }} />
+      </div>
+    </div>
+  );
+}
+
+export function CreatorGrid({ children, busy, featured }: { children: React.ReactNode; busy?: boolean; featured?: boolean }) {
+  return (
+    <div className={featured ? 'creator-grid creator-grid--featured' : 'creator-grid'} aria-busy={busy || undefined}>
+      {children}
+    </div>
+  );
+}

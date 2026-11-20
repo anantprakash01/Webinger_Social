@@ -25,6 +25,19 @@ export type LoginRequest = S['LoginRequest'];
 export type GoogleAuthRequest = S['GoogleAuthRequest'];
 export type ResetPasswordRequest = S['ResetPasswordRequest'];
 
+export type Platform = S['Platform'];
+export type Niche = S['Niche'];
+export type Gender = S['Gender'];
+export type PlatformReach = S['PlatformReach'];
+export type CreatorCard = S['CreatorCard'];
+export type CreatorSearchPage = S['CreatorSearchPage'];
+export type CreatorProfile = S['CreatorProfile'];
+export type SocialAccount = S['SocialAccount'];
+export type Package = S['Package'];
+export type PortfolioItem = S['PortfolioItem'];
+export type Review = S['Review'];
+export type CreatorSearchQuery = NonNullable<import('./openapi').operations['searchCreators']['parameters']['query']>;
+
 export const ROLE_LABEL: Record<Role, string> = {
   BRAND: 'Brand',
   CREATOR: 'Creator',

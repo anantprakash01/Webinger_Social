@@ -8,7 +8,7 @@
  * Both modes share one request path, including the 401 → refresh → retry-once logic,
  * so switching a module from mock to real changes nothing in any screen.
  */
-import { ApiError, type AuthSession, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
+import { ApiError, type AuthSession, type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -271,6 +271,12 @@ export const api = {
       setUser(user);
       return user;
     },
+  },
+  creators: {
+    /** Public search (FR-20 – FR-24). */
+    search: (query: CreatorSearchQuery) => request<CreatorSearchPage>('GET', '/creators', { query }),
+    /** Public profile (FR-15). Sends the token when signed in, so owners and admins can preview. */
+    profile: (username: string) => request<CreatorProfile>('GET', `/creators/${encodeURIComponent(username)}`),
   },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {

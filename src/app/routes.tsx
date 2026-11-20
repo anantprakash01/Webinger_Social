@@ -17,15 +17,14 @@ import { NotFound } from './pages/Placeholder';
 const area = <M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M & string) =>
   lazy(() => load().then((m) => ({ default: m[name] as React.ComponentType })));
 
-const pub = () => import('./pages/public');
 const brand = () => import('./pages/brand');
 const creator = () => import('./pages/creator');
 const admin = () => import('./pages/admin');
 const shared = () => import('./pages/shared');
 
-const LandingPage = area(pub, 'LandingPage');
-const SearchPage = area(pub, 'SearchPage');
-const CreatorProfilePage = area(pub, 'CreatorProfilePage');
+const LandingPage = area(() => import('@/features/landing/pages/LandingPage'), 'LandingPage');
+const SearchPage = area(() => import('@/features/search/pages/SearchPage'), 'SearchPage');
+const CreatorProfilePage = area(() => import('@/features/creators/pages/CreatorProfilePage'), 'CreatorProfilePage');
 
 const BrandDashboard = area(brand, 'BrandDashboard');
 const BrandOrders = area(brand, 'BrandOrders');

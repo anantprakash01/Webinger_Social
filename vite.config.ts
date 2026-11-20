@@ -33,6 +33,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Page-level tests type, wait for debounces and render whole pages; 5 s is too tight for them.
+    testTimeout: 20_000,
     env: { VITE_API_MODE: 'mock', VITE_MOCK_DELAY_MS: '0' },
   },
 });
