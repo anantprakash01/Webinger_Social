@@ -2,7 +2,7 @@
  * Webinger base components, ported from webinger-portal src/components/ui/index.jsx to TypeScript.
  * Same class names and markup, so the look stays identical (CLAUDE.md §9).
  */
-import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
 import { LuChevronLeft, LuChevronRight, LuCircleAlert, LuInbox, LuSearch, LuX } from 'react-icons/lu';
 
@@ -87,6 +87,109 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({ l
     </div>
   );
 });
+
+/* ---------- TextArea (same field styling as Input) ---------- */
+type TextAreaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { label: ReactNode; error?: string; hint?: ReactNode; counter?: { value: number; max: number } };
+
+export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function TextArea({ label, error, hint, counter, id, className, rows = 4, ...rest }, ref) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+  const errId = `${inputId}-err`;
+  const hintId = `${inputId}-hint`;
+  const describedBy = [error ? errId : null, hint || counter ? hintId : null].filter(Boolean).join(' ') || undefined;
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={inputId}>
+        {label}
+      </label>
+      <textarea
+        ref={ref}
+        id={inputId}
+        rows={rows}
+        className={cx('field__input field__input--area', className)}
+        {...rest}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+      />
+      {(hint || counter) && !error && (
+        <span id={hintId} className="field__hint">
+          <span>{hint}</span>
+          {counter && (
+            <span className={cx(counter.value > counter.max && 'field__count--over')}>
+              {counter.value}/{counter.max}
+            </span>
+          )}
+        </span>
+      )}
+      {error && (
+        <span id={errId} className="field__error">
+          <LuCircleAlert aria-hidden /> {error}
+        </span>
+      )}
+    </div>
+  );
+});
+
+/* ---------- Chip checkboxes (multi-select with an optional maximum) ---------- */
+export function ChipGroup<T extends string>({
+  legend,
+  options,
+  value,
+  onChange,
+  max,
+  error,
+  hint,
+}: {
+  legend: string;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  value: T[];
+  onChange: (v: T[]) => void;
+  max?: number;
+  error?: string;
+  hint?: ReactNode;
+}) {
+  const id = useId();
+  const full = max !== undefined && value.length >= max;
+  return (
+    <fieldset className="chipgroup" aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined} aria-invalid={error ? true : undefined}>
+      <legend className="field__label">
+        {legend}
+        {max !== undefined && (
+          <span className="muted small">
+            {' '}
+            ({value.length}/{max})
+          </span>
+        )}
+      </legend>
+      <div className="chipgroup__list">
+        {options.map((o) => {
+          const on = value.includes(o.value);
+          return (
+            <label key={o.value} className={cx('chipgroup__chip', on && 'is-on', !on && full && 'is-disabled')}>
+              <input
+                type="checkbox"
+                checked={on}
+                disabled={!on && full}
+                onChange={() => onChange(on ? value.filter((v) => v !== o.value) : [...value, o.value])}
+              />
+              {o.label}
+            </label>
+          );
+        })}
+      </div>
+      {hint && !error && (
+        <span id={`${id}-hint`} className="small muted">
+          {hint}
+        </span>
+      )}
+      {error && (
+        <span id={`${id}-err`} className="field__error">
+          <LuCircleAlert aria-hidden /> {error}
+        </span>
+      )}
+    </fieldset>
+  );
+}
 
 /* ---------- Progress ---------- */
 export function Progress({ value, label }: { value: number; label: string }) {

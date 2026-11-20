@@ -410,7 +410,7 @@ src/
 | --- | --- | --- |
 | 1 | Foundation: scaffold, Webinger UI, contract v0, mock layer core, auth screens, role routing, layouts | Done (21 Nov 2026) |
 | 2 | Public marketplace: landing, search, creator profile | Done (21 Nov 2026) |
-| 3 | Creator side: onboarding wizard, packages, vetting status, payouts setup, creator dashboard; brand profile | |
+| 3 | Creator side: onboarding wizard, packages, vetting status, payouts setup, creator dashboard; brand profile | Done (21 Nov 2026) |
 | 4 | Orders: checkout, custom offers, order detail for both sides, full state machine, reviews | |
 | 5 | Campaigns, chat, notifications, brand dashboard | |
 | 6 | Admin console, payouts and receipts, polish, contract freeze | |
@@ -572,4 +572,21 @@ Decisions to confirm:
 - Seeded reviews point at orders that don't exist in the mock; Week 4 reviews will come from real mock orders.
 - Gender and birth year are search filters only; the public profile does not show them.
 
-**Next: Week 3 — Creator side and brand profile (section 10).** Start with the contract (creator profile, packages, social accounts, submit-for-review, presign, payouts onboarding link, brand profile), then the onboarding wizard. Seed rows in `db.ts` already have every field the wizard edits.
+**Week 3 — Creator side and brand profile: done (21 Nov 2026).** `npm test` 130 passing (3 clean runs in a row); `tsc`, lint, build and `npm run check:layout` (now also covers every wizard step, packages, dashboard, brand profile) clean.
+
+What exists:
+- Product renamed to **Webinger Collab** (logo, title, PWA manifest, README). Folder and repo names unchanged.
+- Contract v0.3: `GET /creators/me`, `PUT /creators/me/profile`, `POST/DELETE /creators/me/social-accounts`, `POST/PATCH/DELETE /creators/me/packages`, `POST/DELETE /creators/me/portfolio`, `POST /creators/me/submit-for-review`, `GET /creators/me/stats`, `GET/PUT /brands/me/profile`, `POST /files/presign`, `POST /payouts/onboarding-link`. Mock-only: `POST /dev/stripe/connect-complete` (stands in for Stripe's webhook), `POST /dev/vetting-decision`.
+- Rules (Zod, shared by forms and mock): `features/creators/schemas.ts` (username 3–30, starts with a letter, unique, reserved words; bio ≥ 30; niches 1–3; birth year age 16–90; price ≥ $10; delivery 1–60; max 8 active packages; max 12 portfolio items; video links https only), `features/brands/schemas.ts` (website normalised to https), `features/files/schemas.ts` (JPEG/PNG/WebP ≤ 10 MB).
+- Mock `handlers/creatorMe.ts` (+ `decideVetting`, reused by the Week 6 admin queue), `brands.ts`, `files.ts`, `payouts.ts`. Rows gained `submittedAt`, `payoutStatus` (creators) and website/logo/industry/country/plan (brands); `SCHEMA_VERSION` = 3.
+- Uploads: `api.files.upload` = presign → PUT (http) or, in mock mode, a downscaled data URL kept in the demo data. Every image picker also offers "Use a demo image" in mock mode.
+- Screens: `/creator/onboarding` wizard (profile → socials → packages → portfolio (optional) → payouts → review & submit; step in the URL; becomes the profile editor after approval), `/creator/packages` (add/edit drawer, on/off switch, delete, n of 8), `/creator/dashboard` (FR-70: balance, escrow, lifetime, profile views, orders by status, setup card), `/brand/profile` (FR-05), `/dev/stripe-connect` (mock-only, clearly labelled, no Stripe branding). Vetting banner (FR-16) across the creator workspace; demo bar gets "Simulate review: Approve / Reject" while a profile is in review.
+- Test runner: Vitest capped at 4 workers, query cache cleared after each test, result-count checks use text queries — page-level jsdom tests were flaky when all files ran at once.
+
+Decisions to confirm:
+- Username can change only until first approval (keeps brands' links working).
+- Profile edits are allowed while in review and after approval, with no re-review in MVP.
+- Payouts must be set up before submitting for review; portfolio is recommended, not required.
+- Deleting a package removes it; from Week 4, packages with orders should be switched off instead (noted in `deleteMyPackage`).
+
+**Next: Week 4 — Orders and the state machine (section 10).** Start with the contract (all `/orders/*` endpoints, `/reviews/{id}/reply`), then wire `orderMachine.ts` into mock handlers, then checkout and the order detail screens.

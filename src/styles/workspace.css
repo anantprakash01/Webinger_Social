@@ -1,0 +1,201 @@
+/* ---------- Week 3: creator workspace, onboarding wizard, brand profile. Webinger tokens only. ---------- */
+
+/* Form layout helpers */
+.form-stack { display: grid; gap: var(--s-4); min-width: 0; }
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: var(--s-4); align-items: start; }
+.form-row--media { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.form-row--social { grid-template-columns: minmax(0, 160px) repeat(2, minmax(0, 1fr)); }
+.form-optional { border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: var(--s-3) var(--s-4) var(--s-4); margin: 0; display: grid; gap: var(--s-3); min-width: 0; }
+.form-optional legend { padding: 0 6px; }
+select.field__input { appearance: auto; }
+.field__input--area { min-height: auto; padding: var(--s-3); resize: vertical; line-height: 1.5; }
+.field__hint { display: flex; justify-content: space-between; gap: var(--s-2); font-size: var(--fs-sm); color: var(--ink-3); }
+.field__count--over { color: var(--danger); font-weight: 700; }
+@media (max-width: 560px) {
+  .form-row--social { grid-template-columns: 1fr; }
+}
+
+/* Chip checkboxes */
+.chipgroup { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-2); min-width: 0; }
+.chipgroup legend { padding: 0; margin-bottom: 6px; }
+.chipgroup__list { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.chipgroup__chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+.chipgroup__chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chipgroup__chip:hover { border-color: var(--ink); }
+.chipgroup__chip.is-on { border-color: var(--brand-red); background: var(--brand-red-soft); color: var(--brand-red); }
+.chipgroup__chip.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.chipgroup__chip:has(input:focus-visible) { outline: 2px solid var(--brand-red); outline-offset: 2px; }
+.chipgroup[aria-invalid='true'] .chipgroup__chip:not(.is-on) { border-color: var(--danger); }
+
+/* Image picker */
+.imgpick { display: grid; gap: var(--s-2); min-width: 0; }
+.imgpick__row { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.imgpick__preview { display: grid; place-items: center; flex-shrink: 0; overflow: hidden; background: var(--surface-2); color: var(--ink-3); border: 1px dashed var(--border-strong); }
+.imgpick__preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.imgpick--circle .imgpick__preview { width: 88px; height: 88px; border-radius: 50%; }
+.imgpick--square .imgpick__preview { width: 88px; height: 88px; border-radius: var(--radius); }
+.imgpick--wide .imgpick__preview { width: 176px; height: 66px; border-radius: var(--radius-sm); }
+.imgpick__actions { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.demo-images { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: var(--s-2); }
+.demo-images--wide { grid-template-columns: 1fr 1fr; }
+.demo-images button { display: block; width: 100%; padding: 0; border: 2px solid transparent; border-radius: var(--radius-sm); background: none; cursor: pointer; overflow: hidden; }
+.demo-images button:hover,
+.demo-images button:focus-visible { border-color: var(--brand-red); }
+.demo-images img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.demo-images--wide img { aspect-ratio: 10 / 3; }
+.demo-images--circle img { border-radius: 50%; }
+
+/* Vetting banner (FR-16) */
+.vetting { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4); border-radius: var(--radius); font-size: var(--fs-sm); }
+.vetting > svg { flex-shrink: 0; margin-top: 2px; width: 18px; height: 18px; }
+.vetting > div { display: flex; flex-wrap: wrap; gap: 4px var(--s-2); align-items: baseline; }
+.vetting--neutral { background: var(--surface-2); color: var(--ink-2); }
+.vetting--info { background: var(--info-soft); color: var(--ink-2); }
+.vetting--info > svg { color: var(--info); }
+.vetting--warn { background: var(--warn-soft); color: var(--ink-2); }
+.vetting--warn > svg { color: var(--warn); }
+.vetting--ok { background: var(--ok-soft); color: var(--ink-2); }
+.vetting--ok > svg { color: var(--ok); }
+.vetting strong { color: var(--ink); }
+.vetting__reason { flex-basis: 100%; }
+.shell-banner { padding: var(--s-3) var(--s-6) 0; max-width: 1280px; width: 100%; margin: 0 auto; }
+@media (max-width: 720px) { .shell-banner { padding: var(--s-3) var(--s-4) 0; } }
+
+/* Demo bar: simulate review */
+.demo-bar__group { display: inline-flex; align-items: center; gap: var(--s-1); }
+.demo-bar__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Package manager */
+.pkgmgr { display: grid; gap: var(--s-3); min-width: 0; }
+.pkgmgr__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.pkglist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.pkglist__item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.pkglist__item.is-off { background: var(--surface-2); }
+.pkglist__item.is-off .pkglist__title,
+.pkglist__item.is-off .pkglist__price { color: var(--ink-3); }
+.pkglist__main { min-width: 0; display: grid; gap: 2px; }
+.pkglist__title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pkglist__price { font-weight: 800; font-size: var(--fs-lg); white-space: nowrap; }
+.pkglist__actions { display: flex; align-items: center; gap: 2px; }
+@media (max-width: 560px) {
+  .pkglist__item { grid-template-columns: minmax(0, 1fr) auto; }
+  .pkglist__actions { grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: var(--s-2); }
+}
+
+/* On/off switch */
+.switch { position: relative; display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; justify-content: center; cursor: pointer; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch input:disabled { cursor: not-allowed; }
+.switch__track { position: relative; width: 38px; height: 22px; border-radius: var(--radius-pill); background: var(--border-strong); transition: background 0.15s; }
+.switch__track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: var(--shadow); transition: transform 0.15s; }
+.switch input:checked + .switch__track { background: var(--ok); }
+.switch input:checked + .switch__track::after { transform: translateX(16px); }
+.switch input:disabled + .switch__track { opacity: 0.5; }
+.switch input:focus-visible + .switch__track { outline: 2px solid var(--brand-red); outline-offset: 2px; }
+
+/* Onboarding wizard */
+.onboarding__progress { display: grid; gap: 6px; max-width: 420px; }
+.onboarding__progress .progress__bar { background: var(--brand-red); }
+.onboarding__layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--s-5); align-items: start; }
+.onboarding__step { min-width: 0; }
+.onboarding__intro { margin-bottom: var(--s-4); }
+.steps-nav { position: sticky; top: var(--s-4); }
+.steps-nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.steps-nav__btn {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.steps-nav__btn:hover { background: var(--surface); color: var(--ink); }
+.steps-nav__btn.is-current { background: var(--brand-red-soft); color: var(--brand-red); }
+.steps-nav__num { display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid currentColor; font-size: var(--fs-xs); font-weight: 800; }
+.steps-nav__btn.is-done .steps-nav__num { border-color: var(--ok); background: var(--ok); color: #fff; }
+.steps-nav__opt { font-weight: 500; color: var(--ink-3); }
+.stepnav { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--s-3); margin-top: var(--s-2); padding-top: var(--s-4); border-top: 1px solid var(--border); }
+.stepnav__next { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s-3); }
+@media (max-width: 900px) {
+  /* minmax(0, …) lets the column shrink, so the step list scrolls inside its strip instead of widening the page. */
+  .onboarding__layout { grid-template-columns: minmax(0, 1fr); }
+  .steps-nav { position: static; margin: 0 calc(-1 * var(--s-4)); padding: 0 var(--s-4); overflow-x: auto; scrollbar-width: none; }
+  .steps-nav::-webkit-scrollbar { display: none; }
+  .steps-nav ol { display: flex; gap: var(--s-1); }
+  .steps-nav__btn { white-space: nowrap; width: auto; }
+  .steps-nav__opt { display: none; }
+}
+
+.socials-list .list__item:first-child { padding-top: var(--s-3); border-top: 0; }
+.add-social { display: grid; gap: var(--s-3); padding: var(--s-4); border-radius: var(--radius); background: var(--surface-2); }
+.add-social > .btn { justify-self: start; }
+
+.portfolio--edit { grid-template-columns: repeat(auto-fill, minmax(min(46%, 140px), 1fr)); }
+.portfolio__remove { position: absolute; top: var(--s-2); right: var(--s-2); z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(17, 17, 17, 0.72); color: #fff; cursor: pointer; }
+.portfolio__remove:hover { background: var(--ink); }
+.portfolio-add { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: var(--s-4); padding: var(--s-4); border-radius: var(--radius); background: var(--surface-2); }
+.video-link { display: grid; gap: var(--s-2); }
+.video-link > .btn { justify-self: start; }
+
+.payout-state { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-4); border-radius: var(--radius); background: var(--surface-2); }
+.payout-state > svg { flex-shrink: 0; color: var(--ink-2); }
+.payout-state--ok { background: var(--ok-soft); }
+.payout-state--ok > svg { color: var(--ok); }
+
+.checklist-review { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.checklist-review li { display: flex; align-items: center; gap: var(--s-3); min-height: 40px; font-size: var(--fs-sm); }
+.checklist-review__icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: var(--ink-3); }
+.checklist-review li.is-done .checklist-review__icon { background: var(--ok); color: #fff; }
+.checklist-review__label { flex: 1; }
+.checklist-review button.link { border: 0; background: none; cursor: pointer; padding: var(--s-2); text-decoration: underline; }
+.submit-review { display: grid; gap: var(--s-3); padding: var(--s-4); border-radius: var(--radius); background: var(--brand-red-soft); }
+.submit-review > .btn { justify-self: start; }
+
+/* Brand profile */
+.brand-profile { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: var(--s-4); align-items: start; }
+@media (max-width: 820px) { .brand-profile { grid-template-columns: 1fr; } }
+
+/* Mock payment-provider page (prototype only) */
+.mock-stripe { display: grid; place-items: center; min-height: 100%; padding: var(--s-5) var(--s-4); background: var(--surface-2); }
+.mock-stripe > .card { width: min(100%, 520px); }
+.mock-stripe__label { display: flex; gap: var(--s-2); align-items: flex-start; padding: var(--s-2) var(--s-3); border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: var(--fs-sm); font-weight: 600; }
+.mock-stripe__label svg { flex-shrink: 0; margin-top: 3px; }
+
+/* Very narrow phones: the header search link shows only its icon (text stays for screen readers). */
+@media (max-width: 400px) {
+  .public-nav__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.onboarding,
+.onboarding__layout,
+.steps-nav { min-width: 0; }
+/* Positioned, so the screen-reader-only labels inside it are clipped by its scroll area on phones. */
+.steps-nav { position: relative; }
+@media (min-width: 901px) { .steps-nav { position: sticky; } }
+/* Contrast on the grey workspace background: a visible progress track and a white draft banner. */
+.onboarding__progress .progress { background: var(--border); }
+.vetting--neutral { background: var(--surface); border: 1px solid var(--border); }
+/* Banner text flows as a paragraph (flex gaps put stray spaces before punctuation). */
+.vetting > div { display: block; }
+.vetting__reason { display: block; margin: 4px 0; }

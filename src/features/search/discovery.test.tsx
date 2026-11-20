@@ -20,7 +20,8 @@ beforeEach(async () => {
 describe('search page', () => {
   it('shows 24 cards and the total count (FR-23)', async () => {
     renderAt('/search');
-    expect(await screen.findByRole('heading', { name: `${APPROVED_SEED_CREATORS + 1} creators` })).toBeInTheDocument();
+    // Text query on the h2: role queries over a page of 24 cards are too slow in jsdom under load.
+    expect(await screen.findByText(`${APPROVED_SEED_CREATORS + 1} creators`, { selector: 'h2' })).toBeInTheDocument();
     expect(cards()).toHaveLength(24);
     expect(screen.getByRole('navigation', { name: 'Pages' })).toHaveTextContent('Page 1 of 3');
   });
@@ -28,7 +29,7 @@ describe('search page', () => {
   it('reads filters from the URL and shows them as removable chips', async () => {
     renderAt('/search?platform=youtube&niche=tech');
     const expected = (await api.creators.search({ platform: 'YOUTUBE', niche: 'TECH' })).totalElements;
-    expect(await screen.findByRole('heading', { name: new RegExp(`^${expected} creators?$`) })).toBeInTheDocument();
+    expect(await screen.findByText(new RegExp(`^${expected} creators?$`), { selector: 'h2' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /YouTube/ })).toHaveAttribute('aria-pressed', 'true');
     const user = userEvent.setup();
     await user.click(within(screen.getByRole('list', { name: 'Active filters' })).getByRole('button', { name: 'Remove filter Tech' }));
@@ -40,7 +41,7 @@ describe('search page', () => {
     const user = userEvent.setup();
     await user.type(await screen.findByRole('searchbox', { name: 'Search creators' }), 'leomakes');
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('leomakes'));
-    expect(await screen.findByRole('heading', { name: '1 creator' })).toBeInTheDocument();
+    expect(await screen.findByText('1 creator', { selector: 'h2' })).toBeInTheDocument();
     expect(within(cards()[0]).getByText('Leo Marin')).toBeInTheDocument();
   });
 

@@ -19,7 +19,7 @@ export function PublicLayout() {
         </Link>
         <nav className="public-nav" aria-label="Site">
           <NavLink to="/search" className="public-nav__link">
-            <LuSearch aria-hidden /> <span>Search</span>
+            <LuSearch aria-hidden /> <span className="public-nav__text">Search</span>
           </NavLink>
           {user ? (
             <Link to={homePath(user)} className="btn btn--primary btn--sm">

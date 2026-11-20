@@ -218,6 +218,259 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/creators/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in creator's own profile, including private and draft fields */
+        get: operations["getMyCreatorProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save profile details (FR-10)
+         * @description Replaces the editable profile fields. The username can change only until the profile is first approved
+         *     (409 USERNAME_LOCKED afterwards), must be unique (409 USERNAME_TAKEN) and not reserved (422).
+         */
+        put: operations["updateMyCreatorProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/social-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link a social account (FR-11)
+         * @description One account per platform (409 PLATFORM_EXISTS). New accounts are unverified until our team checks them.
+         */
+        post: operations["addMySocialAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/social-accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a linked social account */
+        delete: operations["removeMySocialAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a package (FR-12, FR-13)
+         * @description Price at least 1000 cents ($10), delivery 1–60 days, at most 8 active packages (409 PACKAGE_LIMIT).
+         */
+        post: operations["createMyPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/packages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a package */
+        delete: operations["deleteMyPackage"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a package, or switch it on or off
+         * @description Switching a package on counts toward the limit of 8 active packages. Prices of existing orders never change.
+         */
+        patch: operations["updateMyPackage"];
+        trace?: never;
+    };
+    "/creators/me/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a portfolio image or video link (FR-14)
+         * @description At most 12 items (409 PORTFOLIO_LIMIT). Image URLs come from `POST /files/presign`.
+         */
+        post: operations["addMyPortfolioItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/portfolio/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a portfolio item */
+        delete: operations["removeMyPortfolioItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/submit-for-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the profile to our team for vetting (FR-16)
+         * @description DRAFT or REJECTED → PENDING_REVIEW. Needs a complete profile with photo, at least one social account,
+         *     one active package and payouts set up; otherwise 422 with one error per missing item
+         *     (`field` = profile | photo | socials | packages | payouts). Any other status → 409.
+         */
+        post: operations["submitMyProfileForReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard numbers (FR-70) */
+        get: operations["getMyCreatorStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in brand's company profile (FR-05) */
+        get: operations["getMyBrandProfile"];
+        /** Save the company profile (FR-05) */
+        put: operations["updateMyBrandProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/presign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a pre-signed URL to upload an image straight to storage
+         * @description The browser PUTs the file to `uploadUrl` with `headers`, then saves `fileUrl` on the profile.
+         *     Images only (JPEG, PNG, WebP), at most 10 MB. Videos are added as links, not uploads.
+         */
+        post: operations["presignUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payouts/onboarding-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start or continue Stripe Connect Express onboarding (FR-62)
+         * @description Creates the connected account on first use and returns a one-time Stripe-hosted onboarding URL.
+         *     Stripe sends the creator back to `returnUrl`; the payout status changes when Stripe's
+         *     `account.updated` webhook arrives.
+         */
+        post: operations["createPayoutOnboardingLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators/{username}": {
         parameters: {
             query?: never;
@@ -428,6 +681,170 @@ export interface components {
             memberSince: string;
             /** @description Always APPROVED for the public; other values only in an owner or admin preview. */
             vettingStatus: components["schemas"]["VettingStatus"];
+        };
+        CreatorProfileInput: {
+            username: string;
+            displayName: string;
+            bio: string;
+            city: string;
+            country: string;
+            /** @description Optional. Used only as a search filter, never shown on the profile. */
+            gender?: components["schemas"]["Gender"] | null;
+            /** @description Optional, age 16–90. Search filter only, never shown. */
+            birthYear?: number | null;
+            languages: string[];
+            niches: components["schemas"]["Niche"][];
+            photoUrl?: string | null;
+            coverUrls?: string[];
+        };
+        SocialAccountInput: {
+            platform: components["schemas"]["Platform"];
+            /** @description Without the @. */
+            handle: string;
+            followers: number;
+        };
+        PackageInput: {
+            platform: components["schemas"]["Platform"];
+            title: string;
+            description: string;
+            deliverables: string[];
+            /** Format: int64 */
+            priceCents: number;
+            deliveryDays: number;
+            /** @default true */
+            active: boolean;
+        };
+        /** @description Any subset of PackageInput fields. */
+        PackagePatch: {
+            platform?: components["schemas"]["Platform"];
+            title?: string;
+            description?: string;
+            deliverables?: string[];
+            /** Format: int64 */
+            priceCents?: number;
+            deliveryDays?: number;
+            active?: boolean;
+        };
+        OwnPackage: components["schemas"]["Package"] & {
+            active: boolean;
+        };
+        PortfolioItemInput: {
+            /** @enum {string} */
+            type: "IMAGE" | "VIDEO_LINK";
+            /** @description IMAGE: a fileUrl from /files/presign. VIDEO_LINK: an https URL. */
+            url: string;
+            caption?: string | null;
+        };
+        /**
+         * @description NOT_STARTED → PENDING (details submitted, Stripe checking) → ENABLED.
+         * @enum {string}
+         */
+        PayoutStatus: "NOT_STARTED" | "PENDING" | "ENABLED";
+        /** @description What is still needed before the profile can be submitted. Portfolio is recommended, not required. */
+        CreatorChecklist: {
+            profile: boolean;
+            photo: boolean;
+            socials: boolean;
+            packages: boolean;
+            portfolio: boolean;
+            payouts: boolean;
+        };
+        CreatorMe: {
+            username: string | null;
+            displayName: string;
+            bio: string | null;
+            city: string | null;
+            country: string | null;
+            gender: components["schemas"]["Gender"] | null;
+            birthYear: number | null;
+            languages: string[];
+            niches: components["schemas"]["Niche"][];
+            photoUrl: string | null;
+            coverUrls: string[];
+            vettingStatus: components["schemas"]["VettingStatus"];
+            rejectionReason: string | null;
+            /** Format: date-time */
+            submittedAt: string | null;
+            socials: components["schemas"]["SocialAccount"][];
+            /** @description Active and inactive. */
+            packages: components["schemas"]["OwnPackage"][];
+            portfolio: components["schemas"]["PortfolioItem"][];
+            payoutStatus: components["schemas"]["PayoutStatus"];
+            checklist: components["schemas"]["CreatorChecklist"];
+            /** @description True once the profile has been approved. */
+            usernameLocked: boolean;
+        };
+        CreatorStats: {
+            currency: string;
+            /**
+             * Format: int64
+             * @description Creator balance not yet paid out.
+             */
+            availableCents: number;
+            /**
+             * Format: int64
+             * @description What the creator will receive for accepted orders not yet approved.
+             */
+            inEscrowCents: number;
+            /** Format: int64 */
+            lifetimeEarnedCents: number;
+            /** @description Count per order status; every status is present. */
+            ordersByStatus: {
+                [key: string]: number;
+            };
+            profileViews: number;
+            activePackages: number;
+        };
+        /** @enum {string} */
+        BrandIndustry: "BEAUTY" | "FASHION" | "FOOD" | "HEALTH" | "HOME" | "TECH" | "TRAVEL" | "FINANCE" | "EDUCATION" | "PETS" | "AGENCY" | "OTHER";
+        BrandProfile: {
+            companyName: string | null;
+            website: string | null;
+            logoUrl: string | null;
+            industry: components["schemas"]["BrandIndustry"] | null;
+            country: string | null;
+            /**
+             * @description Pro / Premium arrive in v2.
+             * @enum {string}
+             */
+            plan: "FREE";
+        };
+        BrandProfileInput: {
+            companyName: string;
+            /** @description https://… (http:// accepted and upgraded). */
+            website?: string | null;
+            logoUrl?: string | null;
+            industry: components["schemas"]["BrandIndustry"];
+            country: string;
+        };
+        PresignRequest: {
+            /** @enum {string} */
+            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO";
+            fileName: string;
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png" | "image/webp";
+            sizeBytes: number;
+        };
+        PresignResponse: {
+            uploadUrl: string;
+            /** @enum {string} */
+            method: "PUT";
+            headers: {
+                [key: string]: string;
+            };
+            /** @description Where the file will be served from once uploaded. */
+            fileUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        OnboardingLinkRequest: {
+            /** @description App path Stripe sends the creator back to */
+            returnUrl: string;
+        };
+        OnboardingLink: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         AuthSession: {
             /** @description JWT */
@@ -825,6 +1242,364 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getMyCreatorProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorMe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateMyCreatorProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatorProfileInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorMe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    addMySocialAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialAccountInput"];
+            };
+        };
+        responses: {
+            /** @description Linked. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialAccount"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    removeMySocialAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMyPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnPackage"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    deleteMyPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMyPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackagePatch"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnPackage"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    addMyPortfolioItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortfolioItemInput"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioItem"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    removeMyPortfolioItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitMyProfileForReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submitted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorMe"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getMyCreatorStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stats. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorStats"];
+                };
+            };
+        };
+    };
+    getMyBrandProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandProfile"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateMyBrandProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandProfileInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandProfile"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    presignUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresignRequest"];
+            };
+        };
+        responses: {
+            /** @description Upload target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresignResponse"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    createPayoutOnboardingLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description The link. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingLink"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     getCreatorProfile: {

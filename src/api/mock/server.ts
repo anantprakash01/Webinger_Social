@@ -9,7 +9,11 @@ import { HttpError, type Handler, type MockRequest, type MockResponse } from './
 import { findUnbalancedTxns } from './ledger';
 import { TransitionError } from './orderMachine';
 import * as auth from './handlers/auth';
+import * as brands from './handlers/brands';
+import * as creatorMe from './handlers/creatorMe';
 import * as creators from './handlers/creators';
+import * as files from './handlers/files';
+import * as payouts from './handlers/payouts';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
 import { authenticate } from './handlers/session';
@@ -34,10 +38,28 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/auth/forgot-password', auth: false, handler: auth.forgotPassword },
   { method: 'POST', path: '/auth/reset-password', auth: false, handler: auth.resetPassword },
   { method: 'GET', path: '/me', auth: true, handler: me.getMe },
+  // /creators/me/* before /creators/:username, which would otherwise match "me".
+  { method: 'GET', path: '/creators/me', auth: true, handler: creatorMe.getMyCreatorProfile },
+  { method: 'PUT', path: '/creators/me/profile', auth: true, handler: creatorMe.updateMyCreatorProfile },
+  { method: 'POST', path: '/creators/me/social-accounts', auth: true, handler: creatorMe.addMySocialAccount },
+  { method: 'DELETE', path: '/creators/me/social-accounts/:id', auth: true, handler: creatorMe.removeMySocialAccount },
+  { method: 'POST', path: '/creators/me/packages', auth: true, handler: creatorMe.createMyPackage },
+  { method: 'PATCH', path: '/creators/me/packages/:id', auth: true, handler: creatorMe.updateMyPackage },
+  { method: 'DELETE', path: '/creators/me/packages/:id', auth: true, handler: creatorMe.deleteMyPackage },
+  { method: 'POST', path: '/creators/me/portfolio', auth: true, handler: creatorMe.addMyPortfolioItem },
+  { method: 'DELETE', path: '/creators/me/portfolio/:id', auth: true, handler: creatorMe.removeMyPortfolioItem },
+  { method: 'POST', path: '/creators/me/submit-for-review', auth: true, handler: creatorMe.submitMyProfileForReview },
+  { method: 'GET', path: '/creators/me/stats', auth: true, handler: creatorMe.getMyCreatorStats },
   { method: 'GET', path: '/creators', auth: false, handler: creators.searchCreators },
   { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
+  { method: 'GET', path: '/brands/me/profile', auth: true, handler: brands.getMyBrandProfile },
+  { method: 'PUT', path: '/brands/me/profile', auth: true, handler: brands.updateMyBrandProfile },
+  { method: 'POST', path: '/files/presign', auth: true, handler: files.presignUpload },
+  { method: 'POST', path: '/payouts/onboarding-link', auth: true, handler: payouts.createPayoutOnboardingLink },
   // Mock only
+  { method: 'POST', path: '/dev/stripe/connect-complete', auth: true, handler: payouts.completeMockConnectOnboarding },
+  { method: 'POST', path: '/dev/vetting-decision', auth: true, handler: dev.vettingDecision },
   { method: 'GET', path: '/dev/outbox', auth: false, handler: dev.outbox },
   { method: 'POST', path: '/dev/reset', auth: false, handler: dev.reset },
 ];

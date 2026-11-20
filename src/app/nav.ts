@@ -45,7 +45,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true },
     { to: '/creator/payouts', label: 'Payouts', icon: LuWallet, primary: true },
     { to: '/notifications', label: 'Notifications', icon: LuBell },
-    { to: '/creator/onboarding', label: 'Profile setup', icon: LuUserRound },
+    { to: '/creator/onboarding', label: 'My profile', icon: LuUserRound },
   ],
   ADMIN: [
     { to: '/admin/vetting', label: 'Vetting', icon: LuBadgeCheck, primary: true },

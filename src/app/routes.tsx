@@ -9,6 +9,7 @@ import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
 import { SignupPage } from '@/features/auth/pages/SignupPage';
 import { VerifyEmailPage } from '@/features/auth/pages/VerifyEmailPage';
+import { isMock } from '@/api/client';
 import { GuestOnly, RequireRole } from './guards';
 import { AppShell } from './layouts/AppShell';
 import { PublicLayout } from './layouts/PublicLayout';
@@ -31,15 +32,16 @@ const BrandOrders = area(brand, 'BrandOrders');
 const BrandOrderDetail = area(brand, 'BrandOrderDetail');
 const BrandCampaigns = area(brand, 'BrandCampaigns');
 const BrandCampaignDetail = area(brand, 'BrandCampaignDetail');
-const BrandProfile = area(brand, 'BrandProfile');
+const BrandProfile = area(() => import('@/features/brands/pages/BrandProfilePage'), 'BrandProfilePage');
 const CheckoutPage = area(brand, 'CheckoutPage');
 
-const CreatorOnboarding = area(creator, 'CreatorOnboarding');
-const CreatorDashboard = area(creator, 'CreatorDashboard');
+const CreatorOnboarding = area(() => import('@/features/creators/pages/OnboardingPage'), 'OnboardingPage');
+const CreatorDashboard = area(() => import('@/features/creators/pages/CreatorDashboardPage'), 'CreatorDashboardPage');
 const CreatorOrders = area(creator, 'CreatorOrders');
 const CreatorOrderDetail = area(creator, 'CreatorOrderDetail');
 const CreatorCampaigns = area(creator, 'CreatorCampaigns');
-const CreatorPackages = area(creator, 'CreatorPackages');
+const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
+const MockStripeConnectPage = area(() => import('@/features/payouts/pages/MockStripeConnectPage'), 'MockStripeConnectPage');
 const CreatorPayouts = area(creator, 'CreatorPayouts');
 
 const AdminVetting = area(admin, 'AdminVetting');
@@ -116,6 +118,13 @@ export function AppRoutes() {
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
       </Route>
+
+      {/* Prototype only: stand-in for the Stripe-hosted onboarding page (FR-62). */}
+      {isMock && (
+        <Route element={<RequireRole roles={['CREATOR']} />}>
+          <Route path="dev/stripe-connect" element={<MockStripeConnectPage />} />
+        </Route>
+      )}
 
       <Route element={<PublicLayout />}>
         <Route path="*" element={<NotFound />} />
