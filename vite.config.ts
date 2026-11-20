@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Webinger Social — Creator Marketplace',
-        short_name: 'Webinger Social',
+        name: 'Webinger Collab — Creator Marketplace',
+        short_name: 'Webinger Collab',
         description: 'Book and pay social media creators, with payment held in escrow until you approve the work.',
         theme_color: '#D40000',
         background_color: '#FFFFFF',

@@ -536,7 +536,8 @@ Source estimate assumes 2 backend, 1 frontend and 1 full-stack/QA engineer; a sm
 - [ ] Manual vetting capacity per day?
 - [ ] Move public pages to Next.js for SEO from day one?
 - [ ] Non-circumvention term (12 or 18 months) in the Terms?
-- [ ] Brand name, domain and final brand colour (prototype uses Webinger UI and red).
+- [x] Product name: **Webinger Collab** (decided 21 Nov 2026; was "Webinger Social").
+- [ ] Domain and final brand colour (prototype uses Webinger UI and red).
 - [ ] Is this a separate product or the influencer module of the Webinger portal? (assumed separate repo sharing the Webinger design system)
 - [ ] Partial dispute refunds: who absorbs them? Provisional rule in `orderMachine.ts`: a partial refund (1 cent up to the creator's payout) comes out of the creator's share and the platform keeps both fees; a full refund returns everything incl. the brand fee. Confirm before Week 6 / backend.
 
@@ -546,7 +547,7 @@ Source estimate assumes 2 backend, 1 frontend and 1 full-stack/QA engineer; a sm
 
 What exists:
 - Scaffold: React 19, TS 5.9, Vite 8, PWA plugin, TanStack Query, RHF + Zod 4, react-icons, Vitest + RTL. `@/` alias to `src/`. `.env.example` + Vite proxy `/api` → `localhost:8080`.
-- Webinger UI: `src/styles/tokens.css` + `base.css` (copied), `components.css` (select/search/drawer/etc. from the portal), `marketplace.css` (public layout, role picker, verify banner). `src/components/ui` ported to TSX; `Logo` is a placeholder wordmark "Webinger SOCIAL" (`PRODUCT_NAME` in `Logo.tsx`).
+- Webinger UI: `src/styles/tokens.css` + `base.css` (copied), `components.css` (select/search/drawer/etc. from the portal), `marketplace.css` (public layout, role picker, verify banner). `src/components/ui` ported to TSX; `Logo` is a wordmark "Webinger COLLAB" (product renamed from "Webinger Social" on 21 Nov 2026) (`PRODUCT_NAME` in `Logo.tsx`).
 - Contract v0: `docs/api/openapi.yaml` (auth, `/me`, Money/Problem/PageMeta/Ulid). Types generated to `src/types/openapi.ts`; app aliases in `src/types/index.ts`.
 - Mock core: `fees.ts` (bps, half-up integer rounding), `ledger.ts` (balanced txns, builders per money movement, dev check), `orderMachine.ts` (all transitions, guards, 403/409/422 codes, `allowedEvents`, `dueSystemEvent` for Simulate time), `db.ts` (sessionStorage, seed, ULIDs, mock clock offset), `server.ts` router + `handlers/` (auth, me, dev). Orders are not exposed over the API yet (Week 4).
 - `src/api/client.ts`: one request path for mock and http, 401 → refresh once → retry, session events consumed by `AuthContext`.

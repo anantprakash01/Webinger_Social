@@ -1,4 +1,4 @@
-# Webinger Social — Creator Marketplace (frontend)
+# Webinger Collab — Creator Marketplace (frontend)
 
 React 19 + TypeScript + Vite prototype of a two-sided creator marketplace with escrow payments.
 Phase 0 runs entirely on an in-browser mock API; Phase 1 switches each module to the Spring Boot API.
