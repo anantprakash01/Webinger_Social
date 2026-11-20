@@ -1,0 +1,170 @@
+/* ---------- Creator marketplace additions, built only from Webinger tokens ---------- */
+
+#content:focus { outline: none; }
+.note--warn { background: var(--warn-soft); }
+.note--warn svg { color: var(--warn); }
+.link { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
+.link:hover { color: var(--brand-red); }
+
+/* ---------- Public layout: header + footer ---------- */
+.public {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--surface);
+}
+.public-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  height: var(--topbar-h);
+  padding: 0 var(--s-6);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.public-header__logo { text-decoration: none; display: inline-flex; }
+.public-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-left: auto;
+}
+.public-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--s-3);
+  border-radius: var(--radius-pill);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.public-nav__link:hover { background: var(--surface-2); color: var(--ink); }
+.public-nav__link.active { color: var(--brand-red); }
+.public-main { flex: 1; }
+.public-footer {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-6);
+  background: var(--navy);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: var(--fs-sm);
+}
+.public-footer__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--s-5);
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+}
+.public-footer h2 { color: #fff; font-size: var(--fs-sm); margin-bottom: var(--s-2); }
+.public-footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.public-footer a { color: inherit; text-decoration: none; }
+.public-footer a:hover { color: #fff; text-decoration: underline; }
+.public-footer__legal { max-width: 1280px; width: 100%; margin: 0 auto; padding-top: var(--s-4); border-top: 1px solid rgba(255, 255, 255, 0.15); font-size: var(--fs-xs); }
+
+@media (max-width: 720px) {
+  .public-header { padding: 0 var(--s-4); gap: var(--s-2); }
+  .public-nav { gap: 0; }
+  .public-nav__link { padding: 0 var(--s-2); }
+  .public-nav__label--wide { display: none; }
+  .public-footer { padding: var(--s-5) var(--s-4); }
+}
+@media (max-width: 400px) {
+  .public-nav .btn { padding: 0 var(--s-3); }
+}
+
+/* ---------- Landing (Week 1 stub; Week 2 builds the real page) ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-7) var(--s-6);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.hero h1 { font-size: clamp(34px, 6vw, 64px); max-width: 14ch; letter-spacing: -0.035em; }
+.hero h1 em { font-style: normal; color: var(--brand-red); }
+.hero p { max-width: 52ch; color: var(--ink-2); font-size: var(--fs-lg); }
+.hero__actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: var(--s-4); }
+.step__num { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; font-size: var(--fs-sm); }
+.section { padding: var(--s-6); max-width: 1280px; margin: 0 auto; display: grid; gap: var(--s-4); }
+@media (max-width: 720px) {
+  .hero { padding: var(--s-6) var(--s-4); }
+  .section { padding: var(--s-4); }
+}
+
+/* ---------- Sign-up role choice (FR-01) ---------- */
+.role-choice { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-2); min-width: 0; }
+.role-choice legend { font-size: var(--fs-sm); font-weight: 600; margin-bottom: 6px; padding: 0; }
+.role-choice__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.role-card {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.role-card input { position: absolute; opacity: 0; pointer-events: none; }
+.role-card:hover { border-color: var(--ink); }
+.role-card:has(input:checked) { border-color: var(--brand-red); box-shadow: 0 0 0 1px var(--brand-red); background: var(--brand-red-soft); }
+.role-card:has(input:focus-visible) { outline: 2px solid var(--brand-red); outline-offset: 2px; }
+.role-card__title { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: var(--fs-sm); }
+.role-card__text { font-size: var(--fs-xs); color: var(--ink-3); }
+.role-choice[aria-invalid='true'] .role-card { border-color: var(--danger); }
+@media (max-width: 360px) {
+  .role-choice__grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Google button + divider ---------- */
+.btn--google { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
+.btn--google:hover:not(:disabled) { border-color: var(--ink); }
+.divider { display: flex; align-items: center; gap: var(--s-3); color: var(--ink-3); font-size: var(--fs-xs); }
+.divider::before,
+.divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ---------- Email verification banner (FR-02) ---------- */
+.verify-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-6);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid #f0dcb4;
+}
+.verify-banner strong { color: var(--ink); }
+.verify-banner__text { flex: 1 1 260px; display: flex; gap: var(--s-2); align-items: flex-start; }
+.verify-banner__text svg { flex-shrink: 0; margin-top: 3px; }
+@media (max-width: 900px) {
+  .verify-banner { padding: var(--s-3) var(--s-4); }
+}
+
+/* ---------- Demo bar extras ---------- */
+.demo-bar__btn {
+  min-height: 30px;
+  padding: 0 var(--s-2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.demo-bar__btn:hover { background: var(--navy-soft); }
+
+/* ---------- Full-page splash while the session restores ---------- */
+.splash { display: grid; place-items: center; min-height: 100%; }

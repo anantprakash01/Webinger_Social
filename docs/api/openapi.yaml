@@ -1,0 +1,401 @@
+openapi: 3.1.0
+info:
+  title: Creator Marketplace API
+  version: 0.1.0
+  description: |
+    Contract v0 (Phase 0, Week 1): authentication, `/me`, and shared schemas.
+    This file is the single source of truth between the React app and the Spring Boot API.
+    Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
+
+    Conventions
+    - All money is integer minor units (cents) plus an ISO 4217 currency. Never floating point.
+    - Errors are RFC 7807 `application/problem+json` (`Problem`). Field errors use status 422.
+    - Lists accept `?page=&size=&sort=` and return `content` plus `PageMeta`.
+    - Money-moving endpoints accept an `Idempotency-Key` header.
+    - IDs in the API are 26-character ULIDs (`public_id`), never database IDs.
+    - The access token (15 min) is sent as `Authorization: Bearer`. The refresh token (7 days, rotated on
+      every use) lives only in an httpOnly, Secure, SameSite=Strict cookie on `/api/v1/auth`.
+
+    Mock-only endpoints (Phase 0, never in production, not in this contract): `GET /dev/outbox`,
+    `POST /dev/reset`, `POST /dev/simulate-time`.
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+  - name: Users
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Sign up with email and password, choosing Brand or Creator (FR-01)
+      description: Creates the account, sends a verification email (FR-02) and signs the user in. The new account is unverified.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Account created and signed in. Sets the refresh-token cookie.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Signed in. Sets the refresh-token cookie.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange the refresh-token cookie for a new access token (FR-04)
+      description: |
+        The refresh token is rotated: the old one is revoked and a new cookie is set.
+        Presenting an already-revoked refresh token revokes every session of that user (reuse detection).
+      operationId: refresh
+      responses:
+        '200':
+          description: New session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current refresh token and clear the cookie
+      operationId: logout
+      responses:
+        '204': { description: Signed out. }
+
+  /auth/oauth/google:
+    post:
+      tags: [Auth]
+      summary: Sign in or sign up with Google (FR-01)
+      description: |
+        Verifies the Google ID token. An existing account is signed in. A new account needs `role`;
+        without it the call fails with 422 and `errors[0].field = "role"`. Google emails count as verified.
+      operationId: googleAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoogleAuthRequest' }
+      responses:
+        '200':
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Confirm an email address with the token from the verification email (FR-02)
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+      responses:
+        '200':
+          description: Email verified. Returns the updated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/verify-email/resend:
+    post:
+      tags: [Auth]
+      summary: Send a new verification email to the signed-in user
+      description: Invalidates earlier verification links. Limited to 5 per hour.
+      operationId: resendVerification
+      security: [{ bearerAuth: [] }]
+      responses:
+        '202': { description: Email queued. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Email a password-reset link valid for 30 minutes (FR-03)
+      description: Always answers 202, whether or not the email has an account, so the endpoint cannot be used to find accounts.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotPasswordRequest' }
+      responses:
+        '202': { description: If the account exists, an email was sent. }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password with a reset token (FR-03)
+      description: The token is single-use and expires 30 minutes after it was issued. Success revokes every session of the user.
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPasswordRequest' }
+      responses:
+        '204': { description: Password changed. Sign in with the new password. }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /me:
+    get:
+      tags: [Users]
+      summary: The signed-in user
+      operationId: getMe
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: The user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Users]
+      summary: Update the signed-in user's own fields
+      operationId: updateMe
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMeRequest' }
+      responses:
+        '200':
+          description: The updated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Not signed in, the token expired, or the credentials are wrong.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Signed in but not allowed (wrong role, not the owner, account suspended, email not verified).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: No such resource, or the caller may not know it exists.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: The request conflicts with the current state (duplicate email, invalid order transition).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ValidationFailed:
+      description: One or more fields are invalid. See `errors`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    # ---------- Shared ----------
+    Money:
+      type: object
+      description: An amount in integer minor units (cents for USD).
+      required: [amountCents, currency]
+      properties:
+        amountCents: { type: integer, format: int64, examples: [22000] }
+        currency: { type: string, minLength: 3, maxLength: 3, examples: [USD] }
+
+    Problem:
+      type: object
+      description: RFC 7807 problem details.
+      required: [status, title]
+      properties:
+        type: { type: string, format: uri, default: about:blank }
+        title: { type: string, examples: [Validation failed] }
+        status: { type: integer, examples: [422] }
+        detail: { type: string }
+        instance: { type: string }
+        code:
+          type: string
+          description: Stable machine-readable reason, e.g. EMAIL_TAKEN, EMAIL_NOT_VERIFIED, INVALID_TRANSITION, TOKEN_EXPIRED.
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field: { type: string, examples: [email] }
+        message: { type: string, examples: [This email already has an account.] }
+
+    PageMeta:
+      type: object
+      description: Paging fields returned next to `content` by every list endpoint.
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page: { type: integer, minimum: 0, description: Zero-based page number. }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+
+    Ulid:
+      type: string
+      minLength: 26
+      maxLength: 26
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+
+    # ---------- Users ----------
+    Role:
+      type: string
+      enum: [BRAND, CREATOR, ADMIN]
+
+    SignupRole:
+      type: string
+      description: Roles a person can choose at sign-up. ADMIN accounts are created by staff only.
+      enum: [BRAND, CREATOR]
+
+    UserStatus:
+      type: string
+      enum: [ACTIVE, SUSPENDED, BANNED]
+
+    VettingStatus:
+      type: string
+      description: Creator profile vetting (FR-16). Only APPROVED profiles appear in search.
+      enum: [DRAFT, PENDING_REVIEW, APPROVED, REJECTED]
+
+    CreatorSummary:
+      type: object
+      required: [username, vettingStatus]
+      properties:
+        username: { type: [string, 'null'], description: Chosen during onboarding; null until then. }
+        vettingStatus: { $ref: '#/components/schemas/VettingStatus' }
+        rejectionReason: { type: [string, 'null'] }
+
+    BrandSummary:
+      type: object
+      required: [companyName]
+      properties:
+        companyName: { type: [string, 'null'] }
+
+    Me:
+      type: object
+      required: [id, email, name, role, status, emailVerified, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { $ref: '#/components/schemas/UserStatus' }
+        emailVerified:
+          type: boolean
+          description: Placing or accepting orders needs a verified email (FR-02).
+        createdAt: { type: string, format: date-time }
+        creator: { $ref: '#/components/schemas/CreatorSummary' }
+        brand: { $ref: '#/components/schemas/BrandSummary' }
+
+    UpdateMeRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 80 }
+
+    # ---------- Auth ----------
+    AuthSession:
+      type: object
+      required: [accessToken, expiresIn, user]
+      properties:
+        accessToken: { type: string, description: JWT, valid 15 minutes. }
+        expiresIn: { type: integer, description: Seconds until the access token expires., examples: [900] }
+        user: { $ref: '#/components/schemas/Me' }
+
+    RegisterRequest:
+      type: object
+      required: [role, name, email, password, acceptTerms]
+      properties:
+        role: { $ref: '#/components/schemas/SignupRole' }
+        name: { type: string, minLength: 2, maxLength: 80 }
+        email: { type: string, format: email, maxLength: 254 }
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: At least 8 characters with a letter and a number.
+        acceptTerms: { type: boolean, const: true }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    GoogleAuthRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken: { type: string, description: Google ID token from Google Identity Services. }
+        role:
+          $ref: '#/components/schemas/SignupRole'
+          description: Required only when no account exists yet for this Google email.
+
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password: { type: string, minLength: 8, maxLength: 128 }

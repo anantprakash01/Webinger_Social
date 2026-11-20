@@ -1,0 +1,60 @@
+/* Copied from webinger-portal src/styles/tokens.css — keep in sync; do not add a different look (CLAUDE.md §9). */
+/*
+ * Webinger design tokens.
+ * Brand red is an on-screen estimate from webinger.in. Replace --brand-red
+ * with the exact code from the logo file once you have it.
+ */
+:root {
+  /* Brand */
+  --brand-red: #d40000;
+  --brand-red-hover: #b30000;
+  --brand-red-soft: #fdecec;
+  --navy: #0f1b33;
+  --navy-soft: #1c2a47;
+
+  /* Neutrals */
+  --ink: #111111;
+  --ink-2: #4a4a4a;
+  --ink-3: #666666; /* 5.7:1 on white, 5.3:1 on --surface-2 (WCAG AA) */
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
+  --border: #e5e5e5;
+  --border-strong: #cfcfcf;
+
+  /* Status (red brand stays separate from error) */
+  --ok: #17703d; /* 4.5:1+ on white and on --ok-soft */
+  --ok-soft: #e6f4ec;
+  --warn: #8a5300; /* 4.5:1+ on white and on --warn-soft */
+  --warn-soft: #fff4e0;
+  --danger: #8a1c1c;
+  --danger-soft: #f9e3e3;
+  --info: #1d5fbf;
+  --info-soft: #e6effb;
+
+  /* Type */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+
+  /* Space, radius, shadow */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  /* Layout */
+  --sidebar-w: 248px;
+  --topbar-h: 64px;
+  --bottomnav-h: 64px;
+}
