@@ -9,6 +9,7 @@ import { auditLedger } from './audit';
 import { getDb, now, ulid, type PayoutAccountRow, type PayoutRow, type UserRow } from './db';
 import { payoutLines, postTxn, type LedgerEntry } from './ledger';
 import { bankNameFor } from './seed/payments';
+import { creatorPayoutCents } from './orderMachine';
 
 const DAY = 86_400_000;
 
@@ -28,7 +29,7 @@ export function creatorMoney(creatorId: string) {
     paidOutCents: db.payouts.filter((p) => p.creatorId === creatorId).reduce((s, p) => s + p.amountCents, 0),
     inEscrowCents: db.orders
       .filter((o) => o.creatorUserId === creatorId && (o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED'))
-      .reduce((s, o) => s + o.priceCents - o.creatorFeeCents, 0),
+      .reduce((s, o) => s + creatorPayoutCents(o), 0),
   };
 }
 

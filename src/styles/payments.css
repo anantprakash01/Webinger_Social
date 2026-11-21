@@ -67,3 +67,8 @@
 /* ---------- Account settings ---------- */
 .settings .card__body { display: grid; gap: var(--s-3); }
 .settings__danger { border-color: var(--danger-soft); }
+
+/* Tax invoice table: more columns; scroll inside the card on narrow phones */
+.receipt__lines--tax { display: block; overflow-x: auto; }
+.receipt__lines--tax th, .receipt__lines--tax td { padding-right: var(--s-3); }
+.receipt__money { margin: 0; }

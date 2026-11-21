@@ -17,6 +17,7 @@
  * to order_events, the ledger entries and the payment action. The caller (a mock handler) stores them.
  */
 import { calculateFees, MIN_PRICE_CENTS, type FeeConfig } from './fees';
+import { calculateTaxes, type OrderTaxes } from './tax';
 import { captureLines, postTxn, refundLines, releaseLines, type LedgerEntry, type LedgerLine } from './ledger';
 
 /* ---------- Types ---------- */
@@ -64,6 +65,8 @@ export interface MockOrder {
   /** Optimistic lock, like the JPA @Version column: approve and auto-approve cannot both win. */
   version: number;
   payment: { status: PaymentStatus; amountCents: number; refundedCents: number } & OrderPaymentInfo;
+  /** GST, TDS and TCS on this order, fixed at checkout like the fees (phase B). */
+  taxes: OrderTaxes;
   createdAt: string;
   updatedAt: string;
 }
@@ -164,10 +167,16 @@ const isPast = (iso: string | null, now: Date) => !!iso && now.getTime() >= new 
 const roleOf = (a: Actor): ActorRole => (a.kind === 'SYSTEM' ? 'SYSTEM' : a.role);
 const actorId = (a: Actor) => (a.kind === 'SYSTEM' ? null : a.userId);
 
-/** Amount the brand paid in total (price + brand fee). */
-export const brandTotalCents = (o: Pick<MockOrder, 'priceCents' | 'brandFeeCents'>) => o.priceCents + o.brandFeeCents;
-/** Amount the creator receives on release before any partial refund. */
-export const creatorPayoutCents = (o: Pick<MockOrder, 'priceCents' | 'creatorFeeCents'>) => o.priceCents - o.creatorFeeCents;
+type Money = Pick<MockOrder, 'priceCents' | 'brandFeeCents' | 'creatorFeeCents'> & { taxes?: OrderTaxes };
+/** What the brand pays: price + creator's GST (if registered) + service fee + GST on the fee. */
+export const brandTotalCents = (o: Money) => o.priceCents + o.brandFeeCents + (o.taxes?.creatorGstCents ?? 0) + (o.taxes?.brandFeeGstCents ?? 0);
+/** What the creator receives on release (before any partial refund): price + their GST − commission − GST on it − TDS − TCS. */
+export const creatorPayoutCents = (o: Money) =>
+  o.priceCents + (o.taxes?.creatorGstCents ?? 0) - o.creatorFeeCents - (o.taxes?.creatorFeeGstCents ?? 0) - (o.taxes?.tdsCents ?? 0) - (o.taxes?.tcsCents ?? 0);
+/** GST on both platform fees (owed by the platform). */
+export const feeGstCents = (o: Money) => (o.taxes?.brandFeeGstCents ?? 0) + (o.taxes?.creatorFeeGstCents ?? 0);
+/** TDS + TCS withheld from the creator. */
+export const withheldCents = (o: Money) => (o.taxes?.tdsCents ?? 0) + (o.taxes?.tcsCents ?? 0);
 
 /* ---------- Checks shared by every transition ---------- */
 
@@ -297,7 +306,7 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
     case 'APPROVE':
     case 'AUTO_APPROVE':
     case 'ADMIN_RELEASE':
-      lines = releaseLines({ escrowCents: brandTotalCents(order), creatorPayoutCents: creatorPayoutCents(order) });
+      lines = releaseLines({ escrowCents: brandTotalCents(order), creatorPayoutCents: creatorPayoutCents(order), gstCents: feeGstCents(order), withheldCents: withheldCents(order) });
       memo = e.type === 'AUTO_APPROVE' ? 'Auto-approved after 72 h' : e.type === 'ADMIN_RELEASE' ? 'Dispute resolved: released' : 'Approved by brand';
       break;
     case 'DISPUTE':
@@ -318,6 +327,8 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
           ...releaseLines({
             escrowCents: total - e.refundCents,
             creatorPayoutCents: creatorPayoutCents(order) - e.refundCents,
+            gstCents: feeGstCents(order),
+            withheldCents: withheldCents(order),
           }),
         ];
         memo = 'Dispute resolved: partial refund';
@@ -356,6 +367,8 @@ export interface NewOrderInput {
   fees: FeeConfig;
   /** Defaults to a card payment (seed data and older callers). */
   payment?: OrderPaymentInfo;
+  /** Place of supply and the creator's GST registration; default: same state, not registered. */
+  tax?: { intraState: boolean; creatorGstRegistered: boolean };
 }
 
 export const DEFAULT_PAYMENT: OrderPaymentInfo = { method: 'CARD', methodLabel: 'Visa •••• 1111' };
@@ -370,6 +383,7 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     throw new TransitionError(422, 'INVALID_DELIVERY_DAYS', 'Delivery must be between 1 and 60 days.');
 
   const f = calculateFees(input.priceCents, input.fees);
+  const taxes = calculateTaxes(f, input.tax ?? { intraState: true, creatorGstRegistered: false });
   const at = ctx.now.toISOString();
   const order: MockOrder = {
     id: input.id,
@@ -391,7 +405,8 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     reviewBy: null,
     revisionCount: 0,
     version: 0,
-    payment: { status: 'AUTHORIZED', amountCents: f.brandTotalCents, refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
+    taxes,
+    payment: { status: 'AUTHORIZED', amountCents: brandTotalCents({ ...f, taxes }), refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
     createdAt: at,
     updatedAt: at,
   };

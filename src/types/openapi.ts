@@ -1865,6 +1865,10 @@ export interface components {
         /** @enum {string} */
         BrandIndustry: "BEAUTY" | "FASHION" | "FOOD" | "HEALTH" | "HOME" | "TECH" | "TRAVEL" | "FINANCE" | "EDUCATION" | "PETS" | "AGENCY" | "OTHER";
         BrandProfile: {
+            /** @description Indian state code (place of supply for GST), e.g. KA (v2.3). */
+            state: string | null;
+            /** @description GSTIN for input tax credit on our invoices (v2.3). */
+            gstin: string | null;
             companyName: string | null;
             website: string | null;
             logoUrl: string | null;
@@ -1883,6 +1887,10 @@ export interface components {
             logoUrl?: string | null;
             industry: components["schemas"]["BrandIndustry"];
             country: string;
+            /** @description Indian state code; required when country is IN (v2.3). */
+            state?: string | null;
+            /** @description Optional; its first two digits must match the state (v2.3). */
+            gstin?: string | null;
         };
         PresignRequest: {
             /** @enum {string} */
@@ -2157,6 +2165,21 @@ export interface components {
              * @example 1000
              */
             instantFeeMinCents: number;
+            /**
+             * @description Indian financial year (April to March) for the tax totals (v2.3).
+             * @example 2026-27
+             */
+            financialYear: string;
+            /**
+             * Format: int64
+             * @description TDS u/s 194-O withheld this financial year (v2.3).
+             */
+            tdsWithheldCents: number;
+            /**
+             * Format: int64
+             * @description TCS u/s 52 withheld this financial year (v2.3).
+             */
+            tcsWithheldCents: number;
         };
         /**
          * @description How the brand paid through Razorpay. WALLET_APP is a third-party wallet (Paytm, PhonePe, Amazon Pay, MobiKwik).
@@ -2227,6 +2250,8 @@ export interface components {
             ifsc?: string | null;
             /** @description UPI ID, e.g. name@okaxis. */
             vpa?: string | null;
+            /** @description Optional (v2.3). Registered creators charge 18% GST and have 0.5% TCS withheld; the GSTIN must contain the PAN. */
+            gstin?: string | null;
         };
         PayoutAccount: {
             /** @enum {string} */
@@ -2244,6 +2269,7 @@ export interface components {
             failureReason: string | null;
             /** Format: date-time */
             updatedAt: string;
+            gstin: string | null;
         };
         WithdrawalRequest: {
             /** Format: int64 */
@@ -2523,6 +2549,43 @@ export interface components {
             currency: string;
             /** @example 72 */
             acceptWindowHours: number;
+            taxes: components["schemas"]["OrderTaxes"];
+        };
+        /**
+         * @description Indian taxes on the order (v2.3), fixed at checkout like the fees. GST 18% on the platform's fees
+         *     (CGST 9% + SGST 9% when intraState, else IGST 18%); 18% GST on the price for GST-registered creators;
+         *     TDS u/s 194-O 0.1% and, for GST-registered creators, TCS u/s 52 CGST Act 0.5%, both on the price and
+         *     withheld from the creator.
+         */
+        OrderTaxes: {
+            /** @description The brand's state is the platform's state. */
+            intraState: boolean;
+            creatorGstRegistered: boolean;
+            /**
+             * Format: int64
+             * @description GST on the creator's price (brand pays; passed to the creator).
+             */
+            creatorGstCents: number;
+            /**
+             * Format: int64
+             * @description GST on the brand's service fee.
+             */
+            brandFeeGstCents: number;
+            /**
+             * Format: int64
+             * @description GST on the creator's commission (deducted from the creator).
+             */
+            creatorFeeGstCents: number;
+            /**
+             * Format: int64
+             * @description TDS u/s 194-O withheld from the creator.
+             */
+            tdsCents: number;
+            /**
+             * Format: int64
+             * @description TCS u/s 52 CGST Act withheld from GST-registered creators.
+             */
+            tcsCents: number;
         };
         /** @description The other side of an order, as shown on it. */
         OrderParty: {
@@ -2540,16 +2603,17 @@ export interface components {
             brandFeeCents: number;
             /**
              * Format: int64
-             * @description What the brand pays.
+             * @description What the brand pays: price + creator GST + service fee + GST on it.
              */
             totalCents: number;
             /** Format: int64 */
             creatorFeeCents: number;
             /**
              * Format: int64
-             * @description What the creator receives (price − creator fee).
+             * @description What the creator receives: price + their GST − commission − GST on it − TDS − TCS.
              */
             creatorPayoutCents: number;
+            taxes: components["schemas"]["OrderTaxes"];
         };
         OrderPayment: {
             status: components["schemas"]["PaymentStatus"];
@@ -2672,6 +2736,14 @@ export interface components {
             allowedActions: components["schemas"]["OrderAction"][];
             /** Format: date-time */
             serverTime: string;
+            /** @description For tax invoices (v2.3): GSTINs and the place of supply. */
+            taxParties: {
+                platformGstin: string;
+                platformState: string;
+                brandGstin: string | null;
+                brandState: string | null;
+                creatorGstin: string | null;
+            };
         };
         ReasonRequest: {
             reason?: string | null;

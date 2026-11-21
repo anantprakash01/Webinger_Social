@@ -1,4 +1,5 @@
 /** Read-mostly sections of the order detail page. */
+import { BrandMoneyLines, CreatorMoneyLines } from './TaxLines';
 import { formatWhen } from '@/lib/dates';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -21,21 +22,11 @@ export function MoneyCard({ o, role }: { o: OrderDetail; role: Role }) {
   return (
     <Card title="Payment">
       <dl className="money">
-        <dt>Price</dt>
-        <dd>{formatMoney(m.priceCents, m.currency)}</dd>
         {role === 'CREATOR' ? (
-          <>
-            <dt>Platform fee</dt>
-            <dd>−{formatMoney(m.creatorFeeCents, m.currency)}</dd>
-            <dt className="money__total">You receive</dt>
-            <dd className="money__total">{formatMoney(m.creatorPayoutCents, m.currency)}</dd>
-          </>
+          <CreatorMoneyLines priceCents={m.priceCents} creatorFeeCents={m.creatorFeeCents} creatorPayoutCents={m.creatorPayoutCents} taxes={m.taxes} currency={m.currency} />
         ) : (
           <>
-            <dt>Service fee</dt>
-            <dd>{formatMoney(m.brandFeeCents, m.currency)}</dd>
-            <dt className="money__total">Total</dt>
-            <dd className="money__total">{formatMoney(m.totalCents, m.currency)}</dd>
+            <BrandMoneyLines priceLabel="Price" priceCents={m.priceCents} brandFeeCents={m.brandFeeCents} totalCents={m.totalCents} taxes={m.taxes} currency={m.currency} />
             <dt className="muted">Creator receives</dt>
             <dd className="muted">{formatMoney(m.creatorPayoutCents, m.currency)}</dd>
             <dt className="muted">Paid with</dt>

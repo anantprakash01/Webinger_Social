@@ -1,3 +1,4 @@
+import { creatorPayoutCents } from '../orderMachine';
 import { VALID_PAYOUT_ACCOUNT } from '@/test/payments';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api, currentUser } from '@/api/client';
@@ -208,7 +209,7 @@ describe('dashboard stats (FR-70)', () => {
     // Week 4 seed: Leo has one completed order (paid), two accepted ones (in escrow) and one pending.
     const leoId = getDb().users.find((u) => u.email === 'creator@demo.test')!.id;
     const mine = getDb().orders.filter((o) => o.creatorUserId === leoId);
-    const payout = (o: (typeof mine)[number]) => o.priceCents - o.creatorFeeCents;
+    const payout = (o: (typeof mine)[number]) => creatorPayoutCents(o);
     const completed = mine.filter((o) => o.status === 'COMPLETED').reduce((sum, o) => sum + payout(o), 0);
     const escrow = mine.filter((o) => ['IN_PROGRESS', 'DELIVERED', 'DISPUTED'].includes(o.status)).reduce((sum, o) => sum + payout(o), 0);
     expect(completed).toBeGreaterThan(0);

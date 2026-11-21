@@ -3,6 +3,7 @@
  * Every status change goes through orderMachine.ts (rule 9.5.2), so states, guards, error codes,
  * payment states and ledger entries match the backend's OrderStateMachine.
  */
+import { calculateTaxes, NO_TAXES, PLATFORM_GSTIN, PLATFORM_STATE } from '../tax';
 import {
   briefSchema,
   deliverRequestSchema,
@@ -24,6 +25,8 @@ import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type Revi
 import { fail, ok, parseBody, type Handler } from '../http';
 import {
   ACCEPT_WINDOW_HOURS,
+  brandTotalCents,
+  creatorPayoutCents,
   allowedEvents,
   createOrder as machineCreate,
   dueSystemEvent,
@@ -163,9 +166,10 @@ function toSummary(o: MockOrder, user: UserRow): OrderSummary {
       currency: o.currency,
       priceCents: o.priceCents,
       brandFeeCents: o.brandFeeCents,
-      totalCents: o.priceCents + o.brandFeeCents,
+      totalCents: brandTotalCents(o),
       creatorFeeCents: o.creatorFeeCents,
-      creatorPayoutCents: o.priceCents - o.creatorFeeCents,
+      creatorPayoutCents: creatorPayoutCents(o),
+      taxes: o.taxes ?? NO_TAXES,
     },
     nextDeadline,
     late: o.status === 'IN_PROGRESS' && !!o.dueAt && new Date(o.dueAt).getTime() < t,
@@ -213,6 +217,7 @@ function toDetail(o: MockOrder, user: UserRow): OrderDetail {
     review: review ? toReview(review) : null,
     allowedActions: actionsFor(o, user),
     serverTime: now().toISOString(),
+    taxParties: taxPartiesOf(o),
   };
 }
 
@@ -238,14 +243,16 @@ export const quoteOrder: Handler = ({ req, user }) => {
     priceCents = q.priceCents!;
   }
   const f = calculateFees(priceCents, feeConfig());
+  const taxes = calculateTaxes(f, taxContext(user, creator.userId));
   const body: OrderQuote = {
     kind: pkg ? 'PACKAGE' : 'CUSTOM_OFFER',
     creator: creatorParty(creator.userId),
     package: pkg,
     priceCents: f.priceCents,
     brandFeeCents: f.brandFeeCents,
-    totalCents: f.brandTotalCents,
+    totalCents: brandTotalCents({ ...f, taxes }),
     brandFeeBps: feeConfig().brandFeeBps,
+    taxes,
     currency: CURRENCY,
     acceptWindowHours: ACCEPT_WINDOW_HOURS,
   };
@@ -273,6 +280,32 @@ export const createOrder: Handler = ({ req, user }) => {
   return ok(placeOrder(user, creator, line, normaliseBrief(body.brief), body.payment), 201);
 };
 
+/**
+ * GST place of supply and the creator's registration (v2.3): intra-state when the brand's state is the
+ * platform's (or unknown); GST-registered when the creator's payout account has a GSTIN.
+ */
+export function taxContext(brand: UserRow | undefined, creatorUserId: string) {
+  const db = getDb();
+  const state = brand ? db.brandProfiles.find((b) => b.userId === brand.id)?.state : null;
+  return {
+    intraState: !state || state === PLATFORM_STATE,
+    creatorGstRegistered: !!db.payoutAccounts.find((a) => a.creatorId === creatorUserId && a.status === 'VERIFIED')?.gstin,
+  };
+}
+
+/** GSTINs and states for tax invoices (v2.3). */
+function taxPartiesOf(o: MockOrder) {
+  const db = getDb();
+  const b = db.brandProfiles.find((x) => x.userId === o.brandUserId);
+  return {
+    platformGstin: PLATFORM_GSTIN,
+    platformState: PLATFORM_STATE,
+    brandGstin: b?.gstin ?? null,
+    brandState: b?.state ?? null,
+    creatorGstin: o.taxes?.creatorGstRegistered ? (db.payoutAccounts.find((a) => a.creatorId === o.creatorUserId)?.gstin ?? null) : null,
+  };
+}
+
 export interface OrderLine {
   kind: 'PACKAGE' | 'CUSTOM_OFFER' | 'CAMPAIGN';
   packageId: string | null;
@@ -294,9 +327,11 @@ export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: Orde
   const db = getDb();
   // v2.0: verify the payment (Razorpay proof or wallet balance) for the exact total before the order exists.
   const fees = feeConfig();
-  const pay = resolveOrderPayment(user, payment, calculateFees(line.priceCents, fees).brandTotalCents);
+  const tax = taxContext(user, creator.userId);
+  const f = calculateFees(line.priceCents, fees);
+  const pay = resolveOrderPayment(user, payment, brandTotalCents({ ...f, taxes: calculateTaxes(f, tax) }));
   const { order, event } = machineCreate(
-    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees, payment: pay.info },
+    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees, payment: pay.info, tax },
     actorOf(user),
     { now: now() },
   );
@@ -313,7 +348,7 @@ export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: Orde
     status: order.status,
     priceCents: order.priceCents,
     brandFeeCents: order.brandFeeCents,
-    totalCents: order.priceCents + order.brandFeeCents,
+    totalCents: brandTotalCents(order),
     currency: order.currency,
     acceptBy: order.acceptBy,
   };

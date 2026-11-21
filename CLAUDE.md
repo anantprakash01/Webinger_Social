@@ -672,9 +672,9 @@ Built in this order; tick when done.
 - GST-registered creators (optional GSTIN on the payout account) charge 18% GST on their price; the brand pays it and it is passed to the creator.
 - TDS u/s 194-O: 0.1% of the creator's price (5% without PAN; PAN is mandatory here), withheld at release.
 - TCS u/s 52 CGST Act: 0.5% of the creator's price for GST-registered creators, withheld at release.
-- [ ] Brand GSTIN + state on the company profile; creator GSTIN on the payout account.
-- [ ] Checkout, order and receipts show the tax lines; receipts become tax invoices; payout statements show TDS/TCS.
-- [ ] Ledger: GST_PAYABLE and TAX_WITHHELD accounts; every transaction still sums to zero.
+- [x] Brand GSTIN + state on the company profile; creator GSTIN on the payout account.
+- [x] Checkout, order and receipts show the tax lines; receipts become tax invoices; payout statements show TDS/TCS.
+- [x] Ledger: GST_PAYABLE and TAX_WITHHELD accounts; every transaction still sums to zero.
 
 **Phase C — collaboration flow**
 - [ ] Package add-ons: paid ad-usage rights, rush delivery, extra revision.

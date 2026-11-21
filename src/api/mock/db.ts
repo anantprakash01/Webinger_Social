@@ -320,6 +320,8 @@ export interface PayoutAccountRow {
   accountNumber: string | null;
   ifsc: string | null;
   vpa: string | null;
+  /** Optional GSTIN (v2.3): registered creators charge GST and have TCS withheld. */
+  gstin?: string | null;
   status: 'VERIFYING' | 'VERIFIED' | 'FAILED';
   failureReason: string | null;
   updatedAt: string;
@@ -345,6 +347,9 @@ export interface BrandProfileRow {
   country: string | null;
   plan: 'FREE';
   stripeCustomerId: string | null;
+  /** Indian state code (GST place of supply) and optional GSTIN (v2.3). */
+  state?: string | null;
+  gstin?: string | null;
 }
 
 export interface OneTimeTokenRow {
@@ -463,7 +468,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -513,7 +518,7 @@ function seed(now: Date): Db {
     reviews: [...creators.reviews, ...orders.reviews],
     brandProfiles: [
       // Websites use example.com (reserved for documentation), so they never point at a real company.
-      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'IN', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
+      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'IN', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay', state: 'KA', gstin: '29AAACS1234B1Z9' },
       { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House', website: null, logoUrl: null, industry: 'FOOD', country: 'GB', plan: 'FREE', stripeCustomerId: null },
       ...engagement.brandProfiles,
     ],

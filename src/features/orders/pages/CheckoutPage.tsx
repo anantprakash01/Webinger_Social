@@ -4,6 +4,7 @@
  * charged, until the creator accepts. Methods: UPI, card, netbanking, wallet app via Razorpay (v2.0).
  * The fee summary comes from the server's quote, so it always matches what is charged.
  */
+import { BrandMoneyLines } from '../components/TaxLines';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -218,12 +219,7 @@ function Summary({ q, offerMode, priceReady }: { q: OrderQuote; offerMode: boole
           </div>
         )}
         <dl className="money">
-          <dt>{offerMode ? 'Offer price' : 'Package price'}</dt>
-          <dd>{priceReady ? formatMoney(q.priceCents, q.currency) : '—'}</dd>
-          <dt>Service fee ({q.brandFeeBps / 100}%)</dt>
-          <dd>{priceReady ? formatMoney(q.brandFeeCents, q.currency) : '—'}</dd>
-          <dt className="money__total">Total</dt>
-          <dd className="money__total">{priceReady ? formatMoney(q.totalCents, q.currency) : 'Enter a price'}</dd>
+          <BrandMoneyLines priceLabel={offerMode ? 'Offer price' : 'Package price'} priceCents={q.priceCents} brandFeeCents={q.brandFeeCents} brandFeeBps={q.brandFeeBps} totalCents={q.totalCents} taxes={q.taxes} currency={q.currency} ready={priceReady} />
         </dl>
       </div>
     </Card>

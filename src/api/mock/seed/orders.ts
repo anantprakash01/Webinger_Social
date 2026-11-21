@@ -7,7 +7,7 @@
  */
 import { DEFAULT_FEES } from '../fees';
 import type { LedgerEntry } from '../ledger';
-import { createOrder, transition, type Actor, type MockOrder, type OrderEvent, type OrderEventInput } from '../orderMachine';
+import { brandTotalCents, createOrder, transition, type Actor, type MockOrder, type OrderEvent, type OrderEventInput } from '../orderMachine';
 import type { DeliveryRow, DisputeRow, OrderBriefRow, OrderInfoRow, PackageRow, ReviewRow } from '../db';
 import { prng, type SeedResult } from './creators';
 
@@ -212,7 +212,7 @@ export function seedOrders(now: Date, ids: { brandId: string; brandName: string;
         const refund = 'refundCents' in event ? event.refundCents : 0;
         Object.assign(d, {
           status: 'RESOLVED',
-          resolution: e.type === 'ADMIN_RELEASE' ? 'RELEASE' : refund === order.priceCents + order.brandFeeCents ? 'FULL_REFUND' : 'PARTIAL_REFUND',
+          resolution: e.type === 'ADMIN_RELEASE' ? 'RELEASE' : refund === brandTotalCents(order) ? 'FULL_REFUND' : 'PARTIAL_REFUND',
           refundCents: e.type === 'ADMIN_RELEASE' ? 0 : refund,
           resolvedBy: ids.adminId,
           resolvedAt: at(hoursAgo).toISOString(),

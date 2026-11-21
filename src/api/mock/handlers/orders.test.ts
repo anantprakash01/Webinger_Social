@@ -72,13 +72,15 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
     const k = leoPackage();
     const q = await api.orders.quote({ packageId: k.id });
     expect(q).toMatchObject({ kind: 'PACKAGE', priceCents: k.priceCents, brandFeeCents: Math.floor((k.priceCents * 1000 + 5000) / 10000), brandFeeBps: 1000, acceptWindowHours: 72 });
-    expect(q.totalCents).toBe(q.priceCents + q.brandFeeCents);
+    // Phase B: 18% GST on the service fee (Leo is not GST-registered, so no GST on the price).
+    expect(q.taxes).toMatchObject({ intraState: true, creatorGstRegistered: false, creatorGstCents: 0, brandFeeGstCents: Math.floor((q.brandFeeCents * 1800 + 5000) / 10000) });
+    expect(q.totalCents).toBe(q.priceCents + q.brandFeeCents + q.taxes.brandFeeGstCents);
     expect(q.creator.username).toBe('leomakes');
   });
 
   it('quotes a custom offer and refuses bad input', async () => {
     await asBrand();
-    expect((await api.orders.quote({ creatorUsername: 'leomakes', priceCents: 1_000_000 })).totalCents).toBe(1_100_000);
+    expect((await api.orders.quote({ creatorUsername: 'leomakes', priceCents: 1_000_000 })).totalCents).toBe(1_118_000);
     await expectError(api.orders.quote({ creatorUsername: 'leomakes', priceCents: 49_999 }), 422);
     await expectError(api.orders.quote({ creatorUsername: 'nobody' , priceCents: 1_000_000 }), 404);
     await asLeo();
@@ -89,7 +91,7 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
     const id = await placeOrder();
     const o = await api.orders.get(id);
     expect(o).toMatchObject({ status: 'PENDING_ACCEPTANCE', kind: 'PACKAGE', title: leoPackage().title, payment: { status: 'AUTHORIZED', refundedCents: 0 } });
-    expect(o.money.totalCents).toBe(o.money.priceCents + o.money.brandFeeCents);
+    expect(o.money.totalCents).toBe(o.money.priceCents + o.money.brandFeeCents + o.money.taxes.brandFeeGstCents + o.money.taxes.creatorGstCents);
     expect(new Date(o.acceptBy).getTime() - new Date(o.createdAt).getTime()).toBe(72 * 3_600_000);
     expect(o.allowedActions.sort()).toEqual(['CANCEL', 'EDIT_BRIEF']);
     expect(accountBalance(getDb().ledgerEntries, 'ESCROW', id)).toBe(0); // nothing captured yet
@@ -98,10 +100,10 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
   it('places a custom offer (FR-31)', async () => {
     await asBrand();
     const res = await api.orders.create(
-      { creatorUsername: 'leomakes', offer: { title: 'Two-part series', platform: 'TIKTOK', deliverables: ['2 TikToks'], priceCents: 50_000, deliveryDays: 10 }, brief, payment: await payTotal(55_000) },
+      { creatorUsername: 'leomakes', offer: { title: 'Two-part series', platform: 'TIKTOK', deliverables: ['2 TikToks'], priceCents: 50_000, deliveryDays: 10 }, brief, payment: await payTotal(55_900) },
       key(),
     );
-    expect(res.totalCents).toBe(55_000);
+    expect(res.totalCents).toBe(55_900); // ₹500 + ₹50 fee + ₹9 GST on the fee
     expect(await api.orders.get(res.orderId)).toMatchObject({ kind: 'CUSTOM_OFFER', title: 'Two-part series', packageId: null, deliverables: ['2 TikToks'], deliveryDays: 10 });
   });
 

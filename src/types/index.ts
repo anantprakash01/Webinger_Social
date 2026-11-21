@@ -116,6 +116,7 @@ export type Payout = S['Payout'];
 export type PayoutOverview = S['PayoutOverview'];
 // Payments and payouts (v2.0, India / Razorpay)
 export type PaymentMethodType = S['PaymentMethodType'];
+export type OrderTaxes = S['OrderTaxes'];
 export type PaymentSession = S['PaymentSession'];
 export type OrderPaymentInput = S['OrderPaymentInput'];
 export type SavedPaymentMethod = S['SavedPaymentMethod'];

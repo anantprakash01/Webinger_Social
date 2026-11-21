@@ -112,9 +112,9 @@ test('a new creator gets booked and paid', async ({ page }) => {
   await page.getByRole('button', { name: /^Buy / }).first().click();
   await page.waitForURL('**/checkout/**');
   await page.getByLabel('What do you need?').fill('Unbox our stoneware mug set in your morning routine, natural light please.');
-  // Pay by UPI: Saltbay's saved UPI ID is preselected. ₹10,000 + 10% fee = ₹11,000.
+  // Pay by UPI: Saltbay's saved UPI ID is preselected. ₹10,000 + 10% fee + 18% GST on the fee = ₹11,180.
   await expect(page.getByRole('radio', { name: 'saltbay@okhdfcbank' })).toBeChecked();
-  await page.getByRole('button', { name: 'Pay ₹11,000.00' }).click();
+  await page.getByRole('button', { name: 'Pay ₹11,180.00' }).click();
   await expect(page.getByText('Order placed.')).toBeVisible();
   const orderPath = new URL(page.url()).pathname;
   const orderId = orderPath.split('/').pop()!;
@@ -135,25 +135,25 @@ test('a new creator gets booked and paid', async ({ page }) => {
   const before = cents(await availableBalance(page).innerText());
   await signOut(page);
 
-  // 6. The brand approves (FR-35): ₹10,000 − 15% = ₹8,500 goes to the creator's balance (FR-61, FR-63).
+  // 6. The brand approves (FR-35): ₹10,000 − 15% − 18% GST on it − 0.1% TDS = ₹8,220 goes to the creator's balance.
   await logIn(page, 'brand@demo.test');
   await page.goto(orderPath);
   await page.getByRole('button', { name: /Approve and pay/ }).click();
   await page.getByRole('dialog', { name: 'Approve and release payment?' }).getByRole('button', { name: 'Approve and pay' }).click();
-  await expect(page.getByText(/₹8,500\.00 was released/)).toBeVisible();
+  await expect(page.getByText(/₹8,220\.00 was released/)).toBeVisible();
   await signOut(page);
 
   await logIn(page, CREATOR.email, PASSWORD);
   await page.goto('/creator/payouts');
-  await expect.poll(async () => cents(await availableBalance(page).innerText())).toBe(before + 850_000);
-  await expect(page.getByText('+₹8,500.00')).toBeVisible();
+  await expect.poll(async () => cents(await availableBalance(page).innerText())).toBe(before + 822_000);
+  await expect(page.getByText('+₹8,220.00')).toBeVisible();
 
   // 7. Withdraw now, instantly (1% fee): the money goes to the verified ICICI account.
   await page.getByRole('button', { name: /Withdraw now/ }).click();
   const w = page.getByRole('dialog', { name: 'Withdraw now' });
-  await w.getByLabel('Amount (₹)').fill('8500');
+  await w.getByLabel('Amount (₹)').fill('8220');
   await w.getByText('Instant', { exact: true }).click();
-  await expect(w.getByText('₹8,415.00').first()).toBeVisible();
+  await expect(w.getByText('₹8,137.80').first()).toBeVisible();
   await w.getByRole('button', { name: /^Withdraw/ }).click();
   await expect(page.getByText(/Instant withdrawal to ICICI Bank •••• 4321/)).toBeVisible();
 });

@@ -65,8 +65,20 @@ export const payoutAccountInputSchema = z
     accountNumber: z.string().trim().nullable().optional(),
     ifsc: z.string().trim().toUpperCase().nullable().optional(),
     vpa: z.string().trim().toLowerCase().nullable().optional(),
+    /** v2.3: optional; must contain the PAN (characters 3–12). */
+    gstin: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .transform((s) => s || null)
+      .nullable()
+      .optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.gstin) {
+      if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v.gstin)) ctx.addIssue({ code: 'custom', path: ['gstin'], message: 'Enter a 15-character GSTIN, e.g. 29ABCDE1234F1Z5.' });
+      else if (v.gstin.slice(2, 12) !== v.pan.trim().toUpperCase()) ctx.addIssue({ code: 'custom', path: ['gstin'], message: 'This GSTIN does not belong to the PAN above.' });
+    }
     if (v.method === 'BANK_ACCOUNT') {
       if (!/^[0-9]{9,18}$/.test(v.accountNumber ?? '')) ctx.addIssue({ code: 'custom', path: ['accountNumber'], message: 'Account numbers are 9 to 18 digits.' });
       if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(v.ifsc ?? '')) ctx.addIssue({ code: 'custom', path: ['ifsc'], message: 'Enter the 11-character IFSC, e.g. HDFC0001234.' });

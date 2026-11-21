@@ -29,11 +29,15 @@ export function seedPayments(
       const bank = BANKS[h % BANKS.length];
       const name = users.find((u) => u.id === p.userId)?.name ?? p.displayName;
       const upi = h % 4 === 0 && p.userId !== ids.leoId;
+      // About one in five creators is GST-registered (invented GSTINs: state 27 + their PAN).
+      const pan = `ABCPE${String(1000 + (h % 9000))}F`;
+      const gstin = h % 5 === 1 && p.userId !== ids.leoId ? `27${pan}1Z${'ABCDEFGHJK'[h % 10]}` : null;
       return {
+        gstin,
         creatorId: p.userId,
         method: upi ? 'UPI' : 'BANK_ACCOUNT',
         holderName: name,
-        pan: `ABCPE${String(1000 + (h % 9000))}F`,
+        pan,
         accountNumber: upi ? null : `50100${String(h).padStart(10, '0').slice(-10)}`,
         ifsc: upi ? null : `${bank.prefix}0${String(100_000 + (h % 900_000))}`,
         vpa: upi ? `${(p.username ?? 'creator').replace(/[^a-z0-9.]/g, '')}@okaxis` : null,

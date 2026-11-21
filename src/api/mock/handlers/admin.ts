@@ -8,7 +8,8 @@ import type { AdminDispute, AdminSummary, AdminUser, AdminUserPage, AuditPage, F
 import { audit } from '../audit';
 import { getDb, now, ulid, type DisputeRow, type FeeConfigRow, type ReportRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
-import { brandTotalCents } from '../orderMachine';
+import { brandTotalCents, creatorPayoutCents } from '../orderMachine';
+import { NO_TAXES } from '../tax';
 import { decideVetting, toCreatorMe } from './creatorMe';
 import { applyTransition } from './orders';
 import { issueSession, revokeAllSessions } from './session';
@@ -125,7 +126,8 @@ function toDispute(d: DisputeRow): AdminDispute {
       brandFeeCents: o.brandFeeCents,
       totalCents: brandTotalCents(o),
       creatorFeeCents: o.creatorFeeCents,
-      creatorPayoutCents: o.priceCents - o.creatorFeeCents,
+      creatorPayoutCents: creatorPayoutCents(o),
+      taxes: o.taxes ?? NO_TAXES,
     },
     reason: d.reason,
     status: d.status,

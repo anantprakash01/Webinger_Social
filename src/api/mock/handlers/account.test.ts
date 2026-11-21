@@ -1,3 +1,4 @@
+import { brandTotalCents } from '../orderMachine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api } from '@/api/client';
 import { getDb } from '../db';
@@ -30,7 +31,7 @@ describe('FR-37: admin cancels an accepted order', () => {
     expect((await api.orders.get(order.id)).allowedActions).toContain('ADMIN_CANCEL');
     await expectError(api.admin.cancelOrder(order.id, 'short', key()), 422);
     const r = await api.admin.cancelOrder(order.id, 'Creator stopped responding for a week.', key());
-    const total = order.priceCents + order.brandFeeCents;
+    const total = brandTotalCents(order);
     expect(r).toMatchObject({ status: 'REFUNDED', refundedCents: total });
     expect(accountBalance(getDb().ledgerEntries, 'ESCROW', order.id)).toBe(0);
     expect(findUnbalancedTxns(getDb().ledgerEntries)).toEqual([]);

@@ -11,6 +11,8 @@ import { CreatorPhoto } from '@/components/creator';
 import { OrderStatusBadge, timeAgo } from '@/components/status';
 import { Badge, Button, Card, Drawer, EmptyState, ErrorState, FormError, Input, PageHeader, PageSkeleton, Pagination, SearchInput, Select, TextArea, cx, type Tone } from '@/components/ui';
 import { calculateFees } from '@/api/mock/fees';
+import { brandTotalCents, creatorPayoutCents } from '@/api/mock/orderMachine';
+import { calculateTaxes } from '@/api/mock/tax';
 import { formatMoney } from '@/lib/money';
 import { useOrders, useSimulateTime } from '@/features/orders/hooks';
 import { STATUS_FILTERS } from '@/features/orders/format';
@@ -239,6 +241,7 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
   const err = (n: number) => (Number.isNaN(n) ? 'Whole basis points only.' : n > MAX_FEE_BPS ? `At most ${MAX_FEE_BPS} bps.` : undefined);
   const valid = !err(bn) && !err(cn);
   const example = valid ? calculateFees(1_000_000, { brandFeeBps: bn, creatorFeeBps: cn }) : null;
+  const exampleTax = example ? calculateTaxes(example, { intraState: true, creatorGstRegistered: false }) : null;
   return (
     <form
       className="form-stack"
@@ -255,8 +258,9 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
       </div>
       {example && (
         <div className="payment-line small">
-          On a ₹10,000 package: brand pays <strong>{formatMoney(example.brandTotalCents)}</strong>, creator receives <strong>{formatMoney(example.creatorPayoutCents)}</strong>, platform keeps{' '}
-          <strong>{formatMoney(example.platformGrossCents)}</strong> before Razorpay fees.
+          On a ₹10,000 package (creator not GST-registered): brand pays <strong>{formatMoney(brandTotalCents({ ...example, taxes: exampleTax! }))}</strong> incl. 18% GST on the fee, creator
+          receives <strong>{formatMoney(creatorPayoutCents({ ...example, taxes: exampleTax! }))}</strong> after GST on the commission and 0.1% TDS, platform keeps{' '}
+          <strong>{formatMoney(example.platformGrossCents)}</strong> in fees before Razorpay charges.
         </div>
       )}
       <FormError>{update.error?.message}</FormError>

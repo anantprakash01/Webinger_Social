@@ -4,7 +4,7 @@
  * live mock produce identical wording; the backend sends the same events through Spring events.
  */
 import { formatMoney } from '@/lib/money';
-import type { MockOrder, OrderEvent } from './orderMachine';
+import { brandTotalCents, creatorPayoutCents, type MockOrder, type OrderEvent } from './orderMachine';
 
 export interface NotificationDraft {
   userId: string;
@@ -23,8 +23,8 @@ export interface OrderNames {
 const first = (name: string) => name.split(' ')[0];
 
 export function orderEventNotifications(e: OrderEvent, o: MockOrder, n: OrderNames): NotificationDraft[] {
-  const payout = formatMoney(o.priceCents - o.creatorFeeCents, o.currency);
-  const total = formatMoney(o.priceCents + o.brandFeeCents, o.currency);
+  const payout = formatMoney(creatorPayoutCents(o), o.currency);
+  const total = formatMoney(brandTotalCents(o), o.currency);
   const toBrand = (title: string, body: string): NotificationDraft => ({ userId: o.brandUserId, type: 'ORDER_EVENT', title, body, link: `/brand/orders/${o.id}` });
   const toCreator = (title: string, body: string): NotificationDraft => ({ userId: o.creatorUserId, type: 'ORDER_EVENT', title, body, link: `/creator/orders/${o.id}` });
   const byBrand = e.actorId === o.brandUserId;

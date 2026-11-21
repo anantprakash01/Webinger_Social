@@ -11,13 +11,13 @@ import type { PayoutAccount, PayoutAccountInput } from '@/types';
 import { payoutAccountInputSchema, type PayoutAccountFormInput } from '../schemas';
 import { useSavePayoutAccount } from '../hooks';
 
-const FIELDS = ['pan', 'holderName', 'method', 'accountNumber', 'ifsc', 'vpa'] as const;
+const FIELDS = ['pan', 'holderName', 'method', 'accountNumber', 'ifsc', 'vpa', 'gstin'] as const;
 
 export function PayoutAccountForm({ current, defaultName, onSaved }: { current: PayoutAccount | null; defaultName: string; onSaved?: (a: PayoutAccount) => void }) {
   const save = useSavePayoutAccount();
   const { register, handleSubmit, control, setValue, setError, formState } = useForm<PayoutAccountFormInput, unknown, PayoutAccountInput>({
     resolver: zodResolver(payoutAccountInputSchema),
-    defaultValues: { pan: '', holderName: current?.holderName ?? defaultName, method: current?.method ?? 'BANK_ACCOUNT', accountNumber: '', ifsc: '', vpa: '' },
+    defaultValues: { pan: '', holderName: current?.holderName ?? defaultName, method: current?.method ?? 'BANK_ACCOUNT', accountNumber: '', ifsc: '', vpa: '', gstin: current?.gstin ?? '' },
   });
   const method = useWatch({ control, name: 'method' });
   const errors = formState.errors;
@@ -54,6 +54,15 @@ export function PayoutAccountForm({ current, defaultName, onSaved }: { current: 
       ) : (
         <Input label="UPI ID" placeholder="yourname@okaxis" autoComplete="off" error={errors.vpa?.message} {...register('vpa')} />
       )}
+      <Input
+        label="GSTIN (optional)"
+        placeholder="27ABCDE1234F1Z5"
+        maxLength={15}
+        style={{ textTransform: 'uppercase' }}
+        hint="Only if you're registered for GST. We then add 18% GST to your price for brands and withhold 0.5% TCS (u/s 52) along with 0.1% TDS (u/s 194-O)."
+        error={errors.gstin?.message}
+        {...register('gstin')}
+      />
       {isMock && <p className="small muted">Demo: any valid details are verified at once; account number 000000000 or a UPI ID ending in @fail is rejected.</p>}
       <p className="small muted">We send ₹1 to check bank accounts (it isn't taken back). Details are held by our payment partner Razorpay.</p>
       {current?.status === 'FAILED' && <FormError>{current.failureReason}</FormError>}

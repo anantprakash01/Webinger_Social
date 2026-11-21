@@ -55,7 +55,7 @@ describe('campaigns (FR-40 – FR-42)', () => {
     expect(await screen.findByRole('heading', { name: 'Hire Leo' })).toBeInTheDocument();
     // Pays with the brand's saved UPI ID (preselected).
     expect(await screen.findByRole('radio', { name: 'saltbay@okhdfcbank' })).toBeChecked();
-    await user.click(screen.getByRole('button', { name: /Hire and pay ₹22,000\.00/ }));
+    await user.click(screen.getByRole('button', { name: /Hire and pay ₹22,360\.00/ }));
     expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Winter cosy edit' })).toBeInTheDocument();
     const order = getDb().orders.find((o) => o.campaignId === campaignId)!;

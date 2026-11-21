@@ -123,6 +123,23 @@ export function PayoutsPage() {
         </Card>
       </div>
 
+      <Card title={`Tax withheld · FY ${data.financialYear}`}>
+        <dl className="money">
+          <dt>TDS u/s 194-O (0.1%)</dt>
+          <dd>{formatMoney(data.tdsWithheldCents, cur)}</dd>
+          {(data.tcsWithheldCents > 0 || account?.gstin) && (
+            <>
+              <dt>TCS u/s 52 CGST (0.5%)</dt>
+              <dd>{formatMoney(data.tcsWithheldCents, cur)}</dd>
+            </>
+          )}
+        </dl>
+        <p className="small muted">
+          Deposited against your PAN every month. TDS shows in Form 26AS / AIS and can be claimed in your income-tax return
+          {account?.gstin ? '; TCS is credited to your GST cash ledger' : ''}. Earnings above are after these deductions.
+        </p>
+      </Card>
+
       <Card title="Earnings from orders">
         {data.transfers.length === 0 ? (
           <EmptyState title="No earnings yet">When a brand approves your delivery, your share moves here.</EmptyState>
