@@ -53,6 +53,11 @@ Orders (Week 4): as `brand@demo.test`, press **Buy** on `/u/leomakes` and pay wi
 `creator@demo.test` with **View as** to accept and deliver, then back to the brand to approve and review.
 The demo bar's **Simulate time** moves the clock forward so orders expire or auto-approve after 72 hours.
 
+Campaigns, chat and notifications (Week 5): as the brand, post a campaign at `/brand/campaigns` and hire an
+applicant (**Accept and pay**). As a creator, browse and apply at `/creator/campaigns`. Every order has a chat
+(**Message** on the order page); emails and phone numbers are hidden until the order is completed. The bell
+and the badges show unread notifications and messages; they update live (polling in mock mode, STOMP later).
+
 "Continue with Google" signs in as an invented Google identity. Emails (verification, password reset)
 appear in a **demo inbox** box on the relevant screens. The demo bar inside the app has **View as** and
 **Reset demo data**. Demo state lives in `sessionStorage`, so it survives a refresh but not a new tab.
@@ -75,4 +80,7 @@ src/components/ui/        Webinger base components
 src/lib/                  money formatting, catalog (platforms, niches, locations), form error mapping
 src/styles/               Webinger tokens and styles; index.ts imports them in order
 src/features/orders/      checkout, order lists, order detail, reviews
+src/features/campaigns/   campaigns, applications, application checkout
+src/features/chat/        messages, notifications, contact masking
+src/lib/realtime.ts       STOMP client (http) or poller (mock) behind one subscribe() API
 ```

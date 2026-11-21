@@ -36,6 +36,17 @@ import {
   type OrderQuote,
   type Review,
   type ReviewRequest,
+  type Application,
+  type ApplicationInput,
+  type BrandStats,
+  type CampaignDetail,
+  type CampaignInput,
+  type CampaignPage,
+  type ChatMessage,
+  type ConversationList,
+  type MarkReadRequest,
+  type MessageList,
+  type NotificationPage,
   type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
@@ -92,6 +103,8 @@ export function onSessionEvent(fn: (e: SessionEvent) => void) {
 const emit = (e: SessionEvent) => listeners.forEach((fn) => fn(e));
 
 export const currentUser = (): Me | null => session?.user ?? null;
+/** For the STOMP connection header (http mode). Never stored anywhere else. */
+export const accessToken = (): string | null => session?.accessToken ?? null;
 
 function setSession(s: AuthSession, type: 'signedIn' | 'userChanged') {
   session = { accessToken: s.accessToken, user: s.user };
@@ -365,6 +378,8 @@ export const api = {
   brands: {
     getProfile: () => request<BrandProfile>('GET', '/brands/me/profile'),
     updateProfile: (body: BrandProfileInput) => request<BrandProfile>('PUT', '/brands/me/profile', { body }),
+    /** FR-71 dashboard numbers. */
+    stats: () => request<BrandStats>('GET', '/brands/me/stats'),
   },
   payouts: {
     /** FR-62: Stripe Connect Express onboarding. The browser then goes to `url`. */
@@ -406,8 +421,35 @@ export const api = {
     review: (id: string, body: ReviewRequest) => request<Review>('POST', `/orders/${enc(id)}/review`, { body }),
     reply: (reviewId: string, reply: string) => request<Review>('POST', `/reviews/${enc(reviewId)}/reply`, { body: { reply } }),
   },
+  /** Campaigns (Week 5, FR-40 – FR-42). */
+  campaigns: {
+    list: (q: { platform?: string; niche?: string; applied?: boolean; page?: number; size?: number } = {}) => request<CampaignPage>('GET', '/campaigns', { query: q }),
+    create: (body: CampaignInput) => request<CampaignDetail>('POST', '/campaigns', { body }),
+    get: (id: string) => request<CampaignDetail>('GET', `/campaigns/${enc(id)}`),
+    close: (id: string) => request<CampaignDetail>('POST', `/campaigns/${enc(id)}/close`),
+    apply: (id: string, body: ApplicationInput) => request<Application>('POST', `/campaigns/${enc(id)}/applications`, { body }),
+    /** FR-42: places an order (card authorised), so it carries an Idempotency-Key. */
+    acceptApplication: (id: string, note: string | null, idempotencyKey: string) =>
+      request<OrderCreated>('POST', `/applications/${enc(id)}/accept`, { body: { note }, headers: { 'idempotency-key': idempotencyKey } }),
+    rejectApplication: (id: string) => request<Application>('POST', `/applications/${enc(id)}/reject`, { body: {} }),
+    withdrawApplication: (id: string) => request<Application>('POST', `/applications/${enc(id)}/withdraw`),
+  },
+  /** Chat (FR-50, FR-51). Live updates arrive through src/lib/realtime.ts. */
+  chat: {
+    conversations: () => request<ConversationList>('GET', '/conversations'),
+    messages: (id: string, after?: string) => request<MessageList>('GET', `/conversations/${enc(id)}/messages`, { query: { after } }),
+    send: (id: string, body: string) => request<ChatMessage>('POST', `/conversations/${enc(id)}/messages`, { body: { body } }),
+    markRead: (id: string) => request<void>('POST', `/conversations/${enc(id)}/read`),
+  },
+  /** Notifications (FR-52). */
+  notifications: {
+    list: (q: { unreadOnly?: boolean; page?: number; size?: number } = {}) => request<NotificationPage>('GET', '/notifications', { query: q }),
+    markRead: (body: MarkReadRequest) => request<void>('POST', '/notifications/read', { body }),
+  },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {
+    /** Stand-in for the STOMP broker: events for this user since `since`. */
+    pollRealtime: (since?: string) => request<{ events: Array<{ topic: string; at: string; payload: unknown }>; serverTime: string }>('GET', '/dev/realtime/poll', { query: { since } }),
     /** "Simulate time": moves the mock clock forward and runs expiry / auto-approve. */
     simulateTime: (hours: number) => request<SimulatedTime>('POST', '/dev/simulate-time', { body: { hours }, auth: false }),
     clock: () => request<{ offsetHours: number; now: string }>('GET', '/dev/clock', { auth: false }),

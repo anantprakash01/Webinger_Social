@@ -25,6 +25,8 @@ export interface NavItem {
   icon: IconType;
   /** Shown in the phone bottom bar. Keep four per role; the rest go in "More". */
   primary?: boolean;
+  /** Unread count shown next to the item. */
+  badge?: 'messages' | 'notifications';
 }
 
 export const NAV: Record<Role, NavItem[]> = {
@@ -33,8 +35,8 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/search', label: 'Find creators', icon: LuSearch, primary: true },
     { to: '/brand/orders', label: 'Orders', icon: LuShoppingBag, primary: true },
     { to: '/brand/campaigns', label: 'Campaigns', icon: LuMegaphone },
-    { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true },
-    { to: '/notifications', label: 'Notifications', icon: LuBell },
+    { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true, badge: 'messages' },
+    { to: '/notifications', label: 'Notifications', icon: LuBell, badge: 'notifications' },
     { to: '/brand/profile', label: 'Company profile', icon: LuBuilding2 },
   ],
   CREATOR: [
@@ -42,9 +44,9 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/creator/orders', label: 'Orders', icon: LuShoppingBag, primary: true },
     { to: '/creator/packages', label: 'Packages', icon: LuPackage },
     { to: '/creator/campaigns', label: 'Campaigns', icon: LuMegaphone },
-    { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true },
+    { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true, badge: 'messages' },
     { to: '/creator/payouts', label: 'Payouts', icon: LuWallet, primary: true },
-    { to: '/notifications', label: 'Notifications', icon: LuBell },
+    { to: '/notifications', label: 'Notifications', icon: LuBell, badge: 'notifications' },
     { to: '/creator/onboarding', label: 'My profile', icon: LuUserRound },
   ],
   ADMIN: [

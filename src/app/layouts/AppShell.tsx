@@ -4,7 +4,7 @@
  */
 import { Suspense, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LuEllipsis, LuLogOut, LuX } from 'react-icons/lu';
+import { LuBell, LuEllipsis, LuLogOut, LuX } from 'react-icons/lu';
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
 import { Logo } from '@/components/Logo';
@@ -13,6 +13,7 @@ import { VerifyEmailBanner } from '@/features/auth/components/VerifyEmailGate';
 import { VettingBanner } from '@/features/creators/components/VettingBanner';
 import { useDemoVettingDecision } from '@/features/creators/workspaceHooks';
 import { useDemoClock, useSimulateTime } from '@/features/orders/hooks';
+import { useRealtimeSync, useUnreadCounts } from '@/features/chat/hooks';
 import { ROLE_LABEL } from '@/types';
 import { homePath, useAuth } from '../AuthContext';
 import { AREA_TITLE, NAV } from '../nav';
@@ -26,6 +27,9 @@ export function AppShell() {
   const [moreOpenOn, setMoreOpenOn] = useState<string | null>(null);
   const moreOpen = moreOpenOn === location.pathname;
   const setMoreOpen = (open: boolean) => setMoreOpenOn(open ? location.pathname : null);
+  // Week 5: unread badges, kept fresh by the real-time feed (STOMP, or the mock's poller).
+  const counts = useUnreadCounts();
+  useRealtimeSync(!!user);
 
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   const items = NAV[user.role];
@@ -45,13 +49,17 @@ export function AppShell() {
       </a>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar__brand">
-          <Logo height={24} />
+          <div className="sidebar__brand-row">
+            <Logo height={24} />
+            <Bell count={counts.notifications} />
+          </div>
           <div className="sidebar__area">{AREA_TITLE[user.role]}</div>
         </div>
         <nav className="sidebar__nav">
-          {items.map(({ to, label, icon: Icon }) => (
+          {items.map(({ to, label, icon: Icon, badge }) => (
             <NavLink key={to} to={to} className="navlink">
               <Icon size={18} aria-hidden /> {label}
+              {badge && <CountBadge n={counts[badge]} />}
             </NavLink>
           ))}
         </nav>
@@ -74,6 +82,7 @@ export function AppShell() {
         <header className="topbar">
           <Logo height={20} />
           <span className="spacer" />
+          <Bell count={counts.notifications} />
           <Avatar name={user.name} size={32} />
         </header>
         <VerifyEmailBanner />
@@ -90,15 +99,21 @@ export function AppShell() {
       </div>
 
       <nav className="bottomnav" aria-label="Main navigation">
-        {primary.map(({ to, label, icon: Icon }) => (
+        {primary.map(({ to, label, icon: Icon, badge }) => (
           <NavLink key={to} to={to}>
-            <Icon size={22} aria-hidden />
+            <span className="bottomnav__icon">
+              <Icon size={22} aria-hidden />
+              {badge && <CountBadge n={counts[badge]} dot />}
+            </span>
             {label}
           </NavLink>
         ))}
         {hasMore && (
           <button type="button" onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
-            <LuEllipsis size={22} aria-hidden />
+            <span className="bottomnav__icon">
+              <LuEllipsis size={22} aria-hidden />
+              <CountBadge n={items.filter((i) => !i.primary && i.badge).reduce((s, i) => s + counts[i.badge!], 0)} dot />
+            </span>
             More
           </button>
         )}
@@ -115,9 +130,10 @@ export function AppShell() {
                 <LuX size={20} />
               </Button>
             </div>
-            {items.map(({ to, label, icon: Icon }) => (
+            {items.map(({ to, label, icon: Icon, badge }) => (
               <NavLink key={to} to={to} className="navlink">
                 <Icon size={18} aria-hidden /> {label}
+                {badge && <CountBadge n={counts[badge]} />}
               </NavLink>
             ))}
             <Button variant="secondary" onClick={() => void signOut()} style={{ marginTop: 12 }}>
@@ -238,5 +254,30 @@ function DemoClock() {
         </span>
       )}
     </span>
+  );
+}
+
+/** Unread count next to a nav item; `dot` = compact version on the phone bottom bar. */
+function CountBadge({ n, dot }: { n: number; dot?: boolean }) {
+  if (n <= 0) return null;
+  return (
+    <span className={dot ? 'count-badge count-badge--dot' : 'count-badge'}>
+      <span aria-hidden>{n > 99 ? '99+' : n}</span>
+      <span className="sr-only">, {n} unread</span>
+    </span>
+  );
+}
+
+/** FR-52 bell: opens the inbox, shows the unread count. */
+function Bell({ count }: { count: number }) {
+  return (
+    <NavLink to="/notifications" className="bell" aria-label={count ? `Notifications, ${count} unread` : 'Notifications'}>
+      <LuBell size={20} aria-hidden />
+      {count > 0 && (
+        <span className="bell__count" aria-hidden>
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </NavLink>
   );
 }

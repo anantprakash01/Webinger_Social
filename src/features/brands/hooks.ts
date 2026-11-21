@@ -17,3 +17,6 @@ export function useSaveBrandProfile() {
     },
   });
 }
+
+/** FR-71 dashboard numbers. */
+export const useBrandStats = () => useQuery({ queryKey: ['brands', 'me', 'stats'], queryFn: () => api.brands.stats() });

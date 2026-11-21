@@ -13,6 +13,7 @@ import type { MockOrder, OrderEvent } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
 import { seedCreators } from './seed/creators';
 import { seedOrders } from './seed/orders';
+import { seedEngagement } from './seed/engagement';
 
 /* ---------- Row types ---------- */
 
@@ -110,7 +111,7 @@ export interface ReviewRow {
 /** What was bought, copied at checkout like the fees (the package may change later). */
 export interface OrderInfoRow {
   orderId: string;
-  kind: 'PACKAGE' | 'CUSTOM_OFFER';
+  kind: 'PACKAGE' | 'CUSTOM_OFFER' | 'CAMPAIGN';
   title: string;
   platform: Platform;
   deliverables: string[];
@@ -159,6 +160,65 @@ export interface DisputeRow {
   resolvedBy: string | null;
   createdAt: string;
   resolvedAt: string | null;
+}
+
+export interface CampaignRow {
+  id: string;
+  brandUserId: string;
+  title: string;
+  brief: string;
+  platforms: Platform[];
+  niches: Niche[];
+  deliverables: string[];
+  budgetPerCreatorCents: number;
+  /** YYYY-MM-DD, last day to apply. */
+  deadline: string;
+  status: 'OPEN' | 'CLOSED';
+  createdAt: string;
+  closedAt: string | null;
+}
+
+export interface ApplicationRow {
+  id: string;
+  campaignId: string;
+  creatorUserId: string;
+  pitch: string;
+  priceCents: number;
+  deliveryDays: number;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
+  orderId: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+/** One per order (FR-50). */
+export interface ConversationRow {
+  id: string;
+  orderId: string;
+  createdAt: string;
+}
+
+export interface MessageRow {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  body: string;
+  /** Contact details were hidden before storing (FR-51). */
+  masked: boolean;
+  createdAt: string;
+  /** Read by the other participant. */
+  readAt: string | null;
+}
+
+export interface NotificationRow {
+  id: string;
+  userId: string;
+  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED';
+  title: string;
+  body: string;
+  link: string | null;
+  readAt: string | null;
+  createdAt: string;
 }
 
 /** Stored responses for Idempotency-Key retries. */
@@ -240,6 +300,11 @@ export interface Db {
   deliveries: DeliveryRow[];
   disputes: DisputeRow[];
   idempotency: IdempotencyRow[];
+  campaigns: CampaignRow[];
+  applications: ApplicationRow[];
+  conversations: ConversationRow[];
+  messages: MessageRow[];
+  notifications: NotificationRow[];
 }
 
 /* ---------- Helpers ---------- */
@@ -284,7 +349,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -312,6 +377,7 @@ function seed(now: Date): Db {
   });
   const creators = seedCreators(now, { leoId: SEED_IDS.creator, newCreatorId: SEED_IDS.newCreator, passwordHash: pw });
   const orders = seedOrders(now, { brandId: SEED_IDS.brand, brandName: 'Saltbay Supply Co.', leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators);
+  const engagement = seedEngagement(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, passwordHash: pw }, creators, orders);
   return {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
@@ -322,6 +388,7 @@ function seed(now: Date): Db {
       user(SEED_IDS.admin, 'admin@demo.test', 'Sam Ortega', 'ADMIN'),
       user(SEED_IDS.unverifiedBrand, 'unverified@demo.test', 'Theo Lindqvist', 'BRAND', false),
       ...creators.users,
+      ...engagement.users,
     ],
     creatorProfiles: creators.creatorProfiles,
     socialAccounts: creators.socialAccounts,
@@ -332,6 +399,7 @@ function seed(now: Date): Db {
       // Websites use example.com (reserved for documentation), so they never point at a real company.
       { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'US', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
       { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House', website: null, logoUrl: null, industry: 'FOOD', country: 'GB', plan: 'FREE', stripeCustomerId: null },
+      ...engagement.brandProfiles,
     ],
     oneTimeTokens: [],
     accessTokens: [],
@@ -346,6 +414,11 @@ function seed(now: Date): Db {
     deliveries: orders.deliveries,
     disputes: orders.disputes,
     idempotency: [],
+    campaigns: engagement.campaigns,
+    applications: engagement.applications,
+    conversations: engagement.conversations,
+    messages: engagement.messages,
+    notifications: engagement.notifications,
   };
 }
 

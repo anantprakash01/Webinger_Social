@@ -736,6 +736,250 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaigns — a brand's own, or open campaigns for creators (FR-40, FR-41)
+         * @description Brands see their own campaigns in every status. Creators see OPEN campaigns whose deadline has not passed, newest first.
+         */
+        get: operations["listCampaigns"];
+        put?: never;
+        /**
+         * Post a campaign (FR-40)
+         * @description Verified brands only.
+         */
+        post: operations["createCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One campaign. The owning brand also sees every application; a creator sees their own. */
+        get: operations["getCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a campaign to new applications
+         * @description Pending applications are declined. Orders already created are not affected.
+         */
+        post: operations["closeCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{id}/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply to a campaign with a pitch and a price (FR-41)
+         * @description Approved creators only, one application per campaign (409 ALREADY_APPLIED), while the campaign is open.
+         */
+        post: operations["applyToCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an application — creates an order (FR-42)
+         * @description Same flow as buying a package: the brand's card is authorised for the applied price plus the brand fee, and the creator still has 72 hours to accept the order. The campaign brief becomes the order brief.
+         */
+        post: operations["acceptApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline an application */
+        post: operations["rejectApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creator withdraws a pending application */
+        post: operations["withdrawApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The viewer's conversations, one per order (FR-50), most recent activity first */
+        get: operations["listConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Messages in a conversation, oldest first
+         * @description Pass `after` (a message id) to get only newer messages. Live updates arrive on the STOMP topic /user/queue/messages.
+         */
+        get: operations["listMessages"];
+        put?: never;
+        /**
+         * Send a message
+         * @description Until the order is COMPLETED, email addresses and phone numbers are replaced with [email hidden] / [phone hidden] before the message is stored (FR-51).
+         */
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every message in the conversation as read by the viewer */
+        post: operations["markConversationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The viewer's notifications, newest first (FR-52) */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark notifications as read */
+        post: operations["markNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brand dashboard numbers (FR-71) */
+        get: operations["getMyBrandStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators/{username}": {
         parameters: {
             query?: never;
@@ -1111,6 +1355,178 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        /**
+         * @description OPEN until the brand closes it. Creators can apply only while OPEN and before the deadline.
+         * @enum {string}
+         */
+        CampaignStatus: "OPEN" | "CLOSED";
+        CampaignInput: {
+            title: string;
+            brief: string;
+            platforms: components["schemas"]["Platform"][];
+            niches: components["schemas"]["Niche"][];
+            deliverables: string[];
+            /** Format: int64 */
+            budgetPerCreatorCents: number;
+            /**
+             * Format: date
+             * @description Last day to apply; 1 to 180 days from today.
+             */
+            deadline: string;
+        };
+        CampaignSummary: {
+            id: components["schemas"]["Ulid"];
+            brand: components["schemas"]["OrderParty"];
+            title: string;
+            platforms: components["schemas"]["Platform"][];
+            niches: components["schemas"]["Niche"][];
+            /** Format: int64 */
+            budgetPerCreatorCents: number;
+            currency: string;
+            /** Format: date */
+            deadline: string;
+            status: components["schemas"]["CampaignStatus"];
+            /** @description OPEN and the deadline has not passed. */
+            open: boolean;
+            /** @description Shown to the owning brand; 0 for creators. */
+            applicationCount: number;
+            /** @description The creator's own application, if any. */
+            myApplication: components["schemas"]["Application"] | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CampaignDetail: components["schemas"]["CampaignSummary"] & {
+            brief: string;
+            deliverables: string[];
+            /** @description Owning brand only; empty for creators. */
+            applications: components["schemas"]["Application"][];
+        };
+        CampaignPage: components["schemas"]["PageMeta"] & {
+            content: components["schemas"]["CampaignSummary"][];
+        };
+        /** @enum {string} */
+        ApplicationStatus: "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
+        Application: {
+            id: components["schemas"]["Ulid"];
+            campaignId: components["schemas"]["Ulid"];
+            /** @description Includes the creator's reach for the brand to compare. */
+            creator: components["schemas"]["OrderParty"];
+            reach?: components["schemas"]["PlatformReach"] | null;
+            ratingAvg?: number | null;
+            ratingCount?: number;
+            pitch: string;
+            /** Format: int64 */
+            priceCents: number;
+            currency: string;
+            deliveryDays: number;
+            status: components["schemas"]["ApplicationStatus"];
+            /** @description Set once accepted. */
+            orderId: components["schemas"]["Ulid"] | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ApplicationInput: {
+            pitch: string;
+            /** Format: int64 */
+            priceCents: number;
+            deliveryDays: number;
+        };
+        ApplicationAcceptRequest: {
+            /** @description Extra instructions added to the campaign brief. */
+            note?: string | null;
+        };
+        ChatMessage: {
+            id: components["schemas"]["Ulid"];
+            conversationId: components["schemas"]["Ulid"];
+            mine: boolean;
+            senderName: string;
+            body: string;
+            /** @description Contact details were hidden (FR-51). */
+            masked: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MessageList: {
+            messages: components["schemas"]["ChatMessage"][];
+            /** @description True until the order is completed (FR-51). */
+            contactsHidden: boolean;
+            /** Format: date-time */
+            serverTime: string;
+        };
+        MessageInput: {
+            body: string;
+        };
+        Conversation: {
+            id: components["schemas"]["Ulid"];
+            orderId: components["schemas"]["Ulid"];
+            orderTitle: string;
+            orderStatus: components["schemas"]["OrderStatus"];
+            counterparty: components["schemas"]["OrderParty"];
+            lastMessage: components["schemas"]["ChatMessage"] | null;
+            unreadCount: number;
+            contactsHidden: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ConversationList: {
+            content: components["schemas"]["Conversation"][];
+            unreadTotal: number;
+        };
+        /** @enum {string} */
+        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED";
+        Notification: {
+            id: components["schemas"]["Ulid"];
+            type: components["schemas"]["NotificationType"];
+            title: string;
+            body: string;
+            /** @description App path to open, e.g. /brand/orders/{id}. */
+            link: string | null;
+            read: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        NotificationPage: components["schemas"]["PageMeta"] & {
+            content: components["schemas"]["Notification"][];
+            unreadCount: number;
+        };
+        /** @description Either ids, or all = true. */
+        MarkReadRequest: {
+            ids?: components["schemas"]["Ulid"][];
+            all?: boolean;
+        };
+        DeliveredPost: {
+            orderId: components["schemas"]["Ulid"];
+            orderTitle: string;
+            creatorName: string;
+            url: string;
+            /** Format: date-time */
+            deliveredAt: string;
+        };
+        BrandStats: {
+            currency: string;
+            /**
+             * Format: int64
+             * @description Charged to the brand's card, minus refunds.
+             */
+            spentCents: number;
+            /**
+             * Format: int64
+             * @description Charged and held until approval.
+             */
+            inEscrowCents: number;
+            /**
+             * Format: int64
+             * @description Card holds on orders not yet accepted (not charged).
+             */
+            authorisedCents: number;
+            ordersByStatus: {
+                [key: string]: number;
+            };
+            /** @description Live post links from deliveries, newest first (FR-71). */
+            deliveredPosts: components["schemas"]["DeliveredPost"][];
+            openCampaigns: number;
+            pendingApplications: number;
+        };
         /** @enum {string} */
         OrderStatus: "PENDING_ACCEPTANCE" | "IN_PROGRESS" | "DELIVERED" | "COMPLETED" | "DISPUTED" | "REFUNDED" | "CLOSED";
         /** @enum {string} */
@@ -1126,7 +1542,7 @@ export interface components {
          */
         OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY";
         /** @enum {string} */
-        OrderKind: "PACKAGE" | "CUSTOM_OFFER";
+        OrderKind: "PACKAGE" | "CUSTOM_OFFER" | "CAMPAIGN";
         ShippingAddress: {
             name: string;
             line1: string;
@@ -1306,6 +1722,9 @@ export interface components {
         };
         OrderDetail: components["schemas"]["OrderSummary"] & {
             packageId: components["schemas"]["Ulid"] | null;
+            campaignId: components["schemas"]["Ulid"] | null;
+            /** @description The order's chat thread (FR-50). */
+            conversationId: components["schemas"]["Ulid"];
             /** @description What was bought (snapshot). */
             deliverables: string[];
             deliveryDays: number;
@@ -2526,6 +2945,383 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listCampaigns: {
+        parameters: {
+            query?: {
+                platform?: components["schemas"]["Platform"];
+                niche?: components["schemas"]["Niche"];
+                /** @description Creators only: campaigns they applied to, in any status. */
+                applied?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignPage"];
+                };
+            };
+        };
+    };
+    createCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    closeCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    applyToCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationInput"];
+            };
+        };
+        responses: {
+            /** @description Applied. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    acceptApplication: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApplicationAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Order placed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderCreated"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    rejectApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    withdrawApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationList"];
+                };
+            };
+        };
+    };
+    listMessages: {
+        parameters: {
+            query?: {
+                after?: components["schemas"]["Ulid"];
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageInput"];
+            };
+        };
+        responses: {
+            /** @description Sent. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    markConversationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                unreadOnly?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+        };
+    };
+    markNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Marked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getMyBrandStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandStats"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     getCreatorProfile: {

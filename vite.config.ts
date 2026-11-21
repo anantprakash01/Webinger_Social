@@ -27,7 +27,7 @@ export default defineConfig({
   server: {
     port: 5173,
     // Phase 1: forward API calls to Spring Boot running on 8080
-    proxy: { '/api': 'http://localhost:8080' },
+    proxy: { '/api': 'http://localhost:8080', '/ws': { target: 'ws://localhost:8080', ws: true } },
   },
   test: {
     environment: 'jsdom',
@@ -37,6 +37,6 @@ export default defineConfig({
     testTimeout: 20_000,
     // Page-level jsdom tests are CPU-heavy; running every file at once starved them and made them flaky.
     maxWorkers: 4,
-    env: { VITE_API_MODE: 'mock', VITE_MOCK_DELAY_MS: '0' },
+    env: { VITE_API_MODE: 'mock', VITE_MOCK_DELAY_MS: '0', VITE_REALTIME_POLL_MS: '500' },
   },
 });

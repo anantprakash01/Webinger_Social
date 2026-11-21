@@ -202,7 +202,8 @@ export interface CheckoutFormValues {
 }
 
 export interface CheckoutFormOutput {
-  brief: z.output<typeof briefSchema>;
+  /** Null when the form has no brief (accepting a campaign application reuses the campaign brief). */
+  brief: z.output<typeof briefSchema> | null;
   offer: z.output<typeof customOfferSchema> | null;
   card: { number: string } | null;
 }
@@ -237,7 +238,8 @@ export function formFieldFor(apiField: string): keyof CheckoutFormValues | null 
   return null;
 }
 
-export function makeCheckoutSchema(opts: { offer: boolean; card: boolean }) {
+export function makeCheckoutSchema(opts: { offer: boolean; card: boolean; brief?: boolean }) {
+  const withBrief = opts.brief ?? true;
   return z
     .object({
       requirements: z.string(),
@@ -275,7 +277,7 @@ export function makeCheckoutSchema(opts: { offer: boolean; card: boolean }) {
         links: v.linksText.split('\n').map((s) => s.trim()).filter(Boolean),
         referenceFiles: v.referenceFiles,
       });
-      if (!brief.success) {
+      if (withBrief && !brief.success) {
         for (const i of brief.error.issues) {
           const key = BRIEF_FIELD[String(i.path[i.path.length - 1])] ?? BRIEF_FIELD[String(i.path[0])];
           if (key) report(key, i.message);
@@ -296,8 +298,8 @@ export function makeCheckoutSchema(opts: { offer: boolean; card: boolean }) {
         else for (const i of r.error.issues) report(CARD_FIELD[String(i.path[0])], i.message);
       }
 
-      if (failed || !brief.success) return z.NEVER;
-      return { brief: brief.data, offer, card };
+      if (failed || (withBrief && !brief.success)) return z.NEVER;
+      return { brief: withBrief && brief.success ? brief.data : null, offer, card };
     });
 }
 
