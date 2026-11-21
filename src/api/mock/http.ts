@@ -30,6 +30,8 @@ export interface HandlerContext {
   params: Record<string, string>;
   /** Present on routes marked `auth: true`; on `auth: 'optional'` routes only when a token was sent. */
   user: UserRow;
+  /** Set during a read-only admin impersonation session (FR-82): the admin's name. */
+  impersonatedBy?: string | null;
 }
 
 export type Handler = (ctx: HandlerContext) => MockResponse;

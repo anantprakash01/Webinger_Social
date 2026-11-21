@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      injectRegister: 'script-defer',
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
@@ -32,6 +33,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Playwright specs in e2e/ run with `npm run test:e2e`, not Vitest.
+    include: ['src/**/*.test.{ts,tsx}'],
     css: false,
     // Page-level tests type, wait for debounces and render whole pages; 5 s is too tight for them.
     testTimeout: 20_000,

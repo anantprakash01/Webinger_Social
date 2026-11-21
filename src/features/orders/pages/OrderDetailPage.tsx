@@ -1,6 +1,6 @@
-/** /brand/orders/:id and /creator/orders/:id — one order, as the viewer sees it. */
+/** /brand/orders/:id, /creator/orders/:id and /admin/orders/:id — one order, as the viewer sees it. */
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuCircleCheck, LuMessageSquare } from 'react-icons/lu';
+import { LuArrowLeft, LuCircleCheck, LuMessageSquare, LuReceipt } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
 import { CreatorPhoto } from '@/components/creator';
 import { OrderStatusBadge } from '@/components/status';
@@ -10,6 +10,7 @@ import { ActionPanel } from '../components/ActionPanel';
 import { BriefCard, Deliveries, MoneyCard, OrderedCard, ReviewCard, Timeline } from '../components/OrderParts';
 import { shortId } from '../format';
 import { useOrder } from '../hooks';
+import { receiptKind } from './ReceiptPage';
 
 export function OrderDetailPage() {
   const { id = '' } = useParams();
@@ -18,7 +19,7 @@ export function OrderDetailPage() {
   const placed = (location.state as { placed?: boolean } | null)?.placed;
   const { data: o, isPending, isError, error, refetch, dataUpdatedAt } = useOrder(id);
   const role = user?.role ?? 'BRAND';
-  const listPath = role === 'CREATOR' ? '/creator/orders' : '/brand/orders';
+  const listPath = role === 'CREATOR' ? '/creator/orders' : role === 'ADMIN' ? '/admin/orders' : '/brand/orders';
 
   if (isPending) return <PageSkeleton />;
   if (isError) {
@@ -42,6 +43,7 @@ export function OrderDetailPage() {
   }
 
   const party = o.counterparty;
+  const isAdmin = role === 'ADMIN';
   return (
     <div className="page order">
       <Link to={listPath} className="link small back-link">
@@ -71,7 +73,7 @@ export function OrderDetailPage() {
         <div className="order__party">
           <CreatorPhoto name={party.name} url={party.photoUrl} seed={party.username ?? party.name} size={40} className="order__photo" />
           <div style={{ minWidth: 0 }}>
-            <div className="list__meta">{role === 'CREATOR' ? 'Brand' : 'Creator'}</div>
+            <div className="list__meta">{role === 'CREATOR' ? 'Brand' : isAdmin ? `Creator · brand ${o.brand.name}` : 'Creator'}</div>
             {party.username ? (
               <Link to={`/u/${party.username}`} className="list__title link">
                 {party.name}
@@ -80,7 +82,12 @@ export function OrderDetailPage() {
               <div className="list__title">{party.name}</div>
             )}
           </div>
-          {o.conversationId && (
+          {receiptKind(o, role) && (
+            <Link to={`/receipts/${o.id}`} className="btn btn--secondary btn--sm">
+              <LuReceipt aria-hidden /> Receipt
+            </Link>
+          )}
+          {o.conversationId && !isAdmin && (
             <Link to={`/messages/${o.conversationId}`} className="btn btn--secondary btn--sm">
               <LuMessageSquare aria-hidden /> Message
             </Link>

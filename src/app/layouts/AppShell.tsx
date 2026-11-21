@@ -4,7 +4,7 @@
  */
 import { Suspense, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LuBell, LuEllipsis, LuLogOut, LuX } from 'react-icons/lu';
+import { LuBell, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-icons/lu';
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
 import { Logo } from '@/components/Logo';
@@ -14,6 +14,7 @@ import { VettingBanner } from '@/features/creators/components/VettingBanner';
 import { useDemoVettingDecision } from '@/features/creators/workspaceHooks';
 import { useDemoClock, useSimulateTime } from '@/features/orders/hooks';
 import { useRealtimeSync, useUnreadCounts } from '@/features/chat/hooks';
+import { useAdminSummary } from '@/features/admin/hooks';
 import { ROLE_LABEL } from '@/types';
 import { homePath, useAuth } from '../AuthContext';
 import { AREA_TITLE, NAV } from '../nav';
@@ -28,7 +29,10 @@ export function AppShell() {
   const moreOpen = moreOpenOn === location.pathname;
   const setMoreOpen = (open: boolean) => setMoreOpenOn(open ? location.pathname : null);
   // Week 5: unread badges, kept fresh by the real-time feed (STOMP, or the mock's poller).
-  const counts = useUnreadCounts();
+  const unread = useUnreadCounts();
+  // Week 6: admin queues show how many items wait in vetting, disputes and reports.
+  const summary = useAdminSummary().data;
+  const counts = { ...unread, vetting: summary?.pendingVetting ?? 0, disputes: summary?.openDisputes ?? 0, reports: summary?.openReports ?? 0 };
   useRealtimeSync(!!user);
 
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
@@ -85,6 +89,7 @@ export function AppShell() {
           <Bell count={counts.notifications} />
           <Avatar name={user.name} size={32} />
         </header>
+        {user.impersonatedBy && <ImpersonationBanner name={user.name} admin={user.impersonatedBy} />}
         <VerifyEmailBanner />
         {user.role === 'CREATOR' && user.creator && !location.pathname.startsWith('/creator/onboarding') && !location.pathname.startsWith('/creator/dashboard') && (
           <div className="shell-banner">
@@ -200,8 +205,8 @@ function DemoBar() {
 }
 
 /**
- * Mock-only stand-in for the admin vetting queue (FR-80 arrives in Week 6): lets a reviewer see
- * a profile in review get approved or rejected without switching accounts.
+ * Mock-only shortcut to the admin vetting queue (FR-80): lets a reviewer see a profile in review
+ * get approved or rejected without switching accounts.
  */
 function DemoVetting() {
   const decide = useDemoVettingDecision();
@@ -254,6 +259,33 @@ function DemoClock() {
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * FR-82: shown while an admin views the app as another user. Every change is refused by the API
+ * (403 READ_ONLY_IMPERSONATION); "Stop viewing" restores the admin's own session.
+ */
+function ImpersonationBanner({ name, admin }: { name: string; admin: string }) {
+  const navigate = useNavigate();
+  return (
+    <div className="impersonation" role="status">
+      <LuEye aria-hidden />
+      <span>
+        <strong>Viewing as {name}</strong> (read-only) — signed in as {admin}.
+      </span>
+      <span className="spacer" />
+      <button
+        type="button"
+        className="btn btn--secondary btn--sm"
+        onClick={async () => {
+          await api.auth.stopImpersonating();
+          navigate('/admin/users', { replace: true });
+        }}
+      >
+        Stop viewing
+      </button>
+    </div>
   );
 }
 

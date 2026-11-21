@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DEFAULT_FEES } from '@/api/mock/fees';
+import { useCurrentFees } from '@/features/admin/hooks';
 import { Badge, Button, Card, ErrorState, FormError, Input, PageHeader, PageSkeleton } from '@/components/ui';
 import { ImagePicker } from '@/features/files/components/ImagePicker';
 import { INDUSTRIES, LOCATIONS } from '@/lib/catalog';
@@ -13,6 +14,7 @@ import { brandProfileFormSchema, type BrandProfileForm } from '../schemas';
 
 export function BrandProfilePage() {
   const { data, isPending, isError, error, refetch } = useBrandProfile();
+  const fees = useCurrentFees().data ?? DEFAULT_FEES;
   if (isPending) return <PageSkeleton />;
   if (isError) return <div className="page"><ErrorState message={error.message} onRetry={() => void refetch()} /></div>;
   return (
@@ -27,7 +29,7 @@ export function BrandProfilePage() {
             <Badge tone="info">Free</Badge>
           </div>
           <p className="small muted">
-            A {DEFAULT_FEES.brandFeeBps / 100}% service fee is added at checkout. Pro and Premium plans with lower fees are coming later.
+            A {fees.brandFeeBps / 100}% service fee is added at checkout. Pro and Premium plans with lower fees are coming later.
           </p>
         </Card>
       </div>

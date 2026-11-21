@@ -8,6 +8,7 @@ import { LuArrowLeft, LuEyeOff, LuSend } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
 import { CreatorPhoto } from '@/components/creator';
 import { OrderStatusBadge } from '@/components/status';
+import { ReportButton } from '@/features/admin/components/ReportButton';
 import { Badge, Button, Card, EmptyState, ErrorState, FormError, PageHeader, cx } from '@/components/ui';
 import type { Conversation } from '@/types';
 import { MAX_MESSAGE_LENGTH } from '../schemas';
@@ -167,6 +168,7 @@ function Thread({ c }: { c: Conversation }) {
                 <span className="bubble__meta">
                   {m.masked && <Badge>Contact hidden</Badge>}
                   <time dateTime={m.createdAt}>{timeLabel(m.createdAt)}</time>
+                  {!m.mine && <ReportButton targetType="MESSAGE" targetId={m.id} what={`message from ${m.senderName}`} />}
                 </span>
               </li>
             ))}

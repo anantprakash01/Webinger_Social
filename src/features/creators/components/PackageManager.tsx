@@ -11,6 +11,7 @@ import { Badge, Button, Drawer, EmptyState, FormError, Input, TextArea } from '@
 import { PLATFORMS } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { DEFAULT_FEES } from '@/api/mock/fees';
+import { useCurrentFees } from '@/features/admin/hooks';
 import { applyServerErrors } from '@/lib/forms';
 import type { CreatorMe, OwnPackage, PackageInput } from '@/types';
 import { MAX_ACTIVE_PACKAGES, packageFormSchema, type PackageForm } from '../schemas';
@@ -110,6 +111,8 @@ export function PackageManager({ me }: { me: CreatorMe }) {
 function PackageEditor({ pkg, defaultPlatform, activeFull, onDone }: { pkg: OwnPackage | null; defaultPlatform: PackageInput['platform']; activeFull: boolean; onDone: () => void }) {
   const create = useCreatePackage();
   const update = useUpdatePackage();
+  // Copy only: the server copies the real fees onto each order at checkout.
+  const fees = useCurrentFees().data ?? DEFAULT_FEES;
   const [formError, setFormError] = useState<string | null>(null);
   const { register, handleSubmit, setError, control, formState } = useForm<PackageForm, unknown, PackageInput>({
     resolver: zodResolver(packageFormSchema),
@@ -188,7 +191,7 @@ function PackageEditor({ pkg, defaultPlatform, activeFull, onDone }: { pkg: OwnP
         </span>
       </label>
       <p className="small muted">
-        Brands pay a {DEFAULT_FEES.brandFeeBps / 100}% service fee on top; you receive the price minus our {DEFAULT_FEES.creatorFeeBps / 100}% fee.
+        Brands pay a {fees.brandFeeBps / 100}% service fee on top; you receive the price minus our {fees.creatorFeeBps / 100}% fee.
       </p>
       <div className="row">
         <Button type="submit" loading={create.isPending || update.isPending}>

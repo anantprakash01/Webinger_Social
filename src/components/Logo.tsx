@@ -10,8 +10,7 @@ export function Logo({ height = 28, inverse = false }: { height?: number; invers
       aria-label={PRODUCT_NAME}
       role="img"
       style={{
-        display: 'inline-flex',
-        alignItems: 'baseline',
+        display: 'inline-block',
         fontSize: height,
         fontWeight: 800,
         letterSpacing: '-0.03em',
@@ -21,8 +20,8 @@ export function Logo({ height = 28, inverse = false }: { height?: number; invers
       }}
     >
       <span style={{ color: 'var(--brand-red)', fontStyle: 'italic', marginRight: 1 }}>W</span>
-      <span>ebinger</span>
-      <span style={{ fontSize: '0.5em', fontWeight: 700, marginLeft: '0.35em', color: inverse ? 'rgba(255,255,255,0.75)' : 'var(--ink-3)', letterSpacing: '0.02em' }}>
+      <span>ebinger</span>{' '}
+      <span style={{ fontSize: '0.5em', fontWeight: 700, marginLeft: '0.1em', color: inverse ? 'rgba(255,255,255,0.75)' : 'var(--ink-3)', letterSpacing: '0.02em' }}>
         COLLAB
       </span>
     </span>

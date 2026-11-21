@@ -15,6 +15,7 @@ import type { CreatorChecklist, CreatorMe, CreatorStats, OwnPackage, SocialAccou
 import { getDb, now, ulid, type CreatorProfileRow, type PackageRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
 import type { OrderStatus } from '../orderMachine';
+import { creatorMoney } from '../payoutsCore';
 
 const CURRENCY = 'USD';
 
@@ -263,16 +264,13 @@ export const getMyCreatorStats: Handler = ({ user }) => {
   const p = myProfile(user);
   const db = getDb();
   const orders = db.orders.filter((o) => o.creatorUserId === p.userId);
-  const ids = new Set(orders.map((o) => o.id));
-  const entries = db.ledgerEntries.filter((e) => ids.has(e.orderId) && e.account === 'CREATOR_BALANCE');
+  const money = creatorMoney(p.userId);
   const ordersByStatus = Object.fromEntries(ORDER_STATUSES.map((s) => [s, orders.filter((o) => o.status === s).length]));
   const body: CreatorStats = {
     currency: CURRENCY,
-    availableCents: entries.reduce((s, e) => s + e.debitCents - e.creditCents, 0),
-    inEscrowCents: orders
-      .filter((o) => o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED')
-      .reduce((s, o) => s + o.priceCents - o.creatorFeeCents, 0),
-    lifetimeEarnedCents: entries.reduce((s, e) => s + e.debitCents, 0),
+    availableCents: money.availableCents,
+    inEscrowCents: money.inEscrowCents,
+    lifetimeEarnedCents: money.lifetimeEarnedCents,
     ordersByStatus,
     profileViews: p.profileViews,
     activePackages: activeCount(p.userId),

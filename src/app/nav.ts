@@ -10,6 +10,7 @@ import {
   LuPercent,
   LuReceipt,
   LuScale,
+  LuFlag,
   LuScrollText,
   LuSearch,
   LuShoppingBag,
@@ -26,7 +27,7 @@ export interface NavItem {
   /** Shown in the phone bottom bar. Keep four per role; the rest go in "More". */
   primary?: boolean;
   /** Unread count shown next to the item. */
-  badge?: 'messages' | 'notifications';
+  badge?: 'messages' | 'notifications' | 'vetting' | 'disputes' | 'reports';
 }
 
 export const NAV: Record<Role, NavItem[]> = {
@@ -50,8 +51,9 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/creator/onboarding', label: 'My profile', icon: LuUserRound },
   ],
   ADMIN: [
-    { to: '/admin/vetting', label: 'Vetting', icon: LuBadgeCheck, primary: true },
-    { to: '/admin/disputes', label: 'Disputes', icon: LuScale, primary: true },
+    { to: '/admin/vetting', label: 'Vetting', icon: LuBadgeCheck, primary: true, badge: 'vetting' },
+    { to: '/admin/disputes', label: 'Disputes', icon: LuScale, primary: true, badge: 'disputes' },
+    { to: '/admin/reports', label: 'Reports', icon: LuFlag, badge: 'reports' },
     { to: '/admin/orders', label: 'Orders', icon: LuReceipt, primary: true },
     { to: '/admin/users', label: 'Users', icon: LuUsers, primary: true },
     { to: '/admin/fees', label: 'Fees & plans', icon: LuPercent },

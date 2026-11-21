@@ -4,7 +4,7 @@ import { getDb, now } from '../db';
 import { ok, parseBody, type Handler } from '../http';
 import { toMe } from './session';
 
-export const getMe: Handler = ({ user }) => ok(toMe(user));
+export const getMe: Handler = ({ user, impersonatedBy }) => ok(toMe(user, impersonatedBy ?? null));
 
 export const updateMe: Handler = ({ req, user }) => {
   const body = parseBody(updateMeRequestSchema, req.body);

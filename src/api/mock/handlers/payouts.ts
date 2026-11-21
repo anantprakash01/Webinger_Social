@@ -7,7 +7,9 @@
  */
 import { onboardingLinkRequestSchema } from '@/features/creators/schemas';
 import type { OnboardingLink } from '@/types';
-import { now, randomToken } from '../db';
+import { getDb, now, randomToken } from '../db';
+import { creatorMoney, nextMonday } from '../payoutsCore';
+import type { PayoutOverview } from '@/types';
 import { fail, ok, parseBody, type Handler } from '../http';
 import { myProfile } from './creatorMe';
 
@@ -27,4 +29,31 @@ export const completeMockConnectOnboarding: Handler = ({ req, user }) => {
   if (!accountId || accountId !== p.stripeAccountId) fail(404, 'Unknown connected account.', 'NOT_FOUND');
   p.payoutStatus = 'ENABLED';
   return ok({ payoutStatus: p.payoutStatus });
+};
+
+/** FR-63: balance, transfers (approved work) and bank payouts. */
+export const getPayoutBalance: Handler = ({ user }) => {
+  const p = myProfile(user);
+  const db = getDb();
+  const money = creatorMoney(p.userId);
+  const mine = new Set(db.orders.filter((o) => o.creatorUserId === p.userId).map((o) => o.id));
+  const body: PayoutOverview = {
+    currency: 'USD',
+    availableCents: money.availableCents,
+    inEscrowCents: money.inEscrowCents,
+    lifetimeEarnedCents: money.lifetimeEarnedCents,
+    paidOutCents: money.paidOutCents,
+    nextPayoutAt: nextMonday(now()).toISOString(),
+    schedule: 'WEEKLY_MONDAY',
+    payoutStatus: p.payoutStatus,
+    transfers: db.ledgerEntries
+      .filter((e) => e.account === 'CREATOR_BALANCE' && e.debitCents > 0 && mine.has(e.orderId))
+      .map((e) => ({ orderId: e.orderId, orderTitle: db.orderInfo.find((i) => i.orderId === e.orderId)?.title ?? 'Order', amountCents: e.debitCents, at: e.createdAt }))
+      .sort((a, b) => b.at.localeCompare(a.at)),
+    payouts: db.payouts
+      .filter((x) => x.creatorId === p.userId)
+      .map((x) => ({ id: x.id, amountCents: x.amountCents, status: x.status, createdAt: x.createdAt, arrivalDate: x.arrivalDate }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  };
+  return ok(body);
 };

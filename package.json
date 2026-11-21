@@ -13,7 +13,10 @@
     "test:watch": "vitest",
     "gen:api": "openapi-typescript docs/api/openapi.yaml -o src/types/openapi.ts",
     "gen:art": "node scripts/gen-demo-art.mjs",
-    "check:layout": "node scripts/check-layout.mjs"
+    "check:layout": "node scripts/check-layout.mjs",
+    "check:a11y": "node scripts/check-a11y.mjs",
+    "test:e2e": "playwright test",
+    "check:contract": "node scripts/check-contract.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.8",
@@ -27,6 +30,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@testing-library/jest-dom": "^8.0.0",

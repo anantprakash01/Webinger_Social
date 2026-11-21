@@ -351,7 +351,7 @@ export function Pagination({ page, totalPages, totalItems, size, onPage }: { pag
       </span>
       <span className="spacer" />
       <Button variant="secondary" size="sm" disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="Previous page">
-        <LuChevronLeft aria-hidden /> Prev
+        <LuChevronLeft aria-hidden /> Previous
       </Button>
       <span className="small">
         Page {page + 1} of {totalPages}

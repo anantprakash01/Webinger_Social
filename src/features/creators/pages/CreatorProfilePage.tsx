@@ -5,6 +5,8 @@ import { Link, useParams } from 'react-router-dom';
 import { LuCalendar, LuCheck, LuClock, LuExternalLink, LuEye, LuLanguages, LuMapPin, LuPlay, LuSend, LuShieldCheck } from 'react-icons/lu';
 import { CreatorPhoto, PlatformIcon, PlatformLabel, Rating, Stars, VerifiedBadge, placeLabel } from '@/components/creator';
 import { VettingBadge } from '@/components/status';
+import { useAuth } from '@/app/AuthContext';
+import { ReportButton } from '@/features/admin/components/ReportButton';
 import { Badge, Button, Card, EmptyState, ErrorState } from '@/components/ui';
 import { formatCompact, LANGUAGE_LABEL, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
@@ -46,6 +48,9 @@ export function CreatorProfilePage() {
 
 function Profile({ p }: { p: CreatorProfile }) {
   const actions = usePurchaseActions(p.username);
+  const { user } = useAuth();
+  // FR-85: any signed-in brand or other creator can report a profile.
+  const canReport = !!user && user.role !== 'ADMIN' && user.creator?.username !== p.username;
   const place = placeLabel(p.city, p.country);
 
   return (
@@ -104,6 +109,7 @@ function Profile({ p }: { p: CreatorProfile }) {
             >
               <LuSend aria-hidden /> Send custom offer
             </Button>
+            {canReport && <ReportButton targetType="CREATOR" targetId={p.username} what="this profile" />}
           </div>
         </header>
 

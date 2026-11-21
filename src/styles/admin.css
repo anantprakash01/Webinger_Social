@@ -1,0 +1,88 @@
+/* Week 6: admin console, payouts, receipts, impersonation banner. Webinger tokens only. */
+
+/* ---------- Admin lists and filters ---------- */
+.admin-stack { display: grid; gap: var(--s-4); }
+.admin-filters { flex-wrap: wrap; align-items: flex-end; gap: var(--s-3); margin-bottom: var(--s-4); }
+.admin-filters > .search { flex: 1 1 260px; min-width: 0; }
+
+/* Vetting card */
+.vet { display: grid; gap: var(--s-4); }
+.vet__head { display: flex; gap: var(--s-3); align-items: flex-start; }
+.vet__head .list__meta { overflow-wrap: anywhere; }
+.vet__grid { display: grid; gap: var(--s-4); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.vet__grid .list__item { gap: var(--s-2); flex-wrap: wrap; padding: var(--s-2) 0; }
+@media (max-width: 900px) { .vet__grid { grid-template-columns: 1fr; } }
+
+/* Dispute console: chat transcript and outcome choice */
+.transcript { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); max-height: 360px; overflow-y: auto; }
+.transcript li { border-left: 3px solid var(--border); padding-left: var(--s-3); }
+.transcript p { margin: var(--s-1) 0 0; overflow-wrap: anywhere; }
+
+.radio-stack { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-2); min-width: 0; }
+.radio-card {
+  display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; background: var(--surface);
+}
+.radio-card > span { display: grid; gap: 2px; min-width: 0; }
+.radio-card input { margin-top: 3px; accent-color: var(--navy); }
+.radio-card.is-on { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+.radio-card:focus-within { outline: 2px solid var(--info); outline-offset: 2px; }
+
+/* Audit log */
+.audit { list-style: none; margin: 0; padding: 0; }
+.audit__item { display: grid; gap: var(--s-1); padding: var(--s-3) 0; border-bottom: 1px solid var(--border); }
+.audit__item:last-child { border-bottom: 0; }
+.audit__details summary { cursor: pointer; width: fit-content; }
+.audit__details pre {
+  margin: var(--s-2) 0 0; padding: var(--s-3); background: var(--surface-2); border-radius: var(--radius-sm);
+  font-size: var(--fs-xs); overflow-x: auto; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* ---------- Impersonation banner (FR-82) ---------- */
+.impersonation {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-6); background: var(--navy); color: #fff; font-size: var(--fs-sm);
+}
+.impersonation > svg { flex: none; }
+@media (max-width: 720px) { .impersonation { padding: var(--s-3) var(--s-4); } }
+
+/* ---------- Receipts (FR-65) ---------- */
+.receipt-page { max-width: 760px; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-7); }
+.receipt-page__bar { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; justify-content: space-between; margin-bottom: var(--s-4); }
+.receipt {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--s-6); display: grid; gap: var(--s-5);
+}
+.receipt__head { display: flex; flex-wrap: wrap; gap: var(--s-4); justify-content: space-between; align-items: flex-start; }
+.receipt__title { text-align: right; }
+.receipt__title h1 { margin: 0; font-size: var(--fs-xl); font-weight: 800; }
+.receipt__meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3) var(--s-5); margin: 0; }
+.receipt__meta dt { font-size: var(--fs-xs); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.receipt__meta dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.receipt__lines { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.receipt__lines th, .receipt__lines td { text-align: left; padding: var(--s-2) 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.receipt__lines thead th { font-size: var(--fs-xs); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.receipt__lines tfoot th, .receipt__lines tfoot td { font-weight: 700; border-bottom: 0; }
+.receipt__lines .num { text-align: right; white-space: nowrap; padding-left: var(--s-4); }
+@media (max-width: 520px) {
+  .receipt { padding: var(--s-4); }
+  .receipt__title { text-align: left; }
+  .receipt__meta { grid-template-columns: 1fr; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .receipt-page { padding: 0; max-width: none; }
+  .receipt { border: 0; padding: 0; }
+}
+
+/* Report link (FR-85) */
+.report-link { display: inline-flex; align-items: center; gap: var(--s-1); background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink-3); }
+.report-link:hover { color: var(--ink); }
+.bubble .report-link { font-size: 11px; color: inherit; }
+.profile__cta { flex-wrap: wrap; align-items: center; }
+@media (max-width: 520px) {
+  .vet__head { flex-wrap: wrap; }
+  .vet__head > div { flex-basis: calc(100% - 72px) !important; }
+}
