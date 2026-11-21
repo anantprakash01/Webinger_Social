@@ -51,7 +51,6 @@ export type BrandProfile = S['BrandProfile'];
 export type BrandProfileInput = S['BrandProfileInput'];
 export type PresignRequest = S['PresignRequest'];
 export type PresignResponse = S['PresignResponse'];
-export type OnboardingLink = S['OnboardingLink'];
 export type OrderStatusApi = S['OrderStatus'];
 export type CloseReason = S['CloseReason'];
 export type PaymentStatus = S['PaymentStatus'];
@@ -115,6 +114,14 @@ export type ReportResolveRequest = S['ReportResolveRequest'];
 export type Transfer = S['Transfer'];
 export type Payout = S['Payout'];
 export type PayoutOverview = S['PayoutOverview'];
+// Payments and payouts (v2.0, India / Razorpay)
+export type PaymentMethodType = S['PaymentMethodType'];
+export type PaymentSession = S['PaymentSession'];
+export type OrderPaymentInput = S['OrderPaymentInput'];
+export type SavedPaymentMethod = S['SavedPaymentMethod'];
+export type PayoutAccount = S['PayoutAccount'];
+export type PayoutAccountInput = S['PayoutAccountInput'];
+export type WithdrawalRequest = S['WithdrawalRequest'];
 export type CreatorSearchQuery = NonNullable<import('./openapi').operations['searchCreators']['parameters']['query']>;
 
 export const ROLE_LABEL: Record<Role, string> = {

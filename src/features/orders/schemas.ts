@@ -1,10 +1,10 @@
 /**
  * Order rules (FR-30 – FR-38). Request schemas mirror the backend Bean Validation; the mock answers 422
- * with them. Form schemas add the browser-side shapes (dollars, one deliverable per line).
+ * with them. Form schemas add the browser-side shapes (rupees, one deliverable per line).
  */
 import { z } from 'zod';
 import { MIN_PRICE_CENTS } from '@/api/mock/fees';
-import { parseDollarsToCents } from '@/lib/money';
+import { parseAmount } from '@/lib/money';
 import { MAX_PRICE_CENTS } from '@/features/creators/schemas';
 
 const PLATFORM = z.enum(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'UGC'], { error: 'Choose a platform.' });
@@ -50,8 +50,8 @@ export const customOfferSchema = z.object({
   priceCents: z
     .number({ error: 'Enter a price.' })
     .int({ error: 'Prices are whole cents.' })
-    .min(MIN_PRICE_CENTS, { error: 'The minimum price is $10.' })
-    .max(MAX_PRICE_CENTS, { error: 'The maximum price is $100,000.' }),
+    .min(MIN_PRICE_CENTS, { error: 'The minimum price is ₹500.' })
+    .max(MAX_PRICE_CENTS, { error: 'The maximum price is ₹50,00,000.' }),
   deliveryDays: z.number({ error: 'Enter the number of days.' }).int().min(1, { error: 'Delivery must be 1 to 60 days.' }).max(60, { error: 'Delivery must be 1 to 60 days.' }),
 });
 
@@ -61,6 +61,8 @@ export const orderCreateRequestSchema = z
     creatorUsername: z.string().trim().toLowerCase().min(1).optional(),
     offer: customOfferSchema.optional(),
     brief: briefSchema,
+    /** Checked by the payments module (v2.0): Razorpay proof or the brand wallet. */
+    payment: z.unknown(),
   })
   .refine((v) => (v.packageId ? !v.offer && !v.creatorUsername : !!v.offer && !!v.creatorUsername), {
     error: 'Send either a packageId, or a creatorUsername with an offer.',
@@ -96,7 +98,7 @@ export const quoteQuerySchema = z
   .object({
     packageId: z.string().min(1).optional(),
     creatorUsername: z.string().trim().toLowerCase().min(1).optional(),
-    priceCents: z.coerce.number().int().min(MIN_PRICE_CENTS, { error: 'The minimum price is $10.' }).max(MAX_PRICE_CENTS).optional(),
+    priceCents: z.coerce.number().int().min(MIN_PRICE_CENTS, { error: 'The minimum price is ₹500.' }).max(MAX_PRICE_CENTS).optional(),
   })
   .refine((q) => !!q.packageId || (!!q.creatorUsername && q.priceCents !== undefined), {
     error: 'Send a packageId, or a creatorUsername with a priceCents.',
@@ -105,7 +107,7 @@ export const quoteQuerySchema = z
 
 /* ---------- Form-only ---------- */
 
-/** Custom-offer fields as typed: price in dollars, deliverables one per line, days as text. */
+/** Custom-offer fields as typed: price in rupees, deliverables one per line, days as text. */
 export const offerFormSchema = z
   .object({
     title: z.string(),
@@ -115,7 +117,7 @@ export const offerFormSchema = z
     deliveryDays: z.string(),
   })
   .transform((v, ctx) => {
-    const priceCents = parseDollarsToCents(v.price);
+    const priceCents = parseAmount(v.price);
     const days = /^\d+$/.test(v.deliveryDays.trim()) ? Number(v.deliveryDays) : NaN;
     if (priceCents === null) ctx.addIssue({ code: 'custom', path: ['price'], message: v.price.trim() ? 'Enter an amount like 150 or 149.99.' : 'Enter a price.' });
     const r = customOfferSchema.safeParse({
@@ -138,8 +140,8 @@ export const offerFormSchema = z
 export type OfferForm = z.input<typeof offerFormSchema>;
 
 /**
- * Mock card element (Phase 0). Real card data only ever goes into Stripe's Payment Element;
- * this validates the shape and recognises Stripe's public test numbers.
+ * Mock card element (Phase 0). Real card data goes only to Razorpay (Custom
+ * Checkout); this validates the shape for the mock's Razorpay stand-in and its test numbers.
  */
 export const DECLINE_TEST_CARD = '4000000000000002';
 export const SUCCESS_TEST_CARD = '4242424242424242';

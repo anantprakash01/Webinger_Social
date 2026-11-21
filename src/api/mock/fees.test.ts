@@ -31,7 +31,7 @@ describe('calculateFees', () => {
   });
 
   it('rejects non-integer or non-positive prices', () => {
-    expect(() => calculateFees(199.99)).toThrow(/integer cents/);
+    expect(() => calculateFees(199.99)).toThrow(/integer minor units/);
     expect(() => calculateFees(0)).toThrow(/positive/);
     expect(() => calculateFees(-100)).toThrow(/positive/);
   });

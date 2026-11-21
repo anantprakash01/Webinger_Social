@@ -2,7 +2,7 @@ import { toast } from '@/components/feedback';
 import { useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, newIdempotencyKey } from '@/api/client';
-import type { ApplicationInput, CampaignInput } from '@/types';
+import type { ApplicationInput, CampaignInput, OrderPaymentInput } from '@/types';
 
 export const campaignKeys = {
   all: ['campaigns'] as const,
@@ -65,7 +65,7 @@ export function useAcceptApplication(applicationId: string) {
   const key = useRef<string | null>(null);
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (note: string | null) => api.campaigns.acceptApplication(applicationId, note, (key.current ??= newIdempotencyKey())),
+    mutationFn: (v: { note: string | null; payment: OrderPaymentInput }) => api.campaigns.acceptApplication(applicationId, v.note, v.payment, (key.current ??= newIdempotencyKey())),
     onSuccess: () => {
       key.current = null;
       void qc.invalidateQueries();

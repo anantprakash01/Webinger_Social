@@ -9,12 +9,13 @@
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
 import type { LedgerEntry } from './ledger';
-import type { MockOrder, OrderEvent } from './orderMachine';
+import type { MockOrder, OrderEvent, PaymentMethod } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
 import { seedCreators } from './seed/creators';
 import { seedOrders } from './seed/orders';
 import { seedEngagement } from './seed/engagement';
 import { seedAdmin } from './seed/admin';
+import { seedPayments } from './seed/payments';
 
 /* ---------- Row types ---------- */
 
@@ -56,9 +57,12 @@ export interface CreatorProfileRow {
   /** When the creator last sent the profile for review. */
   submittedAt: string | null;
   profileViews: number;
+  /** Razorpay Route linked account id (the field name predates the switch from Stripe). */
   stripeAccountId: string | null;
-  /** Mock of the Stripe Connect account state (FR-62). */
+  /** NOT_STARTED → PENDING (account being verified) → ENABLED (FR-62). */
   payoutStatus: PayoutStatus;
+  /** Pay the whole balance every Monday (default on). */
+  autoWeekly?: boolean;
   createdAt: string;
 }
 
@@ -118,7 +122,7 @@ export interface OrderInfoRow {
   title: string;
   platform: Platform;
   deliverables: string[];
-  /** Mock stand-in for the Stripe PaymentIntent (capture_method=manual). */
+  /** Razorpay payment id for the order (authorised at checkout, captured on accept). */
   paymentIntentId: string;
 }
 
@@ -264,10 +268,56 @@ export interface ReportRow {
 export interface PayoutRow {
   id: string;
   creatorId: string;
+  /** Taken from the balance; the creator receives amount − fee. */
   amountCents: number;
+  feeCents?: number;
+  speed?: 'SCHEDULED' | 'STANDARD' | 'INSTANT';
+  destinationLabel?: string;
   status: 'IN_TRANSIT' | 'PAID';
   createdAt: string;
   arrivalDate: string;
+}
+
+/* ---------- Payments (v2.0, Razorpay) ---------- */
+
+/** A Razorpay order opened for an exact amount; `payment` is filled in when the brand pays in Checkout. */
+export interface PaymentSessionRow {
+  id: string;
+  userId: string;
+  purpose: 'ORDER';
+  amountCents: number;
+  razorpayOrderId: string;
+  createdAt: string;
+  expiresAt: string;
+  payment: { id: string; signature: string; method: PaymentMethod; methodLabel: string; status: 'AUTHORIZED' } | null;
+  /** Order that used it (a session pays for one order only). */
+  usedBy: string | null;
+}
+
+/** Razorpay customer token (cards) or saved UPI ID. Never a card number. */
+export interface SavedMethodRow {
+  id: string;
+  userId: string;
+  type: 'CARD' | 'UPI';
+  network: string | null;
+  last4: string | null;
+  expiry: string | null;
+  vpa: string | null;
+  createdAt: string;
+}
+
+/** Creator payout destination (Razorpay Route linked account + RazorpayX fund account). */
+export interface PayoutAccountRow {
+  creatorId: string;
+  method: 'BANK_ACCOUNT' | 'UPI';
+  holderName: string;
+  pan: string;
+  accountNumber: string | null;
+  ifsc: string | null;
+  vpa: string | null;
+  status: 'VERIFYING' | 'VERIFIED' | 'FAILED';
+  failureReason: string | null;
+  updatedAt: string;
 }
 
 /** Stored responses for Idempotency-Key retries. */
@@ -359,6 +409,9 @@ export interface Db {
   auditLogs: AuditRow[];
   reports: ReportRow[];
   payouts: PayoutRow[];
+  paymentSessions: PaymentSessionRow[];
+  savedMethods: SavedMethodRow[];
+  payoutAccounts: PayoutAccountRow[];
   /** Last weekly payout run (Mondays 00:00 UTC). */
   lastPayoutRunAt: string;
 }
@@ -405,7 +458,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -434,6 +487,7 @@ function seed(now: Date): Db {
   const creators = seedCreators(now, { leoId: SEED_IDS.creator, newCreatorId: SEED_IDS.newCreator, passwordHash: pw });
   const orders = seedOrders(now, { brandId: SEED_IDS.brand, brandName: 'Saltbay Supply Co.', leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators);
   const engagement = seedEngagement(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, passwordHash: pw }, creators, orders);
+  const payments = seedPayments(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator }, creators, creators.users);
   const admin = seedAdmin(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators, orders, engagement);
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -454,7 +508,7 @@ function seed(now: Date): Db {
     reviews: [...creators.reviews, ...orders.reviews],
     brandProfiles: [
       // Websites use example.com (reserved for documentation), so they never point at a real company.
-      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'US', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
+      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'IN', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
       { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House', website: null, logoUrl: null, industry: 'FOOD', country: 'GB', plan: 'FREE', stripeCustomerId: null },
       ...engagement.brandProfiles,
     ],
@@ -479,6 +533,9 @@ function seed(now: Date): Db {
     auditLogs: admin.auditLogs,
     reports: admin.reports,
     payouts: [],
+    paymentSessions: [],
+    savedMethods: payments.savedMethods,
+    payoutAccounts: payments.payoutAccounts,
     lastPayoutRunAt: now.toISOString(),
   };
 }

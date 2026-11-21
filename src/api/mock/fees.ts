@@ -24,7 +24,7 @@ export interface FeeBreakdown {
   creatorFeeCents: number;
   /** What the creator receives: price − creator fee. */
   creatorPayoutCents: number;
-  /** Both fees. Stripe processing comes out of this. */
+  /** Both fees. Razorpay processing fees come out of this. */
   platformGrossCents: number;
 }
 
@@ -53,5 +53,5 @@ export function calculateFees(priceCents: number, config: Pick<FeeConfig, 'brand
   };
 }
 
-/** Minimum package price (FR-12): $10. */
-export const MIN_PRICE_CENTS = 1_000;
+/** Minimum package price (FR-12): ₹500 (INR market). */
+export const MIN_PRICE_CENTS = 50_000;

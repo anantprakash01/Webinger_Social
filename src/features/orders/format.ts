@@ -39,15 +39,15 @@ export function eventLabel(e: OrderEventView, o: Pick<OrderDetail, 'money' | 'co
   const m = o.money;
   switch (e.type) {
     case 'CREATE':
-      return `Order placed — card authorised for ${formatMoney(m.totalCents, m.currency)}, not charged`;
+      return `Order placed — ${formatMoney(m.totalCents, m.currency)} held (${o.payment.methodLabel}), not charged`;
     case 'ACCEPT':
-      return `Accepted — card charged, ${formatMoney(m.totalCents, m.currency)} held in escrow`;
+      return `Accepted — payment captured, ${formatMoney(m.totalCents, m.currency)} held in escrow`;
     case 'DECLINE':
-      return 'Declined by the creator — card hold released';
+      return 'Declined by the creator — payment hold released';
     case 'CANCEL':
-      return `Cancelled by the ${e.actor === 'BRAND' ? 'brand' : 'creator'} — card hold released`;
+      return `Cancelled by the ${e.actor === 'BRAND' ? 'brand' : 'creator'} — payment hold released`;
     case 'EXPIRE':
-      return 'Expired — not accepted within 72 hours, card hold released';
+      return 'Expired — not accepted within 72 hours, payment hold released';
     case 'DELIVER':
       return e.fromStatus === 'IN_PROGRESS' ? 'Delivered for review' : 'Delivered';
     case 'REQUEST_REVISION':
@@ -70,14 +70,14 @@ export function paymentText(o: Pick<OrderDetail, 'payment' | 'money' | 'status'>
   const m = o.money;
   switch (o.payment.status) {
     case 'AUTHORIZED':
-      return role === 'BRAND' ? 'Card authorised — you are charged only if the creator accepts.' : 'The brand’s card is authorised and is charged when you accept.';
+      return role === 'BRAND' ? `Held on ${o.payment.methodLabel} — you are charged only if the creator accepts.` : 'The brand’s payment is held and is captured when you accept.';
     case 'CAPTURED':
       if (o.status === 'COMPLETED') return role === 'BRAND' ? 'Paid. The creator has been paid.' : `${formatMoney(m.creatorPayoutCents, m.currency)} added to your balance.`;
       return 'Charged and held in escrow until the work is approved.';
     case 'REFUNDED':
       return `${formatMoney(o.payment.refundedCents, m.currency)} refunded to the brand.`;
     case 'CANCELED':
-      return role === 'BRAND' ? 'Card hold released — you were not charged.' : 'Card hold released — no payment was taken.';
+      return role === 'BRAND' ? 'Payment hold released — you were not charged.' : 'Payment hold released — no payment was taken.';
   }
 }
 

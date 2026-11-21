@@ -9,7 +9,6 @@ import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
 import { SignupPage } from '@/features/auth/pages/SignupPage';
 import { VerifyEmailPage } from '@/features/auth/pages/VerifyEmailPage';
-import { isMock } from '@/api/client';
 import { GuestOnly, RequireRole } from './guards';
 import { AppShell } from './layouts/AppShell';
 import { PublicLayout } from './layouts/PublicLayout';
@@ -40,7 +39,7 @@ const creatorCampaigns = () => import('@/features/campaigns/pages/CreatorCampaig
 const CreatorCampaigns = area(creatorCampaigns, 'CreatorCampaignsPage');
 const CreatorCampaignDetail = area(creatorCampaigns, 'CreatorCampaignDetailPage');
 const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
-const MockStripeConnectPage = area(() => import('@/features/payouts/pages/MockStripeConnectPage'), 'MockStripeConnectPage');
+const BrandPaymentMethods = area(() => import('@/features/payments/pages/PaymentMethodsPage'), 'PaymentMethodsPage');
 const CreatorPayouts = area(() => import('@/features/payouts/pages/PayoutsPage'), 'PayoutsPage');
 const ReceiptPage = area(() => import('@/features/orders/pages/ReceiptPage'), 'ReceiptPage');
 
@@ -87,6 +86,7 @@ export function AppRoutes() {
             <Route path="campaigns" element={<BrandCampaigns />} />
             <Route path="campaigns/:id" element={<BrandCampaignDetail />} />
             <Route path="profile" element={<BrandProfile />} />
+            <Route path="payment-methods" element={<BrandPaymentMethods />} />
           </Route>
         </Route>
 
@@ -130,13 +130,6 @@ export function AppRoutes() {
       <Route element={<RequireRole />}>
         <Route path="receipts/:id" element={<ReceiptPage />} />
       </Route>
-
-      {/* Prototype only: stand-in for the Stripe-hosted onboarding page (FR-62). */}
-      {isMock && (
-        <Route element={<RequireRole roles={['CREATOR']} />}>
-          <Route path="dev/stripe-connect" element={<MockStripeConnectPage />} />
-        </Route>
-      )}
 
       <Route element={<PublicLayout />}>
         <Route path="*" element={<NotFound />} />

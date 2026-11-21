@@ -2,7 +2,7 @@
  * /creator/onboarding — the setup wizard (target: a priced profile in under 15 minutes).
  * Steps: profile (FR-10) → socials (FR-11) → packages (FR-12/13) → portfolio (FR-14)
  *        → payouts (FR-62) → review and submit (FR-16).
- * The step lives in the URL (?step=…), so a refresh or the Stripe return lands on the same step.
+ * The step lives in the URL (?step=…), so a refresh lands on the same step.
  * After approval the same screens work as the profile editor.
  */
 import { useSearchParams } from 'react-router-dom';
@@ -24,7 +24,7 @@ export const STEPS = [
   { key: 'socials', label: 'Social accounts', check: (c: CreatorChecklist) => c.socials, optional: false, intro: 'Link the accounts you post on. Our team verifies them during review.' },
   { key: 'packages', label: 'Packages', check: (c: CreatorChecklist) => c.packages, optional: false, intro: 'Priced offers brands can buy straight away. At least one, up to eight.' },
   { key: 'portfolio', label: 'Portfolio', check: (c: CreatorChecklist) => c.portfolio, optional: true, intro: 'Your best work: images or links to videos. Optional, but profiles with a portfolio get booked more.' },
-  { key: 'payouts', label: 'Payouts', check: (c: CreatorChecklist) => c.payouts, optional: false, intro: 'Where we send your money. Set up securely with Stripe.' },
+  { key: 'payouts', label: 'Payouts', check: (c: CreatorChecklist) => c.payouts, optional: false, intro: 'Where we send your money: a bank account or UPI ID, verified by our payment partner Razorpay.' },
   { key: 'review', label: 'Review & submit', check: () => false, optional: false, intro: 'Check everything and send your profile to our team.' },
 ] as const;
 export type StepKey = (typeof STEPS)[number]['key'];

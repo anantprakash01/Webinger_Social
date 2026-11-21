@@ -1,3 +1,4 @@
+import { payFor, UNPAID } from '@/test/payments';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api, currentUser } from '@/api/client';
 import type { OrderBrief } from '@/types';
@@ -114,7 +115,7 @@ describe('users (FR-82)', () => {
     expect((await api.me.get()).impersonatedBy).toBe('Sam Ortega');
     expect((await api.orders.list()).totalElements).toBeGreaterThan(0);
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;
-    await expectError(api.orders.create({ packageId: pkg.id, brief }, key()), 403, 'READ_ONLY_IMPERSONATION');
+    await expectError(api.orders.create({ packageId: pkg.id, brief, payment: UNPAID }, key()), 403, 'READ_ONLY_IMPERSONATION');
     await api.auth.stopImpersonating();
     expect(currentUser()).toMatchObject({ email: 'admin@demo.test' });
     expect((await api.admin.audit({ action: 'IMPERSONATION_STARTED' })).content[0].entityId).toBe(brand.id);
@@ -132,7 +133,7 @@ describe('fees (FR-83)', () => {
     expect(await api.fees.current()).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1200 });
     await asBrand();
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;
-    const res = await api.orders.create({ packageId: pkg.id, brief }, key());
+    const res = await api.orders.create({ packageId: pkg.id, brief, payment: await payFor({ packageId: pkg.id }) }, key());
     expect(res.brandFeeCents).toBe(Math.floor((pkg.priceCents * 800 + 5000) / 10000));
     expect(getDb().orders.find((o) => o.id === existing.id)!.brandFeeBps).toBe(1000);
   });
@@ -145,7 +146,7 @@ describe('audit log (FR-84)', () => {
     expect(before).toBe(new Set(getDb().ledgerEntries.map((e) => e.txnId)).size);
     await asBrand();
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;
-    const { orderId } = await api.orders.create({ packageId: pkg.id, brief }, key());
+    const { orderId } = await api.orders.create({ packageId: pkg.id, brief, payment: await payFor({ packageId: pkg.id }) }, key());
     await asLeo();
     await api.orders.accept(orderId, key());
     await asAdmin();

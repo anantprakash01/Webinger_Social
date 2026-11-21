@@ -42,10 +42,10 @@ describe('admin console (Week 6)', () => {
     renderAt(`/admin/disputes/${d.id}`);
     await screen.findByText('Chat between brand and creator');
     await user.click(screen.getByLabelText(/Partial refund/));
-    await user.type(screen.getByLabelText('Refund amount (USD)'), '20');
+    await user.type(screen.getByLabelText('Refund amount (₹)'), '2000');
     await user.type(screen.getByLabelText('Decision note'), 'Two of the three clips were usable.');
     await user.click(screen.getByRole('button', { name: 'Confirm decision' }));
-    expect((await screen.findAllByText(/\$20\.00 refunded/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/₹2,000\.00 refunded/)).length).toBeGreaterThan(0);
     expect(getDb().orders.find((o) => o.id === d.orderId)!.status).toBe('REFUNDED');
   });
 
@@ -70,7 +70,7 @@ describe('admin console (Week 6)', () => {
     const brandFee = await screen.findByLabelText('Brand fee (bps)');
     await user.clear(brandFee);
     await user.type(brandFee, '800');
-    expect(screen.getByText(/brand pays/)).toHaveTextContent('$216.00');
+    expect(screen.getByText(/brand pays/)).toHaveTextContent('₹10,800.00');
     await user.click(screen.getByRole('button', { name: 'Save fees' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Apply the new fees?' })).getByRole('button', { name: 'Apply fees' }));
     expect(await screen.findByText('Fees updated for new orders')).toBeInTheDocument();
@@ -105,7 +105,8 @@ describe('payouts and receipts (FR-63, FR-65)', () => {
     expect(await screen.findByRole('heading', { name: 'Payouts' })).toBeInTheDocument();
     expect(screen.getByText('Available balance')).toBeInTheDocument();
     expect(screen.getByText('No payouts yet')).toBeInTheDocument();
-    expect(screen.getAllByText(/^\+\$/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^\+₹/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Withdraw now/ })).toBeEnabled();
   });
 
   it('a brand prints a receipt for a completed order', async () => {

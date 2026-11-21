@@ -1,55 +1,42 @@
-/** Wizard step 5 — payouts via Stripe Connect Express (FR-62). Mocked in Phase 0. */
-import { LuCircleCheck, LuClock, LuShieldCheck, LuWallet } from 'react-icons/lu';
-import { isMock } from '@/api/client';
-import { Button, FormError } from '@/components/ui';
-import { useStartPayoutOnboarding } from '@/features/payouts/hooks';
+/** Wizard step 5 — payout account (FR-62, v2.0 India): PAN + bank account or UPI ID, verified by Razorpay. */
+import { LuCircleCheck } from 'react-icons/lu';
+import { Button, PageSkeleton } from '@/components/ui';
+import { PayoutAccountForm } from '@/features/payments/components/PayoutAccountForm';
+import { usePayoutOverview } from '@/features/payments/hooks';
 import type { CreatorMe } from '@/types';
+import { useState } from 'react';
 import { StepNav } from './StepNav';
 
-export function PayoutsStep({ me, next, back, returnUrl = '/creator/onboarding?step=payouts' }: { me: CreatorMe; next?: () => void; back?: () => void; returnUrl?: string }) {
-  const start = useStartPayoutOnboarding();
-  const status = me.payoutStatus;
+export function PayoutsStep({ me, next, back }: { me: CreatorMe; next?: () => void; back?: () => void }) {
+  const overview = usePayoutOverview();
+  const [editing, setEditing] = useState(false);
+  if (overview.isPending) return <PageSkeleton />;
+  const account = overview.data?.account ?? null;
+  const ready = me.payoutStatus === 'ENABLED' && account?.status === 'VERIFIED';
 
   return (
     <div className="form-stack">
-      {status === 'ENABLED' ? (
+      {ready && !editing ? (
         <div className="payout-state payout-state--ok" role="status">
           <LuCircleCheck size={24} aria-hidden />
           <div>
             <strong>Payouts are set up.</strong>
-            <p className="small muted">When a brand approves your work, the money goes to your balance and then to your bank on the weekly schedule.</p>
-          </div>
-        </div>
-      ) : status === 'PENDING' ? (
-        <div className="payout-state" role="status">
-          <LuClock size={24} aria-hidden />
-          <div>
-            <strong>Stripe is checking your details.</strong>
-            <p className="small muted">This usually takes a few minutes. You can send your profile for review meanwhile.</p>
+            <p className="small muted">
+              Money goes to <strong>{account.destinationLabel}</strong>. Approved work reaches your balance, then your account every Monday, or whenever you choose to
+              withdraw.
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+              Change payout account
+            </Button>
           </div>
         </div>
       ) : (
-        <div className="payout-state">
-          <LuWallet size={24} aria-hidden />
-          <div>
-            <strong>Connect a bank account to get paid.</strong>
-            <p className="small muted">
-              Our payment partner Stripe verifies your identity and holds your bank details — we never see them. It takes about five
-              minutes.
-            </p>
-          </div>
-        </div>
+        <>
+          <p className="small">Add where you want to be paid. Brands' payments are held safely until they approve your work, then released to you.</p>
+          <PayoutAccountForm current={account} defaultName={me.displayName} onSaved={() => setEditing(false)} />
+        </>
       )}
-
-      <FormError>{start.error?.message}</FormError>
-      <div className="row" style={{ flexWrap: 'wrap' }}>
-        <Button variant={status === 'ENABLED' ? 'secondary' : 'primary'} loading={start.isPending} onClick={() => start.mutate(returnUrl)}>
-          <LuShieldCheck aria-hidden /> {status === 'NOT_STARTED' ? 'Set up payouts with Stripe' : 'Update payout details'}
-        </Button>
-        {isMock && <span className="small muted">Prototype: opens a mock of the Stripe page.</span>}
-      </div>
-
-      {next && <StepNav back={back} next={next} nextDisabled={status === 'NOT_STARTED'} nextHint={status === 'NOT_STARTED' ? 'Set up payouts to continue.' : undefined} />}
+      {next && <StepNav back={back} next={next} nextDisabled={!ready} nextHint={!ready ? 'Add a payout account to continue.' : undefined} />}
     </div>
   );
 }

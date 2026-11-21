@@ -9,7 +9,7 @@ import { getDb, now, ulid, type ApplicationRow, type CampaignRow, type UserRow }
 import { fail, ok, parseBody, type Handler } from '../http';
 import { placeOrder } from './orders';
 
-const CURRENCY = 'USD';
+const CURRENCY = 'INR';
 
 /** Open = status OPEN and the deadline (last day to apply, inclusive) has not passed. */
 export const isOpen = (c: CampaignRow) => c.status === 'OPEN' && c.deadline >= now().toISOString().slice(0, 10);
@@ -181,7 +181,7 @@ export const acceptApplication: Handler = ({ req, params, user }) => {
   const { a, c } = ownApplication(user, params.id);
   if (user.role !== 'BRAND') fail(403, 'Only the brand can accept an application.', 'ROLE_NOT_ALLOWED');
   if (a.status !== 'PENDING') fail(409, `This application is already ${a.status.toLowerCase()}.`, 'APPLICATION_DECIDED');
-  const { note } = parseBody(applicationAcceptSchema, req.body ?? {});
+  const { note, payment } = parseBody(applicationAcceptSchema, req.body ?? {});
   const db = getDb();
   const creator = db.creatorProfiles.find((p) => p.userId === a.creatorUserId);
   if (!creator || creator.vettingStatus !== 'APPROVED') fail(409, 'This creator can no longer take orders.', 'CREATOR_UNAVAILABLE');
@@ -191,6 +191,7 @@ export const acceptApplication: Handler = ({ req, params, user }) => {
     creator,
     { kind: 'CAMPAIGN', packageId: null, campaignId: c.id, title: c.title, platform, deliverables: c.deliverables, priceCents: a.priceCents, deliveryDays: a.deliveryDays },
     { requirements: note ? `${c.brief}\n\n${note}` : c.brief, needsShipping: false, shippingAddress: null, links: [], referenceFiles: [] },
+    payment,
   );
   a.status = 'ACCEPTED';
   a.orderId = created.orderId;

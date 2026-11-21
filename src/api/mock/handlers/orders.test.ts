@@ -1,3 +1,4 @@
+import { payFor, payTotal, UNPAID } from '@/test/payments';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api } from '@/api/client';
 import type { OrderBrief } from '@/types';
@@ -29,7 +30,7 @@ async function expectError(p: Promise<unknown>, status: number, code?: string) {
 /** Brand places an order for Leo's cheapest package; returns its id. */
 async function placeOrder() {
   await asBrand();
-  return (await api.orders.create({ packageId: leoPackage().id, brief }, key())).orderId;
+  return (await api.orders.create({ packageId: leoPackage().id, brief, payment: await payFor({ packageId: leoPackage().id }) }, key())).orderId;
 }
 
 beforeEach(async () => {
@@ -77,9 +78,9 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
 
   it('quotes a custom offer and refuses bad input', async () => {
     await asBrand();
-    expect((await api.orders.quote({ creatorUsername: 'leomakes', priceCents: 20_000 })).totalCents).toBe(22_000);
-    await expectError(api.orders.quote({ creatorUsername: 'leomakes', priceCents: 500 }), 422);
-    await expectError(api.orders.quote({ creatorUsername: 'nobody' , priceCents: 20_000 }), 404);
+    expect((await api.orders.quote({ creatorUsername: 'leomakes', priceCents: 1_000_000 })).totalCents).toBe(1_100_000);
+    await expectError(api.orders.quote({ creatorUsername: 'leomakes', priceCents: 49_999 }), 422);
+    await expectError(api.orders.quote({ creatorUsername: 'nobody' , priceCents: 1_000_000 }), 404);
     await asLeo();
     await expectError(api.orders.quote({ packageId: leoPackage().id }), 403);
   });
@@ -97,7 +98,7 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
   it('places a custom offer (FR-31)', async () => {
     await asBrand();
     const res = await api.orders.create(
-      { creatorUsername: 'leomakes', offer: { title: 'Two-part series', platform: 'TIKTOK', deliverables: ['2 TikToks'], priceCents: 50_000, deliveryDays: 10 }, brief },
+      { creatorUsername: 'leomakes', offer: { title: 'Two-part series', platform: 'TIKTOK', deliverables: ['2 TikToks'], priceCents: 50_000, deliveryDays: 10 }, brief, payment: await payTotal(55_000) },
       key(),
     );
     expect(res.totalCents).toBe(55_000);
@@ -108,8 +109,9 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
     await asBrand();
     const k = key();
     const before = getDb().orders.length;
-    const a = await api.orders.create({ packageId: leoPackage().id, brief }, k);
-    const b = await api.orders.create({ packageId: leoPackage().id, brief }, k);
+    const payment = await payFor({ packageId: leoPackage().id });
+    const a = await api.orders.create({ packageId: leoPackage().id, brief, payment }, k);
+    const b = await api.orders.create({ packageId: leoPackage().id, brief, payment }, k);
     expect(b.orderId).toBe(a.orderId);
     expect(getDb().orders.length).toBe(before + 1);
     await expectError(api.orders.accept(a.orderId, k), 422, 'IDEMPOTENCY_KEY_REUSED');
@@ -117,13 +119,13 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
 
   it('needs a verified brand and a valid brief', async () => {
     await api.auth.login('unverified@demo.test', DEMO_PASSWORD);
-    await expectError(api.orders.create({ packageId: leoPackage().id, brief }, key()), 403, 'EMAIL_NOT_VERIFIED');
+    await expectError(api.orders.create({ packageId: leoPackage().id, brief, payment: UNPAID }, key()), 403, 'EMAIL_NOT_VERIFIED');
     await asBrand();
-    const e = await expectError(api.orders.create({ packageId: leoPackage().id, brief: { ...brief, requirements: 'too short' } }, key()), 422);
+    const e = await expectError(api.orders.create({ packageId: leoPackage().id, brief: { ...brief, requirements: 'too short' }, payment: UNPAID }, key()), 422);
     expect(e.fieldErrors.map((f) => f.field)).toContain('brief.requirements');
-    await expectError(api.orders.create({ packageId: leoPackage().id, brief: { ...brief, needsShipping: true } }, key()), 422);
+    await expectError(api.orders.create({ packageId: leoPackage().id, brief: { ...brief, needsShipping: true }, payment: UNPAID }, key()), 422);
     await asLeo();
-    await expectError(api.orders.create({ packageId: leoPackage().id, brief }, key()), 403);
+    await expectError(api.orders.create({ packageId: leoPackage().id, brief, payment: UNPAID }, key()), 403);
   });
 
   it('refuses switched-off packages, and packages with orders cannot be deleted', async () => {
@@ -133,7 +135,7 @@ describe('quote and checkout (FR-30, FR-31, FR-60)', () => {
     const pkgId = getDb().orders.find((o) => o.id === id)!.packageId!;
     await api.creatorMe.updatePackage(pkgId, { active: false });
     await asBrand();
-    await expectError(api.orders.create({ packageId: pkgId, brief }, key()), 409, 'PACKAGE_UNAVAILABLE');
+    await expectError(api.orders.create({ packageId: pkgId, brief, payment: UNPAID }, key()), 409, 'PACKAGE_UNAVAILABLE');
   });
 });
 

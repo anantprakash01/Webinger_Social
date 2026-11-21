@@ -1,3 +1,4 @@
+import { VALID_PAYOUT_ACCOUNT } from '@/test/payments';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api, currentUser } from '@/api/client';
 import type { PackageInput } from '@/types';
@@ -20,7 +21,7 @@ const pkg = (over: Partial<PackageInput> = {}): PackageInput => ({
   title: 'Instagram Reel',
   description: 'One 30–60 s Reel featuring your product.',
   deliverables: ['1 Reel'],
-  priceCents: 15_000,
+  priceCents: 1_200_000,
   deliveryDays: 5,
   active: true,
   ...over,
@@ -104,12 +105,12 @@ describe('social accounts (FR-11)', () => {
 });
 
 describe('packages (FR-12, FR-13)', () => {
-  it('rejects price under $10 and delivery outside 1–60 days with field errors (FR-12 acceptance)', async () => {
-    await expectError(api.creatorMe.createPackage(pkg({ priceCents: 999 })), 422, undefined, 'priceCents');
+  it('rejects price under ₹500 and delivery outside 1–60 days with field errors (FR-12 acceptance)', async () => {
+    await expectError(api.creatorMe.createPackage(pkg({ priceCents: 49_999 })), 422, undefined, 'priceCents');
     await expectError(api.creatorMe.createPackage(pkg({ deliveryDays: 0 })), 422, undefined, 'deliveryDays');
     await expectError(api.creatorMe.createPackage(pkg({ deliveryDays: 61 })), 422, undefined, 'deliveryDays');
     await expectError(api.creatorMe.createPackage(pkg({ priceCents: 1500.5 })), 422, undefined, 'priceCents');
-    expect((await api.creatorMe.createPackage(pkg({ priceCents: 1_000, deliveryDays: 60 }))).priceCents).toBe(1_000);
+    expect((await api.creatorMe.createPackage(pkg({ priceCents: 50_000, deliveryDays: 60 }))).priceCents).toBe(50_000);
   });
 
   it('allows at most 8 active packages (FR-13)', async () => {
@@ -124,17 +125,17 @@ describe('packages (FR-12, FR-13)', () => {
 
   it('edits and deletes only own packages', async () => {
     const k = await api.creatorMe.createPackage(pkg());
-    expect((await api.creatorMe.updatePackage(k.id, { priceCents: 20_000, title: 'Reel + Story' })).priceCents).toBe(20_000);
+    expect((await api.creatorMe.updatePackage(k.id, { priceCents: 1_600_000, title: 'Reel + Story' })).priceCents).toBe(1_600_000);
     await api.creatorMe.deletePackage(k.id);
     expect((await api.creatorMe.get()).packages).toEqual([]);
     const leoPkg = getDb().packages.find((x) => x.creatorId === getDb().users.find((u) => u.email === 'creator@demo.test')!.id)!;
-    await expectError(api.creatorMe.updatePackage(leoPkg.id, { priceCents: 1_000 }), 404);
+    await expectError(api.creatorMe.updatePackage(leoPkg.id, { priceCents: 50_000 }), 404);
   });
 
   it('shows a newly approved creator’s package in search', async () => {
     await api.auth.login('creator@demo.test', DEMO_PASSWORD);
-    await api.creatorMe.createPackage(pkg({ title: 'Brand new package', priceCents: 1_000 }));
-    expect((await api.creators.search({ q: 'leomakes' })).content[0].startingPriceCents).toBe(1_000);
+    await api.creatorMe.createPackage(pkg({ title: 'Brand new package', priceCents: 50_000 }));
+    expect((await api.creators.search({ q: 'leomakes' })).content[0].startingPriceCents).toBe(50_000);
   });
 });
 
@@ -158,12 +159,14 @@ describe('portfolio (FR-14) and uploads', () => {
 });
 
 describe('payouts (FR-62) and submit for review (FR-16)', () => {
-  it('runs the mock Stripe Connect onboarding', async () => {
-    const link = await api.payouts.onboardingLink('/creator/onboarding?step=payouts');
-    const url = new URL(link.url, 'http://x');
-    expect(url.pathname).toBe('/dev/stripe-connect');
-    expect(url.searchParams.get('return')).toBe('/creator/onboarding?step=payouts');
-    await api.dev.completeConnectOnboarding(url.searchParams.get('account')!);
+  it('verifies a payout account (bank or UPI) and enables payouts', async () => {
+    await expectError(api.payouts.saveAccount({ ...VALID_PAYOUT_ACCOUNT, pan: 'ABC123' }), 422);
+    await expectError(api.payouts.saveAccount({ ...VALID_PAYOUT_ACCOUNT, ifsc: 'HDFC1234' }), 422);
+    const failed = await api.payouts.saveAccount({ ...VALID_PAYOUT_ACCOUNT, accountNumber: '000000000' });
+    expect(failed.status).toBe('FAILED');
+    expect((await api.creatorMe.get()).payoutStatus).toBe('PENDING');
+    const ok = await api.payouts.saveAccount({ ...VALID_PAYOUT_ACCOUNT, method: 'UPI', vpa: 'ivy@okaxis', accountNumber: null, ifsc: null });
+    expect(ok).toMatchObject({ status: 'VERIFIED', destinationLabel: 'ivy@okaxis', panMasked: 'ABCDE••••F' });
     expect((await api.creatorMe.get()).payoutStatus).toBe('ENABLED');
   });
 
@@ -174,8 +177,7 @@ describe('payouts (FR-62) and submit for review (FR-16)', () => {
     await api.creatorMe.updateProfile(validProfile);
     await api.creatorMe.addSocial({ platform: 'INSTAGRAM', handle: 'ivycooks', followers: 8_000 });
     await api.creatorMe.createPackage(pkg());
-    const link = new URL((await api.payouts.onboardingLink('/creator/onboarding')).url, 'http://x');
-    await api.dev.completeConnectOnboarding(link.searchParams.get('account')!);
+    await api.payouts.saveAccount(VALID_PAYOUT_ACCOUNT);
 
     const submitted = await api.creatorMe.submitForReview();
     expect(submitted.vettingStatus).toBe('PENDING_REVIEW');
@@ -210,7 +212,7 @@ describe('dashboard stats (FR-70)', () => {
     const completed = mine.filter((o) => o.status === 'COMPLETED').reduce((sum, o) => sum + payout(o), 0);
     const escrow = mine.filter((o) => ['IN_PROGRESS', 'DELIVERED', 'DISPUTED'].includes(o.status)).reduce((sum, o) => sum + payout(o), 0);
     expect(completed).toBeGreaterThan(0);
-    expect(s).toMatchObject({ availableCents: completed, lifetimeEarnedCents: completed, inEscrowCents: escrow, currency: 'USD' });
+    expect(s).toMatchObject({ availableCents: completed, lifetimeEarnedCents: completed, inEscrowCents: escrow, currency: 'INR' });
     expect(s.ordersByStatus.PENDING_ACCEPTANCE).toBe(mine.filter((o) => o.status === 'PENDING_ACCEPTANCE').length);
   });
 });

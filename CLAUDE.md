@@ -57,6 +57,9 @@ A two-sided marketplace where **brands** discover, book and pay social media **c
 | (not specified) | TypeScript pinned to ~5.9 | openapi-typescript 7 does not accept TypeScript 7 yet; same version as Webinger |
 | (not specified) | Refresh token in an httpOnly cookie on `/api/v1/auth`, not in the response body | Keeps it out of JS (convention 10); mock keeps a stand-in cookie in sessionStorage |
 | (not specified) | Added `POST /auth/verify-email/resend` (5 per hour) | FR-02 needs a way to get a new link |
+| Stripe, USD (global) | **India-first: INR (paise), Razorpay** — UPI, cards (saved as RBI tokens), netbanking, wallet apps; Razorpay Route for escrow/creator accounts, RazorpayX for payouts | Decided 22 Nov 2026 (contract v2.0.0). Minimum package price ₹500 |
+| (not specified) | Creators can **Withdraw now** (standard NEFT free, instant IMPS/UPI 1%, min ₹10) on top of the weekly Monday payout, which they can turn off; minimum withdrawal ₹500 | Decided 22 Nov 2026 |
+| (not specified) | **No brand wallet / prepaid balance** — every order is paid through Razorpay | A wallet paying third parties is likely an RBI-regulated prepaid instrument; dropped 22 Nov 2026 |
 
 ---
 
@@ -486,10 +489,10 @@ Source estimate assumes 2 backend, 1 frontend and 1 full-stack/QA engineer; a sm
 ## 12. Integrations
 | Service | Use | Notes |
 | --- | --- | --- |
-| Stripe Payments | Authorise and capture | Authorisations expire after ~7 days, so capture on accept and hold in our ledger until approval |
-| Stripe Connect Express | Creator KYC and payouts | Transfer to connected account on release |
-| Stripe Billing | Subscriptions (v2) | Plans map to `fee_configs` |
-| Razorpay / UPI | India (v2) | Check RBI rules on marketplace escrow (payment aggregator licensing) |
+| Razorpay Payments | Authorise (`payment_capture=0`), capture on accept | UPI, cards, netbanking, wallet apps; Custom Checkout (`razorpay.js`) so methods render in our UI; check how long uncaptured payments are held before auto-refund |
+| Razorpay Route | Creator linked accounts (PAN + bank KYC), transfers on hold until approval | Escrow-style release |
+| RazorpayX Payouts | Weekly and on-demand payouts to bank (NEFT/IMPS) or UPI | Instant payouts charged 1% (min ₹10) to the creator |
+| Razorpay Subscriptions | Pro/Premium plans (v2) | Plans map to `fee_configs` |
 | AWS S3 + CloudFront | Images, portfolio, deliverables | Pre-signed uploads, max 500 MB video |
 | SES / SendGrid | Email | Thymeleaf templates |
 | Google OAuth | Sign-in | Spring Security OAuth2 client |
@@ -530,7 +533,9 @@ Source estimate assumes 2 backend, 1 frontend and 1 full-stack/QA engineer; a sm
 11. One module per AI session; commit when it works; reference FR IDs in commit messages.
 
 ## 16. Open questions
-- [ ] Launch market: global (USD, Stripe) or India-first (INR, Razorpay)? Changes the payment design.
+- [x] Launch market: **India-first, INR, Razorpay** (decided 22 Nov 2026).
+- [ ] Tax: GST on platform fees, TDS under section 194-O on creator payouts, and how both show on receipts — confirm with a CA before launch.
+- [ ] RBI: confirm the escrow model (Razorpay Route on-hold transfers) fits the payment aggregator rules for a marketplace.
 - [ ] Legal entity and licence needed to hold escrow in the launch country?
 - [ ] Final fees: 10% brand + 15% creator, or lower creator fee early?
 - [ ] Manual vetting capacity per day?
@@ -645,5 +650,7 @@ Decisions to confirm:
 **Phase 0 complete.** The smoke test runs the creator setup and the brand search → paid, accepted order in seconds; the 10- and 15-minute targets still need a timed run with real people before the gate is formally signed off.
 
 **UX pass (21 Nov 2026, branch `ux-pass`).** 19 fixes from a review of every screen: "Needs your action" list on both dashboards; orders sorted by urgency with red countdowns under 24 h; phone action bars (order page, checkout, profile); compact phone order cards; in-app confirm dialog replaces every `window.confirm`/`prompt` (`useConfirm` in `components/feedback.tsx`); toasts for every action (`toast()`); visible reason when buying is disabled; profile track record (orders completed, typical acceptance time), package platform filter, review filter and "show all", custom offer next to the packages; search cards show city only, a patterned placeholder and why they matched, sticky results bar; onboarding "Step N of 6" and gender/birth year moved to the review step; chat read receipts ("Seen"), order title first in the conversation list, report icon on hover; admin users search as you type with Joined / Last active, newest first, capitalised status, vetting focus moves to the next creator; demo bar collapses on phones; tab rows fade at the edge (`TabRow`); icon-only pagination on phones; one date rule in `lib/dates.ts` (relative under a week, then a date); landing has "Hire creators", a trust section with FAQ, and no repeated featured creators; brand dashboard spend chart and "View order →". Contract **v1.1.0** (additive): `completedOrders`, `typicalAcceptHours`, `spendByMonth`, `readAt`, `lastActiveAt`, urgency sort. Styles in `src/styles/ux.css`. 207 tests, layout, a11y, contract, build and E2E clean.
+
+**Payments for India (22 Nov 2026, branch `payments-india`).** Contract **v2.0.0**: currency INR (paise; fields keep the `Cents` suffix; `lib/money.ts` formats ₹ with Indian grouping); Stripe replaced by Razorpay. Brands pay each order by **UPI, card, netbanking or wallet app**: `POST /payments/sessions` (Razorpay order for the exact total) → Razorpay Checkout (mock stand-in: `POST /dev/razorpay/pay`; test values success@razorpay / failure@razorpay, card 4111… pays, 4000…0002 declines) → `POST /orders` with the payment id + signature; the server verifies signature and amount before the order exists (402 `PAYMENT_FAILED`, 409 `AMOUNT_MISMATCH`, 409 `SESSION_USED`). Saved cards (tokens) and UPI IDs: `GET/DELETE /payments/methods`, page `/brand/payment-methods`. Creators: payout account `GET/PUT /payouts/account` (PAN + bank account/IFSC or UPI ID, verified; replaces Stripe onboarding), `POST /payouts/withdrawals` (Withdraw now: standard free, instant 1% min ₹10), `PUT /payouts/settings` (weekly payout on/off); payouts record speed, fee and destination. The brand wallet was built and then removed at the user's request. Seed prices converted (~₹80/$). 216 tests + E2E (incl. instant withdrawal), layout, a11y and contract checks clean.
 
 **Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.

@@ -238,7 +238,7 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
   const cn = parse(c);
   const err = (n: number) => (Number.isNaN(n) ? 'Whole basis points only.' : n > MAX_FEE_BPS ? `At most ${MAX_FEE_BPS} bps.` : undefined);
   const valid = !err(bn) && !err(cn);
-  const example = valid ? calculateFees(20_000, { brandFeeBps: bn, creatorFeeBps: cn }) : null;
+  const example = valid ? calculateFees(1_000_000, { brandFeeBps: bn, creatorFeeBps: cn }) : null;
   return (
     <form
       className="form-stack"
@@ -255,8 +255,8 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
       </div>
       {example && (
         <div className="payment-line small">
-          On a $200 package: brand pays <strong>{formatMoney(example.brandTotalCents)}</strong>, creator receives <strong>{formatMoney(example.creatorPayoutCents)}</strong>, platform keeps{' '}
-          <strong>{formatMoney(example.platformGrossCents)}</strong> before Stripe fees.
+          On a ₹10,000 package: brand pays <strong>{formatMoney(example.brandTotalCents)}</strong>, creator receives <strong>{formatMoney(example.creatorPayoutCents)}</strong>, platform keeps{' '}
+          <strong>{formatMoney(example.platformGrossCents)}</strong> before Razorpay fees.
         </div>
       )}
       <FormError>{update.error?.message}</FormError>

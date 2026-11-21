@@ -26,6 +26,7 @@ const PUBLIC = [
 const AS_BRAND = [
   ['brand-dashboard', '/brand/dashboard'],
   ['brand-profile', '/brand/profile'],
+  ['brand-payment-methods', '/brand/payment-methods'],
   ['profile-as-brand', '/u/leomakes'],
 ];
 // Week 3: a draft creator walks the setup wizard; an approved creator sees the workspace.
@@ -74,6 +75,12 @@ for (const width of [360, 1280]) {
   await page.getByRole('button', { name: 'Log in' }).click();
   await page.waitForURL(/\/checkout\//);
   await check(page, width, 'checkout');
+  // v2.0: each payment method's details (card, netbanking).
+  await page.getByRole('radio', { name: /^Debit or credit card/ }).click();
+  await page.getByRole('radio', { name: 'New card' }).click();
+  await check(page, width, 'checkout-card');
+  await page.getByRole('radio', { name: /^Netbanking/ }).click();
+  await check(page, width, 'checkout-netbanking');
   for (const [name, path] of AS_BRAND) await check(page, width, name, path);
   // Week 4: order list, a delivered order (review actions) and the custom-offer checkout.
   await check(page, width, 'brand-orders', '/brand/orders');
@@ -173,6 +180,13 @@ for (const width of [360, 1280]) {
       await p.waitForURL(/\/creator\/campaigns\/[0-9A-Z]{26}$/);
       await check(p, width, 'creator-campaign-detail');
       await check(p, width, 'creator-messages', '/messages');
+      // v2.0: withdraw now, and changing the payout account.
+      await p.goto(`${base}/creator/payouts`, { waitUntil: 'networkidle' });
+      await p.getByRole('button', { name: /Withdraw now/ }).click();
+      await check(p, width, 'creator-withdraw');
+      await p.keyboard.press('Escape');
+      await p.getByRole('button', { name: 'Change payout account' }).click();
+      await check(p, width, 'creator-payout-account');
     }
     await c.close();
   }

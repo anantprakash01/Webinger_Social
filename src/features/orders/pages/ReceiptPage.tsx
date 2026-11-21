@@ -95,7 +95,7 @@ export function ReceiptPage() {
             </div>
             <div>
               <dt>Payment method</dt>
-              <dd>{kind === 'BRAND' ? 'Card (via Stripe)' : 'Stripe Connect balance'}</dd>
+              <dd>{kind === 'BRAND' ? `${o.payment.methodLabel} (via Razorpay)` : 'Webinger Collab balance (Razorpay)'}</dd>
             </div>
           </dl>
 

@@ -1,3 +1,4 @@
+import { payFor, payTotal, UNPAID } from '@/test/payments';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api } from '@/api/client';
 import type { CampaignInput, OrderBrief } from '@/types';
@@ -17,7 +18,7 @@ const campaign = (over: Partial<CampaignInput> = {}): CampaignInput => ({
   platforms: ['INSTAGRAM'],
   niches: ['HOME'],
   deliverables: ['1 Reel'],
-  budgetPerCreatorCents: 25_000,
+  budgetPerCreatorCents: 2_000_000,
   deadline: inDays(14),
   ...over,
 });
@@ -54,7 +55,7 @@ describe('campaigns (FR-40 – FR-42)', () => {
 
   it('validates a new campaign (FR-40)', async () => {
     await asBrand();
-    const e = await expectError(api.campaigns.create(campaign({ title: 'x', budgetPerCreatorCents: 500, deadline: inDays(400), niches: [] })), 422);
+    const e = await expectError(api.campaigns.create(campaign({ title: 'x', budgetPerCreatorCents: 40_000, deadline: inDays(400), niches: [] })), 422);
     expect(e.fieldErrors.map((f) => f.field).sort()).toEqual(['budgetPerCreatorCents', 'deadline', 'niches', 'title']);
     const c = await api.campaigns.create(campaign());
     expect(c).toMatchObject({ status: 'OPEN', open: true, applications: [], applicationCount: 0 });
@@ -66,14 +67,14 @@ describe('campaigns (FR-40 – FR-42)', () => {
     await asBrand();
     const c = await api.campaigns.create(campaign());
     await asLeo();
-    await expectError(api.campaigns.apply(c.id, { pitch: 'short', priceCents: 900, deliveryDays: 0 }), 422);
-    const a = await api.campaigns.apply(c.id, { pitch: 'My audience loves cosy home content and I post evening routines weekly.', priceCents: 24_000, deliveryDays: 6 });
+    await expectError(api.campaigns.apply(c.id, { pitch: 'short', priceCents: 40_000, deliveryDays: 0 }), 422);
+    const a = await api.campaigns.apply(c.id, { pitch: 'My audience loves cosy home content and I post evening routines weekly.', priceCents: 1_900_000, deliveryDays: 6 });
     expect(a).toMatchObject({ status: 'PENDING', creator: { username: 'leomakes' } });
-    await expectError(api.campaigns.apply(c.id, { pitch: 'Applying twice should not be allowed here at all.', priceCents: 24_000, deliveryDays: 6 }), 409, 'ALREADY_APPLIED');
+    await expectError(api.campaigns.apply(c.id, { pitch: 'Applying twice should not be allowed here at all.', priceCents: 1_900_000, deliveryDays: 6 }), 409, 'ALREADY_APPLIED');
     await api.campaigns.withdrawApplication(a.id);
-    expect((await api.campaigns.apply(c.id, { pitch: 'Re-applying after withdrawing with a better offer.', priceCents: 22_000, deliveryDays: 5 })).id).toBe(a.id);
+    expect((await api.campaigns.apply(c.id, { pitch: 'Re-applying after withdrawing with a better offer.', priceCents: 1_800_000, deliveryDays: 5 })).id).toBe(a.id);
     await api.auth.login('newcreator@demo.test', DEMO_PASSWORD);
-    await expectError(api.campaigns.apply(c.id, { pitch: 'Draft creators cannot apply to any campaign yet.', priceCents: 24_000, deliveryDays: 6 }), 403, 'CREATOR_NOT_APPROVED');
+    await expectError(api.campaigns.apply(c.id, { pitch: 'Draft creators cannot apply to any campaign yet.', priceCents: 1_900_000, deliveryDays: 6 }), 403, 'CREATOR_NOT_APPROVED');
   });
 
   it('accepting an application places an order through the normal flow (FR-42)', async () => {
@@ -81,13 +82,14 @@ describe('campaigns (FR-40 – FR-42)', () => {
     const spring = (await api.campaigns.list()).content.find((c) => c.title === 'Spring home refresh')!;
     const detail = await api.campaigns.get(spring.id);
     const leoApp = detail.applications.find((a) => a.creator.username === 'leomakes')!;
-    const res = await api.campaigns.acceptApplication(leoApp.id, 'Please feature the grey mug.', key());
+    const total = leoApp.priceCents + Math.floor((leoApp.priceCents * 1000 + 5000) / 10000);
+    const res = await api.campaigns.acceptApplication(leoApp.id, 'Please feature the grey mug.', await payTotal(total), key());
     expect(res).toMatchObject({ status: 'PENDING_ACCEPTANCE', priceCents: leoApp.priceCents, totalCents: leoApp.priceCents + Math.floor((leoApp.priceCents * 1000 + 5000) / 10000) });
     const order = await api.orders.get(res.orderId);
     expect(order).toMatchObject({ kind: 'CAMPAIGN', campaignId: spring.id, title: 'Spring home refresh', payment: { status: 'AUTHORIZED' } });
     expect(order.brief.requirements).toContain('Please feature the grey mug.');
     expect((await api.campaigns.get(spring.id)).applications.find((a) => a.id === leoApp.id)).toMatchObject({ status: 'ACCEPTED', orderId: res.orderId });
-    await expectError(api.campaigns.acceptApplication(leoApp.id, null, key()), 409, 'APPLICATION_DECIDED');
+    await expectError(api.campaigns.acceptApplication(leoApp.id, null, UNPAID, key()), 409, 'APPLICATION_DECIDED');
     await asLeo();
     expect((await api.notifications.list()).content[0]).toMatchObject({ type: 'APPLICATION_ACCEPTED', link: `/creator/orders/${res.orderId}` });
     expect((await api.orders.accept(res.orderId, key())).status).toBe('IN_PROGRESS');
@@ -120,7 +122,7 @@ describe('chat (FR-50, FR-51)', () => {
     await asBrand();
     const brief: OrderBrief = { requirements: 'A short Reel with the tote bag, natural light.', needsShipping: false, links: [], referenceFiles: [] };
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;
-    const { orderId } = await api.orders.create({ packageId: pkg.id, brief }, key());
+    const { orderId } = await api.orders.create({ packageId: pkg.id, brief, payment: await payFor({ packageId: pkg.id }) }, key());
     const conv = (await api.orders.get(orderId)).conversationId;
     const sent = await api.chat.send(conv, 'Email maya@saltbay.example.com or call 415 555 0101');
     expect(sent).toMatchObject({ body: 'Email [email hidden] or call [phone hidden]', masked: true, mine: true });
@@ -150,7 +152,7 @@ describe('notifications (FR-52) and the realtime stand-in', () => {
     await asBrand();
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;
     const brief: OrderBrief = { requirements: 'A short Reel with the tote bag, natural light.', needsShipping: false, links: [], referenceFiles: [] };
-    const { orderId } = await api.orders.create({ packageId: pkg.id, brief }, key());
+    const { orderId } = await api.orders.create({ packageId: pkg.id, brief, payment: await payFor({ packageId: pkg.id }) }, key());
     await asLeo();
     const leoN = await api.notifications.list();
     expect(leoN.content[0]).toMatchObject({ type: 'ORDER_EVENT', title: 'New order from Saltbay Supply Co.', read: false, link: `/creator/orders/${orderId}` });

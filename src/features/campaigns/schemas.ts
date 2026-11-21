@@ -1,7 +1,7 @@
 /** Campaign rules (FR-40 – FR-42), shared by the forms and the mock API. */
 import { z } from 'zod';
 import { MIN_PRICE_CENTS } from '@/api/mock/fees';
-import { parseDollarsToCents } from '@/lib/money';
+import { parseAmount } from '@/lib/money';
 import { MAX_NICHES, MAX_PRICE_CENTS } from '@/features/creators/schemas';
 
 const PLATFORM = z.enum(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'UGC']);
@@ -15,8 +15,8 @@ const money = (what: string) =>
   z
     .number({ error: `Enter ${what}.` })
     .int({ error: 'Whole cents only.' })
-    .min(MIN_PRICE_CENTS, { error: 'The minimum is $10.' })
-    .max(MAX_PRICE_CENTS, { error: 'The maximum is $100,000.' });
+    .min(MIN_PRICE_CENTS, { error: 'The minimum is ₹500.' })
+    .max(MAX_PRICE_CENTS, { error: 'The maximum is ₹50,00,000.' });
 
 /** YYYY-MM-DD, from tomorrow up to 180 days ahead (checked against `today`, the server's date in the mock). */
 export const deadlineSchema = (today: Date = new Date()) =>
@@ -57,7 +57,7 @@ export const applicationInputSchema = z.object({
   deliveryDays: z.number({ error: 'Enter the number of days.' }).int().min(1, { error: 'Delivery must be 1 to 60 days.' }).max(60, { error: 'Delivery must be 1 to 60 days.' }),
 });
 
-export const applicationAcceptSchema = z.object({ note: z.string().trim().max(2000).nullable().optional() }).default({});
+export const applicationAcceptSchema = z.object({ note: z.string().trim().max(2000).nullable().optional(), payment: z.unknown() });
 
 /* ---------- Form-only ---------- */
 
@@ -82,7 +82,7 @@ export const campaignFormSchema = z
     deadline: z.string(),
   })
   .transform((v, ctx) => {
-    const cents = parseDollarsToCents(v.budget);
+    const cents = parseAmount(v.budget);
     if (cents === null) ctx.addIssue({ code: 'custom', path: ['budget'], message: v.budget.trim() ? 'Enter an amount like 250.' : 'Enter a budget per creator.' });
     const r = campaignInputSchema().safeParse({
       title: v.title,
@@ -107,7 +107,7 @@ export const campaignFormSchema = z
 export const applicationFormSchema = z
   .object({ pitch: z.string(), price: z.string(), deliveryDays: z.string() })
   .transform((v, ctx) => {
-    const cents = parseDollarsToCents(v.price);
+    const cents = parseAmount(v.price);
     const days = /^\d+$/.test(v.deliveryDays.trim()) ? Number(v.deliveryDays) : NaN;
     if (cents === null) ctx.addIssue({ code: 'custom', path: ['price'], message: v.price.trim() ? 'Enter an amount like 250.' : 'Enter your price.' });
     const r = applicationInputSchema.safeParse({ pitch: v.pitch, priceCents: cents ?? 0, deliveryDays: days });

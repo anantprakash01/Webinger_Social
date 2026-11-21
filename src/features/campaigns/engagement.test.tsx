@@ -32,7 +32,7 @@ describe('campaigns (FR-40 – FR-42)', () => {
     await user.type(within(form).getByLabelText('Brief'), 'Show our wool throw in a cosy evening setting with warm light.');
     await user.click(within(form).getByRole('checkbox', { name: 'Home & decor' }));
     await user.type(within(form).getByLabelText('Deliverables'), '1 Reel');
-    await user.type(within(form).getByLabelText('Budget per creator (USD)'), '250');
+    await user.type(within(form).getByLabelText('Budget per creator (₹)'), '20000');
     await user.click(within(form).getByRole('button', { name: 'Post campaign' }));
     await waitFor(() => expect(window.location.pathname).toMatch(/^\/brand\/campaigns\/[0-9A-Z]{26}$/));
     expect(await screen.findByRole('heading', { level: 1, name: 'Winter cosy edit' })).toBeInTheDocument();
@@ -53,14 +53,13 @@ describe('campaigns (FR-40 – FR-42)', () => {
     renderAt(`/brand/campaigns/${campaignId}`);
     await user.click(await screen.findByRole('button', { name: 'Accept and pay' }));
     expect(await screen.findByRole('heading', { name: 'Hire Leo' })).toBeInTheDocument();
-    await user.type(screen.getByLabelText('Card number'), '4242 4242 4242 4242');
-    await user.type(screen.getByLabelText('Expiry'), '12 / 39');
-    await user.type(screen.getByLabelText('CVC'), '123');
-    await user.click(screen.getByRole('button', { name: /Accept and authorise \$275\.00/ }));
+    // Pays with the brand's saved UPI ID (preselected).
+    expect(await screen.findByRole('radio', { name: 'saltbay@okhdfcbank' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: /Hire and pay ₹22,000\.00/ }));
     expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Winter cosy edit' })).toBeInTheDocument();
     const order = getDb().orders.find((o) => o.campaignId === campaignId)!;
-    expect(order).toMatchObject({ creatorUserId: leoId(), priceCents: 25_000, status: 'PENDING_ACCEPTANCE' });
+    expect(order).toMatchObject({ creatorUserId: leoId(), priceCents: 2_000_000, status: 'PENDING_ACCEPTANCE', payment: { method: 'UPI', methodLabel: 'UPI · saltbay@okhdfcbank' } });
   }, 60_000);
 
   it('creators see open campaigns from every brand and their own applications', async () => {

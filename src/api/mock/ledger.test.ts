@@ -64,7 +64,7 @@ describe('postTxn', () => {
         ],
         meta('T3'),
       ),
-    ).toThrow(/integer cents/);
+    ).toThrow(/integer minor units/);
     expect(() =>
       postTxn(
         [

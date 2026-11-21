@@ -54,7 +54,7 @@ export function OrderDetailPage() {
         <div className="vetting vetting--ok" role="status">
           <LuCircleCheck aria-hidden />
           <div>
-            <strong>Order placed.</strong> {party.name.split(' ')[0]} has 72 hours to accept. Your card is authorised, not charged.
+            <strong>Order placed.</strong> {party.name.split(' ')[0]} has 72 hours to accept. Your payment is held, not charged.
           </div>
         </div>
       )}

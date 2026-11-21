@@ -218,7 +218,7 @@ function Profile({ p }: { p: CreatorProfile }) {
             </Card>
             <Card title="How booking works">
               <ol className="how-list small">
-                <li>Pick a package and add your brief. Your card is held, not charged.</li>
+                <li>Pick a package and add your brief. Your payment is held, not charged.</li>
                 <li>{p.displayName.split(' ')[0]} accepts within 72 hours, or the hold is released.</li>
                 <li>Approve the delivery to release payment. You can ask for up to 2 revisions.</li>
               </ol>

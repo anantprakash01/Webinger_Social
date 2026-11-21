@@ -1,6 +1,7 @@
 /**
  * Phase 0 smoke test (CLAUDE.md §10, Week 6): sign up → onboard → admin approves → brand searches
- * → buys → creator accepts → delivers → brand approves → creator balance updated.
+ * → buys (UPI through Razorpay, mocked) → creator accepts → delivers → brand approves → creator
+ * balance updated → creator withdraws instantly.
  *
  * The mock keeps its data in sessionStorage, so the whole journey happens in one browser tab and
  * the roles take turns by signing out and in.
@@ -74,7 +75,7 @@ test('a new creator gets booked and paid', async ({ page }) => {
   await drawer.getByLabel('What the brand gets').fill('A 30–45 s Reel unboxing and using your product at home.');
   await drawer.getByLabel('Deliverables').fill('1 Instagram Reel');
   await drawer.getByLabel('Deliverables').press('Enter');
-  await drawer.getByLabel('Price (USD)').fill('200');
+  await drawer.getByLabel('Price (₹)').fill('10000');
   await drawer.getByRole('button', { name: 'Add package' }).click();
   await expect(page.getByText('Instagram Reel: pottery unboxing').first()).toBeVisible();
   await page.getByRole('button', { name: /Continue/ }).click();
@@ -83,8 +84,10 @@ test('a new creator gets booked and paid', async ({ page }) => {
   await page.getByRole('button', { name: /Skip for now/ }).click();
 
   await expect(page.getByRole('heading', { name: '5. Payouts' })).toBeVisible();
-  await page.getByRole('button', { name: /Set up payouts with Stripe/ }).click();
-  await page.getByRole('button', { name: 'Submit details (demo)' }).click();
+  await page.getByLabel(/^PAN/).fill('ABCDE1234F');
+  await page.getByLabel('Account number').fill('50100987654321');
+  await page.getByLabel('IFSC').fill('ICIC0004321');
+  await page.getByRole('button', { name: 'Verify and save' }).click();
   await expect(page.getByText('Payouts are set up.')).toBeVisible();
   await page.getByRole('button', { name: /Continue/ }).click();
 
@@ -109,10 +112,9 @@ test('a new creator gets booked and paid', async ({ page }) => {
   await page.getByRole('button', { name: /^Buy / }).first().click();
   await page.waitForURL('**/checkout/**');
   await page.getByLabel('What do you need?').fill('Unbox our stoneware mug set in your morning routine, natural light please.');
-  await page.getByLabel('Card number').fill('4242 4242 4242 4242');
-  await page.getByLabel('Expiry').fill('12 / 39');
-  await page.getByLabel('CVC').fill('123');
-  await page.getByRole('button', { name: /^Authorise \$220\.00/ }).click();
+  // Pay by UPI: Saltbay's saved UPI ID is preselected. ₹10,000 + 10% fee = ₹11,000.
+  await expect(page.getByRole('radio', { name: 'saltbay@okhdfcbank' })).toBeChecked();
+  await page.getByRole('button', { name: 'Pay ₹11,000.00' }).click();
   await expect(page.getByText('Order placed.')).toBeVisible();
   const orderPath = new URL(page.url()).pathname;
   const orderId = orderPath.split('/').pop()!;
@@ -133,16 +135,25 @@ test('a new creator gets booked and paid', async ({ page }) => {
   const before = cents(await availableBalance(page).innerText());
   await signOut(page);
 
-  // 6. The brand approves (FR-35): $200 − 15% = $170 goes to the creator's balance (FR-61, FR-63).
+  // 6. The brand approves (FR-35): ₹10,000 − 15% = ₹8,500 goes to the creator's balance (FR-61, FR-63).
   await logIn(page, 'brand@demo.test');
   await page.goto(orderPath);
   await page.getByRole('button', { name: /Approve and pay/ }).click();
   await page.getByRole('dialog', { name: 'Approve and release payment?' }).getByRole('button', { name: 'Approve and pay' }).click();
-  await expect(page.getByText(/\$170\.00 was released/)).toBeVisible();
+  await expect(page.getByText(/₹8,500\.00 was released/)).toBeVisible();
   await signOut(page);
 
   await logIn(page, CREATOR.email, PASSWORD);
   await page.goto('/creator/payouts');
-  await expect.poll(async () => cents(await availableBalance(page).innerText())).toBe(before + 17_000);
-  await expect(page.getByText('+$170.00')).toBeVisible();
+  await expect.poll(async () => cents(await availableBalance(page).innerText())).toBe(before + 850_000);
+  await expect(page.getByText('+₹8,500.00')).toBeVisible();
+
+  // 7. Withdraw now, instantly (1% fee): the money goes to the verified ICICI account.
+  await page.getByRole('button', { name: /Withdraw now/ }).click();
+  const w = page.getByRole('dialog', { name: 'Withdraw now' });
+  await w.getByLabel('Amount (₹)').fill('8500');
+  await w.getByText('Instant', { exact: true }).click();
+  await expect(w.getByText('₹8,415.00').first()).toBeVisible();
+  await w.getByRole('button', { name: /^Withdraw/ }).click();
+  await expect(page.getByText(/Instant withdrawal to ICICI Bank •••• 4321/)).toBeVisible();
 });
