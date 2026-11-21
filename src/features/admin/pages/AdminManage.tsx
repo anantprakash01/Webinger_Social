@@ -53,7 +53,7 @@ export function AdminUsersPage() {
 
   return (
     <div className="page">
-      <PageHeader eyebrow="Admin" title="Users" />
+      <PageHeader title="Users" />
       <form
         className="row admin-filters"
         onSubmit={(e) => {
@@ -201,7 +201,7 @@ export function AdminFeesPage() {
   if (isError) return <div className="page"><ErrorState message={error.message} onRetry={() => void refetch()} /></div>;
   return (
     <div className="page" style={{ maxWidth: 900 }}>
-      <PageHeader eyebrow="Admin" title="Fees & plans" />
+      <PageHeader title="Fees & plans" />
       <div className="brand-profile">
         <Card title="Free plan">
           <FeeForm key={data.current.effectiveFrom} brand={data.current.brandFeeBps} creator={data.current.creatorFeeBps} />
@@ -282,7 +282,7 @@ export function AdminAuditPage() {
   const { data, isPending, isError, error, refetch } = useAuditLog(action, page);
   return (
     <div className="page">
-      <PageHeader eyebrow="Admin" title="Audit log" />
+      <PageHeader title="Audit log" />
       <p className="small muted">Every admin action and money movement, newest first. Entries cannot be edited or deleted.</p>
       <Select label="Action" value={action} onChange={(v) => setParams(v ? { action: v } : {})} options={ACTIONS.map((a) => ({ value: a, label: a.replace(/_/g, ' ').toLowerCase() }))} allLabel="All actions" />
       {isError ? (
@@ -340,7 +340,6 @@ export function AdminOrdersPage() {
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Admin"
         title="Orders"
         actions={
           isMock ? (

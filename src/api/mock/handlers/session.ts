@@ -20,13 +20,16 @@ export function toMe(u: UserRow, impersonatorName: string | null = null): Me {
     emailVerified: !!u.emailVerifiedAt,
     createdAt: u.createdAt,
   };
+  me.avatarUrl = u.avatarUrl ?? null;
   if (u.role === 'CREATOR') {
     const p = db.creatorProfiles.find((c) => c.userId === u.id);
     if (p) me.creator = { username: p.username, vettingStatus: p.vettingStatus, rejectionReason: p.rejectionReason };
+    me.avatarUrl = p?.photoUrl ?? null;
   }
   if (u.role === 'BRAND') {
     const p = db.brandProfiles.find((b) => b.userId === u.id);
     me.brand = { companyName: p?.companyName ?? null };
+    me.avatarUrl = p?.logoUrl ?? null;
   }
   return me;
 }

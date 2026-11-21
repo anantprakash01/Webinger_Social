@@ -32,7 +32,7 @@ export function BrandDashboardPage() {
   return (
     <div className="page">
       <PageHeader
-        eyebrow={user.brand?.companyName ?? 'Brand workspace'}
+        eyebrow={user.brand?.companyName ?? undefined}
         title={`Hi, ${user.name.split(' ')[0]}`}
         actions={
           <Link to="/search" className="btn btn--primary">

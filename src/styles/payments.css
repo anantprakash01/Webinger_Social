@@ -19,3 +19,39 @@
 .grid--stats > * { min-width: 0; }
 .stat__value { overflow-wrap: anywhere; }
 @media (max-width: 420px) { .stat__value { font-size: var(--fs-lg); } }
+
+/* ---------- Account menu (v2.1) ---------- */
+.avatar--img { object-fit: cover; background: var(--surface-2); }
+.account { position: relative; }
+.account__trigger {
+  display: inline-flex; align-items: center; gap: var(--s-3); padding: 2px; border: 0; background: none;
+  border-radius: var(--radius-pill); cursor: pointer; color: inherit; font: inherit; text-align: left;
+}
+.account__trigger--full { width: 100%; padding: var(--s-2); border-radius: var(--radius-sm); }
+.account__trigger--full:hover, .account__trigger[aria-expanded='true'] { background: var(--surface-2); }
+.account__trigger:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.account__who { display: grid; min-width: 0; }
+.account__menu {
+  position: absolute; z-index: 60; width: 264px; padding: var(--s-2);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(15, 27, 51, 0.16);
+}
+.account--up .account__menu { bottom: calc(100% + 6px); left: 0; }
+.account--down .account__menu { top: calc(100% + 8px); right: 0; }
+.account__head { display: flex; gap: var(--s-3); align-items: center; padding: var(--s-2) var(--s-2) var(--s-3); border-bottom: 1px solid var(--border); }
+.account__photo { position: relative; flex: none; }
+.account__photo-edit {
+  position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; border: 2px solid var(--surface); background: var(--navy); color: #fff; cursor: pointer; padding: 0;
+}
+.account__photo-edit svg { width: 12px; height: 12px; }
+.account__name { display: block; font-weight: 700; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account__email { display: block; font-size: var(--fs-xs); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account__list { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: grid; }
+.account__list a, .account__list button {
+  display: flex; align-items: center; gap: var(--s-2); width: 100%; padding: var(--s-2); border: 0; background: none;
+  border-radius: var(--radius-sm); color: var(--ink); font: inherit; font-size: var(--fs-sm); text-decoration: none; cursor: pointer; text-align: left;
+}
+.account__list a:hover, .account__list button:hover { background: var(--surface-2); }
+.account__list svg { flex: none; color: var(--ink-3); }
+.account__sep { border-top: 1px solid var(--border); margin-top: var(--s-1); padding-top: var(--s-1); }
+@media (max-width: 400px) { .account--down .account__menu { width: min(264px, calc(100vw - 24px)); } }

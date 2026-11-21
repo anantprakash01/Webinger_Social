@@ -30,7 +30,6 @@ export function OrdersListPage() {
   return (
     <div className="page">
       <PageHeader
-        eyebrow={role === 'CREATOR' ? 'Creator workspace' : 'Brand workspace'}
         title="Orders"
         actions={
           role === 'BRAND' ? (

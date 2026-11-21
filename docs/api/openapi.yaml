@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.0.0
+  version: 2.1.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -219,6 +219,22 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /me/avatar:
+    put:
+      tags: [Users]
+      summary: Change the picture shown for the signed-in user (v2.1)
+      description: |
+        Creators: their profile photo (required for review, so it can be replaced but not removed — 422).
+        Brands: the company logo (can be removed). Admins: their own avatar. Upload first with
+        `POST /files/presign` (purpose AVATAR or BRAND_LOGO) and send the resulting URL.
+      operationId: updateMyAvatar
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AvatarUpdate' } } } }
+      responses:
+        '200': { description: The updated user., content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
@@ -1330,8 +1346,15 @@ components:
           description: Placing or accepting orders needs a verified email (FR-02).
         createdAt: { type: string, format: date-time }
         impersonatedBy: { type: [string, 'null'], description: 'Set in a read-only admin impersonation session (FR-82): the admin''s name.' }
+        avatarUrl: { type: [string, 'null'], description: 'Picture for the account menu (v2.1): creator photo, brand logo or admin avatar; null shows initials.' }
         creator: { $ref: '#/components/schemas/CreatorSummary' }
         brand: { $ref: '#/components/schemas/BrandSummary' }
+
+    AvatarUpdate:
+      type: object
+      required: [url]
+      properties:
+        url: { type: [string, 'null'], maxLength: 2000000, description: 'Uploaded image URL; null removes it (not allowed for creators).' }
 
     UpdateMeRequest:
       type: object

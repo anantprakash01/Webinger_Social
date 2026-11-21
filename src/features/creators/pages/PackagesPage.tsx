@@ -11,7 +11,6 @@ export function PackagesPage() {
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Creator workspace"
         title="Packages"
         actions={
           me.username && me.vettingStatus === 'APPROVED' ? (

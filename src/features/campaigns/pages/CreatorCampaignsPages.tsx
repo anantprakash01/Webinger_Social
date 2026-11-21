@@ -36,7 +36,7 @@ export function CreatorCampaignsPage() {
 
   return (
     <div className="page">
-      <PageHeader eyebrow="Creator workspace" title="Campaigns" />
+      <PageHeader title="Campaigns" />
       {!approved && (
         <div className="vetting vetting--info" role="status">
           <div>

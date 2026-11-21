@@ -36,7 +36,7 @@ export function AdminVettingPage() {
   const { data, isPending, isError, error, refetch } = useVettingQueue(status);
   return (
     <div className="page">
-      <PageHeader eyebrow="Admin" title="Vetting queue" />
+      <PageHeader title="Vetting queue" />
       <Tabs
         label="Status"
         value={status}
@@ -189,7 +189,7 @@ export function AdminDisputesPage() {
   const { data, isPending, isError, error, refetch } = useDisputes(status);
   return (
     <div className="page">
-      <PageHeader eyebrow="Admin" title="Disputes" />
+      <PageHeader title="Disputes" />
       <Tabs label="Status" value={status} onChange={setStatus} options={[{ value: 'OPEN', label: 'Open' }, { value: 'RESOLVED', label: 'Resolved' }]} />
       {isError ? (
         <ErrorState message={error.message} onRetry={() => void refetch()} />
@@ -373,7 +373,7 @@ export function AdminReportsPage() {
   const { data, isPending, isError, error, refetch } = useReports(status);
   return (
     <div className="page">
-      <PageHeader eyebrow="Admin" title="Reports" />
+      <PageHeader title="Reports" />
       <Tabs
         label="Status"
         value={status}
