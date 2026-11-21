@@ -65,7 +65,7 @@ export function FilterPanel({ state, onChange, onClear }: { state: SearchState; 
   );
 }
 
-/** Starting-price range in whole dollars. Applies on blur or Enter so typing does not search on every key. */
+/** Starting-price range in whole rupees. Applies on blur or Enter so typing does not search on every key. */
 function PriceRange({ min, max, onChange }: { min?: number; max?: number; onChange: (min?: number, max?: number) => void }) {
   const id = useId();
   const read = (el: HTMLInputElement) => (/^\d{1,7}$/.test(el.value.trim()) ? Number(el.value.trim()) : undefined);
@@ -89,15 +89,15 @@ function PriceRange({ min, max, onChange }: { min?: number; max?: number; onChan
         }
       }}
     >
-      <legend className="select__label">Starting price (USD)</legend>
+      <legend className="select__label">Starting price (₹)</legend>
       <div className="price-range__inputs">
         <label className="sr-only" htmlFor={`${id}-min`}>
-          Minimum price in dollars
+          Minimum price in rupees
         </label>
         <input key={`min-${min}`} id={`${id}-min`} inputMode="numeric" placeholder="Min" defaultValue={min ?? ''} className="price-range__input" />
         <span aria-hidden>–</span>
         <label className="sr-only" htmlFor={`${id}-max`}>
-          Maximum price in dollars
+          Maximum price in rupees
         </label>
         <input key={`max-${max}`} id={`${id}-max`} inputMode="numeric" placeholder="Max" defaultValue={max ?? ''} className="price-range__input" />
       </div>

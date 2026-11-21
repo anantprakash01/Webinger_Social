@@ -449,28 +449,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/payouts/onboarding-link": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start or continue Stripe Connect Express onboarding (FR-62)
-         * @description Creates the connected account on first use and returns a one-time Stripe-hosted onboarding URL.
-         *     Stripe sends the creator back to `returnUrl`; the payout status changes when Stripe's
-         *     `account.updated` webhook arrives.
-         */
-        post: operations["createPayoutOnboardingLink"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/orders/quote": {
         parameters: {
             query?: never;
@@ -507,10 +485,10 @@ export interface paths {
         put?: never;
         /**
          * Place an order — buy a package or send a custom offer (FR-30, FR-31, FR-33)
-         * @description Verified brands only (FR-02). Creates a Stripe PaymentIntent with `capture_method=manual`: the card is
-         *     authorised now and captured only when the creator accepts. Fees are copied onto the order.
-         *     The order becomes visible as PENDING_ACCEPTANCE once the authorisation succeeds
-         *     (in the mock, immediately). Repeating a request with the same `Idempotency-Key` returns the first result.
+         * @description Verified brands only (FR-02). `payment` is proof of an authorised Razorpay payment (UPI, card, netbanking or
+         *     wallet app) for a session of exactly the order total; it is captured only when the creator accepts. The
+         *     server verifies the signature and amount before creating the order, so a failed payment never creates
+         *     one (402 PAYMENT_FAILED; 409 AMOUNT_MISMATCH if the price changed). Fees are copied onto the order. Repeating a request with the same `Idempotency-Key` returns the first result.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -1251,6 +1229,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payments/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a payment session (a Razorpay order) for an exact amount
+         * @description Step 1 of paying through Razorpay. The server creates a Razorpay order for `amountCents` and returns
+         *     what Razorpay Checkout needs. The brand then pays in Checkout (UPI, card, netbanking or a wallet
+         *     app); Checkout returns `razorpay_payment_id` and `razorpay_signature`, which the app sends with
+         *     `POST /orders` or `POST /applications/{id}/accept`. Sessions use `payment_capture=0` (authorise only;
+         *     captured when the creator accepts, released otherwise) and expire after 30 minutes.
+         */
+        post: operations["createPaymentSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The brand's saved payment methods (tokenised cards and UPI IDs)
+         * @description Cards are stored as RBI-compliant tokens at Razorpay, never on our servers; only the network, last four digits and expiry are shown.
+         */
+        get: operations["listPaymentMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/methods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a saved payment method (deletes the Razorpay token) */
+        delete: operations["deletePaymentMethod"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payouts/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The creator's payout account (bank account or UPI ID), or null */
+        get: operations["getPayoutAccount"];
+        /**
+         * Add or change the payout account (FR-62)
+         * @description Creates or updates the creator's Razorpay Route linked account with PAN and bank details (KYC), and
+         *     verifies the destination (penny drop for bank accounts, VPA validation for UPI). Status moves
+         *     VERIFYING → VERIFIED (payouts enabled) or FAILED with a reason.
+         */
+        put: operations["savePayoutAccount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payouts/withdrawals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw now — standard (free) or instant (fee)
+         * @description Pays part or all of the available balance to the payout account through RazorpayX.
+         *     STANDARD goes by NEFT, free, usually the same or next working day. INSTANT goes by IMPS or UPI
+         *     within minutes for a fee (see `PayoutOverview.instantFeeBps`, minimum `instantFeeMinCents`), taken
+         *     from the amount. Minimum withdrawal `minWithdrawalCents`.
+         */
+        post: operations["createWithdrawal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payouts/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Turn the automatic weekly payout on or off */
+        put: operations["updatePayoutSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/payouts/balance": {
         parameters: {
             query?: never;
@@ -1260,7 +1362,7 @@ export interface paths {
         };
         /**
          * Creator balance, transfers and bank payouts (FR-63)
-         * @description Approved work moves to the balance (a Stripe Transfer to the connected account); the balance is paid to the bank every Monday (UTC).
+         * @description Approved work moves to the balance (a Razorpay Route transfer released from hold); the balance is paid out every Monday (UTC) if `autoWeekly` is on, or on request (`POST /payouts/withdrawals`).
          */
         get: operations["getPayoutBalance"];
         put?: never;
@@ -1542,7 +1644,7 @@ export interface components {
             caption?: string | null;
         };
         /**
-         * @description NOT_STARTED → PENDING (details submitted, Stripe checking) → ENABLED.
+         * @description NOT_STARTED → PENDING (payout account being verified) → ENABLED (verified; payouts can be sent).
          * @enum {string}
          */
         PayoutStatus: "NOT_STARTED" | "PENDING" | "ENABLED";
@@ -1640,15 +1742,6 @@ export interface components {
             };
             /** @description Where the file will be served from once uploaded. */
             fileUrl: string;
-            /** Format: date-time */
-            expiresAt: string;
-        };
-        OnboardingLinkRequest: {
-            /** @description App path Stripe sends the creator back to */
-            returnUrl: string;
-        };
-        OnboardingLink: {
-            url: string;
             /** Format: date-time */
             expiresAt: string;
         };
@@ -1829,7 +1922,7 @@ export interface components {
             status: "DISMISSED" | "ACTION_TAKEN";
             note: string;
         };
-        /** @description Approved work moved to the creator balance (a Stripe Transfer to the connected account). */
+        /** @description Approved work moved to the creator balance (a Razorpay Route transfer released from hold). */
         Transfer: {
             orderId: components["schemas"]["Ulid"];
             orderTitle: string;
@@ -1838,12 +1931,24 @@ export interface components {
             /** Format: date-time */
             at: string;
         };
-        /** @description Balance paid to the creator's bank. */
+        /** @description Money sent from the balance to the payout account (RazorpayX payout). */
         Payout: {
-            /** @example po_mock123 */
+            /** @example pout_mock123 */
             id: string;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Taken from the balance.
+             */
             amountCents: number;
+            /**
+             * Format: int64
+             * @description Instant payout fee; the creator receives amount − fee.
+             */
+            feeCents: number;
+            /** @enum {string} */
+            speed: "SCHEDULED" | "STANDARD" | "INSTANT";
+            /** @example HDFC Bank •••• 4321 */
+            destinationLabel: string;
             /** @enum {string} */
             status: "IN_TRANSIT" | "PAID";
             /** Format: date-time */
@@ -1873,6 +1978,117 @@ export interface components {
             transfers: components["schemas"]["Transfer"][];
             /** @description Newest first. */
             payouts: components["schemas"]["Payout"][];
+            account: components["schemas"]["PayoutAccount"] | null;
+            autoWeekly: boolean;
+            /**
+             * Format: int64
+             * @example 50000
+             */
+            minWithdrawalCents: number;
+            /** @example 100 */
+            instantFeeBps: number;
+            /**
+             * Format: int64
+             * @example 1000
+             */
+            instantFeeMinCents: number;
+        };
+        /**
+         * @description How the brand paid through Razorpay. WALLET_APP is a third-party wallet (Paytm, PhonePe, Amazon Pay, MobiKwik).
+         * @enum {string}
+         */
+        PaymentMethodType: "UPI" | "CARD" | "NETBANKING" | "WALLET_APP";
+        PaymentSessionRequest: {
+            /** @enum {string} */
+            purpose: "ORDER";
+            /**
+             * Format: int64
+             * @description The quoted total (price + brand fee); the server rechecks it when the order is placed.
+             */
+            amountCents: number;
+        };
+        PaymentSession: {
+            id: string;
+            /** @enum {string} */
+            purpose: "ORDER";
+            /** Format: int64 */
+            amountCents: number;
+            /** @example INR */
+            currency: string;
+            /** @example order_Mock123 */
+            razorpayOrderId: string;
+            /** @description Publishable key for Razorpay Checkout. */
+            razorpayKeyId: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        /** @description Proof from Razorpay Checkout that a session of exactly the order total was authorised. */
+        OrderPaymentInput: {
+            sessionId: string;
+            /** @example pay_Mock123 */
+            razorpayPaymentId: string;
+            /** @description HMAC-SHA256 of "razorpay_order_id|razorpay_payment_id" with the key secret; verified server-side. */
+            razorpaySignature: string;
+        };
+        SavedPaymentMethod: {
+            id: string;
+            /** @enum {string} */
+            type: "CARD" | "UPI";
+            /**
+             * @example Visa •••• 1111
+             * @example maya@okhdfc
+             */
+            label: string;
+            /** @example Visa */
+            network: string | null;
+            last4: string | null;
+            /** @example 12/29 */
+            expiry: string | null;
+            vpa: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SavedPaymentMethodList: {
+            content: components["schemas"]["SavedPaymentMethod"][];
+        };
+        PayoutAccountInput: {
+            /** @description Permanent Account Number (KYC and TDS). */
+            pan: string;
+            /** @description As on the bank account. */
+            holderName: string;
+            /** @enum {string} */
+            method: "BANK_ACCOUNT" | "UPI";
+            accountNumber?: string | null;
+            ifsc?: string | null;
+            /** @description UPI ID, e.g. name@okaxis. */
+            vpa?: string | null;
+        };
+        PayoutAccount: {
+            /** @enum {string} */
+            method: "BANK_ACCOUNT" | "UPI";
+            holderName: string;
+            /** @example ABCDE••••F */
+            panMasked: string;
+            /**
+             * @example HDFC Bank •••• 4321
+             * @example leo@okaxis
+             */
+            destinationLabel: string;
+            /** @enum {string} */
+            status: "VERIFYING" | "VERIFIED" | "FAILED";
+            failureReason: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        WithdrawalRequest: {
+            /** Format: int64 */
+            amountCents: number;
+            /** @enum {string} */
+            speed: "STANDARD" | "INSTANT";
+        };
+        PayoutSettings: {
+            /** @description Pay the whole available balance every Monday. */
+            autoWeekly: boolean;
         };
         /**
          * @description OPEN until the brand closes it. Creators can apply only while OPEN and before the deadline.
@@ -1953,6 +2169,7 @@ export interface components {
         ApplicationAcceptRequest: {
             /** @description Extra instructions added to the campaign brief. */
             note?: string | null;
+            payment: components["schemas"]["OrderPaymentInput"];
         };
         ChatMessage: {
             id: components["schemas"]["Ulid"];
@@ -2108,6 +2325,7 @@ export interface components {
             creatorUsername?: string;
             offer?: components["schemas"]["CustomOfferInput"];
             brief: components["schemas"]["OrderBrief"];
+            payment: components["schemas"]["OrderPaymentInput"];
         };
         OrderCreated: {
             orderId: components["schemas"]["Ulid"];
@@ -2124,8 +2342,6 @@ export interface components {
             currency: string;
             /** Format: date-time */
             acceptBy: string;
-            /** @description For the Payment Element to confirm the authorisation. */
-            stripeClientSecret: string;
         };
         OrderQuote: {
             kind: components["schemas"]["OrderKind"];
@@ -2174,8 +2390,18 @@ export interface components {
             status: components["schemas"]["PaymentStatus"];
             /** Format: int64 */
             amountCents: number;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Refunds go back to the original payment method.
+             */
             refundedCents: number;
+            method: components["schemas"]["PaymentMethodType"];
+            /**
+             * @example UPI · maya@okhdfc
+             * @example Visa •••• 1111
+             * @example HDFC Bank netbanking
+             */
+            methodLabel: string;
         };
         Deadline: {
             /** @enum {string} */
@@ -3032,31 +3258,6 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationFailed"];
-        };
-    };
-    createPayoutOnboardingLink: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OnboardingLinkRequest"];
-            };
-        };
-        responses: {
-            /** @description The link. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OnboardingLink"];
-                };
-            };
-            403: components["responses"]["Forbidden"];
         };
     };
     quoteOrder: {
@@ -4263,6 +4464,176 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    createPaymentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Session opened. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSession"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listPaymentMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedPaymentMethodList"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deletePaymentMethod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPayoutAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutAccount"] | null;
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    savePayoutAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayoutAccountInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutAccount"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    createWithdrawal: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawalRequest"];
+            };
+        };
+        responses: {
+            /** @description Payout started. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    updatePayoutSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayoutSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutOverview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     getPayoutBalance: {

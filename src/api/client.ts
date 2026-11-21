@@ -8,6 +8,7 @@
  * Both modes share one request path, including the 401 → refresh → retry-once logic,
  * so switching a module from mock to real changes nothing in any screen.
  */
+import type { MockCheckoutInput } from '@/features/payments/schemas';
 import { uploadProblem } from '@/features/files/schemas';
 import {
   ApiError,
@@ -17,7 +18,13 @@ import {
   type CreatorMe,
   type CreatorProfileInput,
   type CreatorStats,
-  type OnboardingLink,
+  type OrderPaymentInput,
+  type PaymentSession,
+  type Payout,
+  type PayoutAccount,
+  type PayoutAccountInput,
+  type SavedPaymentMethod,
+  type WithdrawalRequest,
   type OwnPackage,
   type PackageInput,
   type PackagePatch,
@@ -410,10 +417,20 @@ export const api = {
     stats: () => request<BrandStats>('GET', '/brands/me/stats'),
   },
   payouts: {
-    /** FR-62: Stripe Connect Express onboarding. The browser then goes to `url`. */
-    onboardingLink: (returnUrl: string) => request<OnboardingLink>('POST', '/payouts/onboarding-link', { body: { returnUrl } }),
-    /** FR-63: balance, transfers and bank payouts. */
+    /** FR-63: balance, transfers, payouts, payout account and settings. */
     balance: () => request<PayoutOverview>('GET', '/payouts/balance'),
+    /** FR-62: payout account (bank or UPI + PAN) — a Razorpay Route linked account. */
+    account: () => request<PayoutAccount | null>('GET', '/payouts/account'),
+    saveAccount: (body: PayoutAccountInput) => request<PayoutAccount>('PUT', '/payouts/account', { body }),
+    /** Withdraw now (standard or instant). Money moves, so it carries an Idempotency-Key. */
+    withdraw: (body: WithdrawalRequest, idempotencyKey: string) => request<Payout>('POST', '/payouts/withdrawals', { body, headers: { 'idempotency-key': idempotencyKey } }),
+    settings: (autoWeekly: boolean) => request<PayoutOverview>('PUT', '/payouts/settings', { body: { autoWeekly } }),
+  },
+  /** Razorpay payment sessions and saved methods (v2.0). */
+  payments: {
+    session: (amountCents: number) => request<PaymentSession>('POST', '/payments/sessions', { body: { purpose: 'ORDER', amountCents } }),
+    methods: () => request<{ content: SavedPaymentMethod[] }>('GET', '/payments/methods'),
+    removeMethod: (id: string) => request<void>('DELETE', `/payments/methods/${enc(id)}`),
   },
   files: {
     /**
@@ -459,8 +476,8 @@ export const api = {
     close: (id: string) => request<CampaignDetail>('POST', `/campaigns/${enc(id)}/close`),
     apply: (id: string, body: ApplicationInput) => request<Application>('POST', `/campaigns/${enc(id)}/applications`, { body }),
     /** FR-42: places an order (card authorised), so it carries an Idempotency-Key. */
-    acceptApplication: (id: string, note: string | null, idempotencyKey: string) =>
-      request<OrderCreated>('POST', `/applications/${enc(id)}/accept`, { body: { note }, headers: { 'idempotency-key': idempotencyKey } }),
+    acceptApplication: (id: string, note: string | null, payment: OrderPaymentInput, idempotencyKey: string) =>
+      request<OrderCreated>('POST', `/applications/${enc(id)}/accept`, { body: { note, payment }, headers: { 'idempotency-key': idempotencyKey } }),
     rejectApplication: (id: string) => request<Application>('POST', `/applications/${enc(id)}/reject`, { body: {} }),
     withdrawApplication: (id: string) => request<Application>('POST', `/applications/${enc(id)}/withdraw`),
   },
@@ -528,8 +545,8 @@ export const api = {
       store.set(IMPERSONATOR_KEY, null);
       clearSession(null);
     },
-    /** Stands in for Stripe's account.updated webhook after the mock onboarding page. */
-    completeConnectOnboarding: (accountId: string) => request<{ payoutStatus: string }>('POST', '/dev/stripe/connect-complete', { body: { accountId } }),
+    /** Stands in for the brand paying inside Razorpay Checkout; returns what Checkout would. */
+    razorpayPay: (body: MockCheckoutInput) => request<{ razorpayPaymentId: string; razorpaySignature: string }>('POST', '/dev/razorpay/pay', { body }),
     /** Stands in for the admin vetting queue (Week 6) so every vetting state can be demoed. */
     async vettingDecision(decision: 'APPROVE' | 'REJECT', reason?: string): Promise<CreatorMe> {
       const me = await request<CreatorMe>('POST', '/dev/vetting-decision', { body: { decision, reason } });

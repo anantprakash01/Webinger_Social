@@ -76,7 +76,7 @@ export function seedOrders(now: Date, ids: { brandId: string; brandName: string;
     // In progress: a custom offer with Leo, and a late one elsewhere.
     {
       creatorId: leo,
-      pkg: { title: 'Desk setup feature (custom)', platform: 'YOUTUBE', deliverables: ['60–90 s integration', 'Link in description', 'Pinned comment'], priceCents: 45_000, deliveryDays: 7 },
+      pkg: { title: 'Desk setup feature (custom)', platform: 'YOUTUBE', deliverables: ['60–90 s integration', 'Link in description', 'Pinned comment'], priceCents: 3_600_000, deliveryDays: 7 },
       placedHoursAgo: 60,
       steps: [[{ type: 'ACCEPT' }, 'CREATOR', 48]],
       requirements: 'Feature our walnut monitor stand in your next desk tour. Talking points attached.',

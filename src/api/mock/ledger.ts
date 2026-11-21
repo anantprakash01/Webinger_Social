@@ -7,6 +7,7 @@
  */
 import { assertCents } from '@/lib/money';
 
+/** BRAND_CHARGE: money taken from the brand's payment method (Razorpay). Everything else as in section 4.1. */
 export type LedgerAccount = 'BRAND_CHARGE' | 'ESCROW' | 'PLATFORM_REVENUE' | 'CREATOR_BALANCE' | 'PAYOUT';
 
 export interface LedgerEntry {
@@ -51,7 +52,7 @@ const move = (from: LedgerAccount, to: LedgerAccount, cents: number): LedgerLine
 
 /* ---------- One builder per money movement in section 4.1 ---------- */
 
-/** Step 2 — creator accepts, card captured: BRAND_CHARGE → ESCROW (price + brand fee). */
+/** Step 2 — creator accepts, payment captured: BRAND_CHARGE → ESCROW (price + brand fee). */
 export const captureLines = (brandTotalCents: number) => move('BRAND_CHARGE', 'ESCROW', brandTotalCents);
 
 /** Step 4 — approval or auto-approval: ESCROW → PLATFORM_REVENUE (both fees) + CREATOR_BALANCE (price − creator fee). */
@@ -65,11 +66,21 @@ export function releaseLines(o: { escrowCents: number; creatorPayoutCents: numbe
   ];
 }
 
-/** Step 6 — dispute ruled for the brand: ESCROW → BRAND_CHARGE for the refunded part. */
+/** Step 6 — dispute ruled for the brand: ESCROW → BRAND_CHARGE (refunded to the original payment method). */
 export const refundLines = (refundCents: number) => move('ESCROW', 'BRAND_CHARGE', refundCents);
 
-/** Step 5 — bank payout: CREATOR_BALANCE → PAYOUT. */
-export const payoutLines = (cents: number) => move('CREATOR_BALANCE', 'PAYOUT', cents);
+/**
+ * Step 5 — payout: CREATOR_BALANCE → PAYOUT. An instant payout's fee goes to PLATFORM_REVENUE, so the
+ * creator receives amount − fee.
+ */
+export function payoutLines(cents: number, feeCents = 0): LedgerLine[] {
+  if (feeCents < 0 || feeCents >= cents) throw new LedgerImbalanceError('Payout fee must be less than the amount');
+  return [
+    { account: 'CREATOR_BALANCE', debitCents: 0, creditCents: cents },
+    { account: 'PAYOUT', debitCents: cents - feeCents, creditCents: 0 },
+    { account: 'PLATFORM_REVENUE', debitCents: feeCents, creditCents: 0 },
+  ];
+}
 
 /** Dev check (section 9.5 rule 3): every transaction in the ledger sums to zero. Returns the bad txn ids. */
 export function findUnbalancedTxns(entries: LedgerEntry[]): string[] {

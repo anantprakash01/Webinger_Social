@@ -67,7 +67,7 @@ export const getMyBrandStats: Handler = ({ user }) => {
   const campaigns = db.campaigns.filter((c) => c.brandUserId === user.id);
   const today = now().toISOString().slice(0, 10);
   const body: BrandStats = {
-    currency: 'USD',
+    currency: 'INR',
     spentCents: captured.reduce((s, o) => s + total(o) - o.payment.refundedCents, 0),
     inEscrowCents: orders.filter((o) => o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED').reduce((s, o) => s + total(o), 0),
     authorisedCents: orders.filter((o) => o.status === 'PENDING_ACCEPTANCE').reduce((s, o) => s + total(o), 0),

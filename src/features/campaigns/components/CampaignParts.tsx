@@ -115,7 +115,7 @@ export function CampaignForm({ onDone }: { onDone: (id: string) => void }) {
       />
       <TextArea label="Deliverables" rows={3} hint="One per line, e.g. “1 Reel (30–60 s)”." error={errors.deliverablesText?.message} {...register('deliverablesText')} />
       <div className="form-row">
-        <Input label="Budget per creator (USD)" inputMode="decimal" placeholder="300" hint="Creators propose their price up to about this." error={errors.budget?.message} {...register('budget')} />
+        <Input label="Budget per creator (₹)" inputMode="decimal" placeholder="25000" hint="Creators propose their price up to about this." error={errors.budget?.message} {...register('budget')} />
         <Input label="Apply by" type="date" error={errors.deadline?.message} {...register('deadline')} />
       </div>
       <div className="row">

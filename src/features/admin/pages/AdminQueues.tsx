@@ -10,7 +10,7 @@ import { VettingBadge, timeAgo } from '@/components/status';
 import { Badge, Button, Card, Drawer, EmptyState, ErrorState, FormError, Input, PageHeader, PageSkeleton, TextArea, cx } from '@/components/ui';
 import { BriefCard, Deliveries, Timeline } from '@/features/orders/components/OrderParts';
 import { formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
-import { formatMoney, parseDollarsToCents } from '@/lib/money';
+import { formatMoney, parseAmount } from '@/lib/money';
 import type { AdminDispute, Report, VettingItem } from '@/types';
 import { REPORT_REASONS } from '../schemas';
 import { useDisputes, useReports, useResolveDispute, useResolveReport, useVettingDecision, useVettingQueue } from '../hooks';
@@ -306,7 +306,7 @@ function ResolvePanel({ d }: { d: AdminDispute }) {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const m = d.money;
-  const refundCents = parseDollarsToCents(amount);
+  const refundCents = parseAmount(amount);
   const amountError = resolution === 'PARTIAL_REFUND' && amount && (refundCents === null || refundCents < 1 || refundCents > m.creatorPayoutCents) ? `Enter 0.01 to ${formatMoney(m.creatorPayoutCents, m.currency)}.` : undefined;
   const ready = note.trim().length >= 10 && (resolution !== 'PARTIAL_REFUND' || (!!refundCents && !amountError));
 
@@ -348,7 +348,7 @@ function ResolvePanel({ d }: { d: AdminDispute }) {
             </label>
           ))}
         </fieldset>
-        {resolution === 'PARTIAL_REFUND' && <Input label="Refund amount (USD)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={amountError} />}
+        {resolution === 'PARTIAL_REFUND' && <Input label="Refund amount (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={amountError} />}
         <TextArea label="Decision note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} hint="Shown to both sides and kept in the audit log." />
         <FormError>{resolve.error?.message}</FormError>
         <Button

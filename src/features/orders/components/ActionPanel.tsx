@@ -46,10 +46,10 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
       if (role === 'CREATOR') {
         tone = 'warn';
         title = 'New order — accept or decline';
-        text = `Accepting charges the brand's card and starts your ${o.deliveryDays}-day delivery clock. You receive ${formatMoney(m.creatorPayoutCents, m.currency)} when the work is approved.`;
+        text = `Accepting charges the brand's payment and starts your ${o.deliveryDays}-day delivery clock. You receive ${formatMoney(m.creatorPayoutCents, m.currency)} when the work is approved.`;
       } else {
         title = `Waiting for ${first} to accept`;
-        text = `Your card is authorised for ${formatMoney(m.totalCents, m.currency)}, not charged. If ${first} doesn't accept in time, the hold is released.`;
+        text = `Your payment of ${formatMoney(m.totalCents, m.currency)} is held (${o.payment.methodLabel}), not charged. If ${first} doesn't accept in time, the hold is released.`;
       }
       break;
     case 'IN_PROGRESS':
@@ -96,7 +96,7 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
       tone = 'neutral';
       icon = <LuCircleX aria-hidden />;
       title = o.closeReason === 'DECLINED' ? 'Declined' : o.closeReason === 'EXPIRED' ? 'Expired' : 'Cancelled';
-      text = 'The card hold was released. The brand was not charged.';
+      text = 'The payment hold was released. The brand was not charged.';
       break;
   }
 
@@ -202,9 +202,9 @@ function ConfirmDialog({ o, kind, first, onClose }: { o: OrderDetail; kind: Excl
   const m = o.money;
 
   const explain: Record<Exclude<Dialog, 'deliver' | null>, string> = {
-    accept: `The brand's card is charged ${formatMoney(m.totalCents, m.currency)} and held in escrow. Deliver within ${o.deliveryDays} days; you receive ${formatMoney(m.creatorPayoutCents, m.currency)} once the brand approves.`,
-    decline: 'The card hold is released and the brand is not charged. This cannot be undone.',
-    cancel: 'The card hold is released and you are not charged. This cannot be undone.',
+    accept: `The brand's payment of ${formatMoney(m.totalCents, m.currency)} is captured and held in escrow. Deliver within ${o.deliveryDays} days; you receive ${formatMoney(m.creatorPayoutCents, m.currency)} once the brand approves.`,
+    decline: 'The payment hold is released and the brand is not charged. This cannot be undone.',
+    cancel: 'The payment hold is released and you are not charged. This cannot be undone.',
     approve: `${formatMoney(m.creatorPayoutCents, m.currency)} is released to ${first}. This completes the order and cannot be undone.`,
     revision: `${first} gets at least 3 more days. You have ${o.maxRevisions - o.revisionCount} revision${o.maxRevisions - o.revisionCount === 1 ? '' : 's'} left.`,
     dispute: 'The money stays in escrow while our team reviews the order, the brief and the delivery. Try asking for a revision first if a change would fix it.',

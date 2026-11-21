@@ -63,7 +63,7 @@ export function BrandDashboardPage() {
       <div className="grid grid--stats">
         <Stat label="Spent" value={formatMoney(s.spentCents, s.currency)} hint="Charged, minus refunds" accent />
         <Stat label="In escrow" value={formatMoney(s.inEscrowCents, s.currency)} hint="Released when you approve" />
-        <Stat label="Card holds" value={formatMoney(s.authorisedCents, s.currency)} hint="Not charged until accepted" />
+        <Stat label="Payment holds" value={formatMoney(s.authorisedCents, s.currency)} hint="Not charged until accepted" />
         <Stat
           label="Open campaigns"
           value={s.openCampaigns}

@@ -33,6 +33,13 @@ export type OrderStatus =
 export type CloseReason = 'DECLINED' | 'EXPIRED' | 'CANCELED';
 
 export type PaymentStatus = 'AUTHORIZED' | 'CAPTURED' | 'REFUNDED' | 'CANCELED';
+export type PaymentMethod = 'UPI' | 'CARD' | 'NETBANKING' | 'WALLET_APP';
+
+/** How the order was paid through Razorpay (v2.0), for display and receipts. */
+export interface OrderPaymentInfo {
+  method: PaymentMethod;
+  methodLabel: string;
+}
 
 export interface MockOrder {
   id: string;
@@ -56,7 +63,7 @@ export interface MockOrder {
   revisionCount: number;
   /** Optimistic lock, like the JPA @Version column: approve and auto-approve cannot both win. */
   version: number;
-  payment: { status: PaymentStatus; amountCents: number; refundedCents: number };
+  payment: { status: PaymentStatus; amountCents: number; refundedCents: number } & OrderPaymentInfo;
   createdAt: string;
   updatedAt: string;
 }
@@ -262,7 +269,7 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
       next.payment.status = 'CAPTURED';
       paymentAction = 'CAPTURE';
       lines = captureLines(brandTotalCents(order));
-      memo = 'Card captured on acceptance';
+      memo = 'Payment captured on acceptance';
       break;
     case 'DECLINE':
     case 'CANCEL':
@@ -333,14 +340,18 @@ export interface NewOrderInput {
   deliveryDays: number;
   currency?: string;
   fees: FeeConfig;
+  /** Defaults to a card payment (seed data and older callers). */
+  payment?: OrderPaymentInfo;
 }
 
-/** Checkout (FR-30): card authorised, not captured. Fees are copied onto the order (section 4.2). */
+export const DEFAULT_PAYMENT: OrderPaymentInfo = { method: 'CARD', methodLabel: 'Visa •••• 1111' };
+
+/** Checkout (FR-30): payment authorised, not captured. Fees are copied onto the order (section 4.2). */
 export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<MachineContext, 'now'>): { order: MockOrder; event: OrderEvent; paymentAction: PaymentAction } {
   if (actor.kind !== 'USER' || actor.role !== 'BRAND') throw new TransitionError(403, 'ROLE_NOT_ALLOWED', 'Only brands can place orders.');
   if (!actor.emailVerified) throw new TransitionError(403, 'EMAIL_NOT_VERIFIED', 'Verify your email before placing orders.');
   if (!Number.isSafeInteger(input.priceCents) || input.priceCents < MIN_PRICE_CENTS)
-    throw new TransitionError(422, 'PRICE_TOO_LOW', 'The minimum price is $10.');
+    throw new TransitionError(422, 'PRICE_TOO_LOW', 'The minimum price is ₹500.');
   if (!Number.isInteger(input.deliveryDays) || input.deliveryDays < MIN_DELIVERY_DAYS || input.deliveryDays > MAX_DELIVERY_DAYS)
     throw new TransitionError(422, 'INVALID_DELIVERY_DAYS', 'Delivery must be between 1 and 60 days.');
 
@@ -354,7 +365,7 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     campaignId: input.campaignId ?? null,
     status: 'PENDING_ACCEPTANCE',
     closeReason: null,
-    currency: input.currency ?? 'USD',
+    currency: input.currency ?? 'INR',
     priceCents: f.priceCents,
     brandFeeCents: f.brandFeeCents,
     creatorFeeCents: f.creatorFeeCents,
@@ -366,7 +377,7 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     reviewBy: null,
     revisionCount: 0,
     version: 0,
-    payment: { status: 'AUTHORIZED', amountCents: f.brandTotalCents, refundedCents: 0 },
+    payment: { status: 'AUTHORIZED', amountCents: f.brandTotalCents, refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
     createdAt: at,
     updatedAt: at,
   };

@@ -1,3 +1,4 @@
+import { VALID_PAYOUT_ACCOUNT } from '@/test/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -54,22 +55,24 @@ describe('onboarding wizard (FR-10 – FR-16, FR-62)', () => {
     await user.type(within(drawer).getByLabelText('Title'), 'TikTok recipe video');
     await user.type(within(drawer).getByLabelText('What the brand gets'), 'A 30–60 s recipe video using your product.');
     await user.type(within(drawer).getByLabelText('Deliverables'), '1 TikTok video{enter}Raw footage');
-    await user.type(within(drawer).getByLabelText('Price (USD)'), '180');
+    await user.type(within(drawer).getByLabelText('Price (₹)'), '15000');
     await user.click(within(drawer).getByRole('button', { name: 'Add package' }));
     expect(await screen.findByText('TikTok recipe video')).toBeInTheDocument();
-    expect(screen.getByText('$180.00')).toBeInTheDocument();
+    expect(screen.getByText('₹15,000.00')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Continue/ }));
 
     // 4. Portfolio (optional)
     expect(await screen.findByRole('heading', { name: '4. Portfolio' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Skip for now/ }));
 
-    // 5. Payouts through the mock Stripe page
+    // 5. Payouts: PAN + bank account, verified by Razorpay (mocked)
     expect(await screen.findByRole('heading', { name: '5. Payouts' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Set up payouts with Stripe/ }));
-    expect(await screen.findByRole('heading', { name: 'Set up payouts' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Submit details (demo)' }));
+    await user.type(await screen.findByLabelText(/^PAN/), 'ABCDE1234F');
+    await user.type(screen.getByLabelText('Account number'), '50100123456789');
+    await user.type(screen.getByLabelText('IFSC'), 'HDFC0001234');
+    await user.click(screen.getByRole('button', { name: 'Verify and save' }));
     expect(await screen.findByText('Payouts are set up.')).toBeInTheDocument();
+    expect(screen.getAllByText(/HDFC Bank •••• 6789/).length).toBeGreaterThan(0);
     expect(window.location.search).toBe('?step=payouts');
     await user.click(screen.getByRole('button', { name: /Continue/ }));
 
@@ -94,11 +97,11 @@ describe('onboarding wizard (FR-10 – FR-16, FR-62)', () => {
     await user.type(within(drawer).getByLabelText('Title'), 'Cheap thing');
     await user.type(within(drawer).getByLabelText('What the brand gets'), 'Something small and quick.');
     await user.type(within(drawer).getByLabelText('Deliverables'), 'One thing');
-    await user.type(within(drawer).getByLabelText('Price (USD)'), '9.99');
+    await user.type(within(drawer).getByLabelText('Price (₹)'), '499');
     await user.clear(within(drawer).getByLabelText('Delivery (days)'));
     await user.type(within(drawer).getByLabelText('Delivery (days)'), '61');
     await user.click(within(drawer).getByRole('button', { name: 'Add package' }));
-    expect(await within(drawer).findByText('The minimum price is $10.')).toBeInTheDocument();
+    expect(await within(drawer).findByText('The minimum price is ₹500.')).toBeInTheDocument();
     expect(within(drawer).getByText('Delivery must be 1 to 60 days.')).toBeInTheDocument();
   });
 
@@ -120,9 +123,8 @@ describe('vetting banner (FR-16)', () => {
     // Fast-forward the setup through the API, then reject.
     await api.creatorMe.updateProfile({ username: 'ivyx', displayName: 'Ivy', bio: 'Weeknight recipes and honest gadget reviews.', city: 'Toronto', country: 'CA', languages: ['en'], niches: ['FOOD'], photoUrl: '/demo/photo-03.svg', coverUrls: [] });
     await api.creatorMe.addSocial({ platform: 'INSTAGRAM', handle: 'ivyx', followers: 900 });
-    await api.creatorMe.createPackage({ platform: 'INSTAGRAM', title: 'Reel', description: 'One short Reel.', deliverables: ['1 Reel'], priceCents: 5_000, deliveryDays: 4, active: true });
-    const link = new URL((await api.payouts.onboardingLink('/creator/onboarding')).url, 'http://x');
-    await api.dev.completeConnectOnboarding(link.searchParams.get('account')!);
+    await api.creatorMe.createPackage({ platform: 'INSTAGRAM', title: 'Reel', description: 'One short Reel.', deliverables: ['1 Reel'], priceCents: 400_000, deliveryDays: 4, active: true });
+    await api.payouts.saveAccount(VALID_PAYOUT_ACCOUNT);
     await api.creatorMe.submitForReview();
     await api.dev.vettingDecision('REJECT', 'Please link a public account.');
 

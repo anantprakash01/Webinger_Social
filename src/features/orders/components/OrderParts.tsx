@@ -38,6 +38,8 @@ export function MoneyCard({ o, role }: { o: OrderDetail; role: Role }) {
             <dd className="money__total">{formatMoney(m.totalCents, m.currency)}</dd>
             <dt className="muted">Creator receives</dt>
             <dd className="muted">{formatMoney(m.creatorPayoutCents, m.currency)}</dd>
+            <dt className="muted">Paid with</dt>
+            <dd className="muted">{o.payment.methodLabel}</dd>
           </>
         )}
       </dl>

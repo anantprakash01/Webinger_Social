@@ -1,44 +1,83 @@
 /**
- * Mock for payout onboarding (FR-62, Stripe Connect Express).
- * The real flow: create the connected account → Stripe-hosted onboarding link → Stripe sends the
- * creator back to `returnUrl` → `account.updated` webhook marks payouts enabled.
- * The mock link opens an in-app imitation of Stripe's page (`/dev/stripe-connect`), whose submit button
- * calls `POST /dev/stripe/connect-complete` — standing in for the webhook.
+ * Creator payouts mock (FR-62, FR-63; v2.0 India / Razorpay).
+ *
+ * Real flow: the creator's PAN and bank account (or UPI ID) create a Razorpay Route linked account and a
+ * RazorpayX fund account; the destination is verified (penny drop / VPA check). Approved work is a Route
+ * transfer released from hold into the balance; money leaves the balance as a RazorpayX payout, either on
+ * the weekly schedule or on request (standard NEFT, free; instant IMPS/UPI, 1% fee, at least ₹10).
+ *
+ * The mock verifies at once. Test outcomes: account number 000000000 / UPI ID ending @fail → FAILED.
  */
-import { onboardingLinkRequestSchema } from '@/features/creators/schemas';
-import type { OnboardingLink } from '@/types';
-import { getDb, now, randomToken } from '../db';
-import { creatorMoney, nextMonday } from '../payoutsCore';
-import type { PayoutOverview } from '@/types';
+import {
+  instantFee,
+  INSTANT_FEE_BPS,
+  INSTANT_FEE_MIN_CENTS,
+  MIN_WITHDRAWAL_CENTS,
+  payoutAccountInputSchema,
+  payoutSettingsSchema,
+  withdrawalRequestSchema,
+} from '@/features/payments/schemas';
+import type { PayoutAccount, PayoutOverview } from '@/types';
+import { getDb, now, randomToken, type PayoutAccountRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
+import { bankNameFor } from '../seed/payments';
+import { creatorMoney, destinationOf, nextMonday, sendPayout } from '../payoutsCore';
 import { myProfile } from './creatorMe';
 
-export const createPayoutOnboardingLink: Handler = ({ req, user }) => {
+const toAccount = (a: PayoutAccountRow): PayoutAccount => ({
+  method: a.method,
+  holderName: a.holderName,
+  panMasked: `${a.pan.slice(0, 5)}••••${a.pan.slice(-1)}`,
+  destinationLabel: destinationOf(a),
+  status: a.status,
+  failureReason: a.failureReason,
+  updatedAt: a.updatedAt,
+});
+
+export const getPayoutAccount: Handler = ({ user }) => {
   const p = myProfile(user);
-  const { returnUrl } = parseBody(onboardingLinkRequestSchema, req.body);
-  p.stripeAccountId ??= `acct_mock${randomToken(6)}`;
-  const qs = new URLSearchParams({ account: p.stripeAccountId, return: returnUrl });
-  const body: OnboardingLink = { url: `/dev/stripe-connect?${qs}`, expiresAt: new Date(now().getTime() + 5 * 60_000).toISOString() };
-  return ok(body);
+  const a = getDb().payoutAccounts.find((x) => x.creatorId === p.userId);
+  return ok(a ? toAccount(a) : null);
 };
 
-/** Mock-only: what Stripe's account.updated webhook would do once the creator finishes onboarding. */
-export const completeMockConnectOnboarding: Handler = ({ req, user }) => {
+export const savePayoutAccount: Handler = ({ req, user }) => {
   const p = myProfile(user);
-  const accountId = (req.body as { accountId?: string } | undefined)?.accountId;
-  if (!accountId || accountId !== p.stripeAccountId) fail(404, 'Unknown connected account.', 'NOT_FOUND');
-  p.payoutStatus = 'ENABLED';
-  return ok({ payoutStatus: p.payoutStatus });
+  const body = parseBody(payoutAccountInputSchema, req.body);
+  const db = getDb();
+  const failed =
+    body.method === 'BANK_ACCOUNT' ? /^0+$/.test(body.accountNumber ?? '') : (body.vpa ?? '').endsWith('@fail');
+  const row: PayoutAccountRow = {
+    creatorId: p.userId,
+    method: body.method,
+    holderName: body.holderName,
+    pan: body.pan,
+    accountNumber: body.method === 'BANK_ACCOUNT' ? body.accountNumber! : null,
+    ifsc: body.method === 'BANK_ACCOUNT' ? body.ifsc! : null,
+    vpa: body.method === 'UPI' ? body.vpa! : null,
+    status: failed ? 'FAILED' : 'VERIFIED',
+    failureReason: failed
+      ? body.method === 'BANK_ACCOUNT'
+        ? `${bankNameFor(body.ifsc ?? null)} could not confirm this account. Check the account number and IFSC.`
+        : 'This UPI ID could not be verified. Check it in your UPI app.'
+      : null,
+    updatedAt: now().toISOString(),
+  };
+  const i = db.payoutAccounts.findIndex((x) => x.creatorId === p.userId);
+  if (i >= 0) db.payoutAccounts[i] = row;
+  else db.payoutAccounts.push(row);
+  p.stripeAccountId ??= `acc_mock${randomToken(6)}`; // Razorpay Route linked account
+  p.payoutStatus = failed ? 'PENDING' : 'ENABLED';
+  return ok(toAccount(row));
 };
 
-/** FR-63: balance, transfers (approved work) and bank payouts. */
-export const getPayoutBalance: Handler = ({ user }) => {
+function overview(user: UserRow): PayoutOverview {
   const p = myProfile(user);
   const db = getDb();
   const money = creatorMoney(p.userId);
   const mine = new Set(db.orders.filter((o) => o.creatorUserId === p.userId).map((o) => o.id));
-  const body: PayoutOverview = {
-    currency: 'USD',
+  const account = db.payoutAccounts.find((x) => x.creatorId === p.userId);
+  return {
+    currency: 'INR',
     availableCents: money.availableCents,
     inEscrowCents: money.inEscrowCents,
     lifetimeEarnedCents: money.lifetimeEarnedCents,
@@ -52,8 +91,45 @@ export const getPayoutBalance: Handler = ({ user }) => {
       .sort((a, b) => b.at.localeCompare(a.at)),
     payouts: db.payouts
       .filter((x) => x.creatorId === p.userId)
-      .map((x) => ({ id: x.id, amountCents: x.amountCents, status: x.status, createdAt: x.createdAt, arrivalDate: x.arrivalDate }))
+      .map((x) => ({
+        id: x.id,
+        amountCents: x.amountCents,
+        feeCents: x.feeCents ?? 0,
+        speed: x.speed ?? 'SCHEDULED',
+        destinationLabel: x.destinationLabel ?? 'Bank account',
+        status: x.status,
+        createdAt: x.createdAt,
+        arrivalDate: x.arrivalDate,
+      }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    account: account ? toAccount(account) : null,
+    autoWeekly: p.autoWeekly ?? true,
+    minWithdrawalCents: MIN_WITHDRAWAL_CENTS,
+    instantFeeBps: INSTANT_FEE_BPS,
+    instantFeeMinCents: INSTANT_FEE_MIN_CENTS,
   };
-  return ok(body);
+}
+
+/** FR-63: balance, transfers (approved work), payouts, account and settings. */
+export const getPayoutBalance: Handler = ({ user }) => ok(overview(user));
+
+export const updatePayoutSettings: Handler = ({ req, user }) => {
+  const p = myProfile(user);
+  p.autoWeekly = parseBody(payoutSettingsSchema, req.body).autoWeekly;
+  return ok(overview(user));
+};
+
+/** Withdraw now: standard (NEFT, free, next working day) or instant (IMPS/UPI, fee, minutes). */
+export const createWithdrawal: Handler = ({ req, user }) => {
+  const p = myProfile(user);
+  const body = parseBody(withdrawalRequestSchema, req.body);
+  const account = getDb().payoutAccounts.find((x) => x.creatorId === p.userId);
+  if (!account || account.status !== 'VERIFIED') fail(409, 'Add and verify a payout account first.', 'PAYOUT_ACCOUNT_REQUIRED');
+  const { availableCents } = creatorMoney(p.userId);
+  if (body.amountCents > availableCents)
+    fail(422, 'That is more than your available balance.', 'VALIDATION_FAILED', [{ field: 'amountCents', message: 'That is more than your available balance.' }]);
+  const fee = body.speed === 'INSTANT' ? instantFee(body.amountCents) : 0;
+  const payout = sendPayout(p.userId, account, body.amountCents, fee, body.speed, user);
+  const view = overview(user).payouts.find((x) => x.id === payout.id)!;
+  return ok(view, 201);
 };

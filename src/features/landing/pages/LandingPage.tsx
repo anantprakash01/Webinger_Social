@@ -107,7 +107,7 @@ export function LandingPage() {
             title="For brands"
             steps={[
               ['Search', 'Filter by platform, niche, location, followers and price. Every creator is vetted.'],
-              ['Buy a package', 'Add your brief. Your card is held, not charged, until the creator accepts.'],
+              ['Buy a package', 'Add your brief and pay by UPI, card, netbanking or wallet. It’s held, not charged, until the creator accepts.'],
               ['Approve and release', 'Review the delivery, ask for up to 2 revisions, then approve to pay.'],
             ]}
             cta={{ to: '/search', label: 'Find creators' }}
@@ -201,7 +201,7 @@ function HowColumn({ title, steps, cta }: { title: string; steps: Array<[string,
 }
 
 const FAQ: Array<[string, string]> = [
-  ['When is my card charged?', 'Your card is authorised when you order and charged only when the creator accepts, within 72 hours. If they decline or don’t answer, the hold is released and you pay nothing.'],
+  ['When am I charged?', 'Your payment (UPI, card, netbanking, wallet app or your brand wallet) is held when you order and charged only when the creator accepts, within 72 hours. If they decline or don’t answer, the hold is released and you pay nothing.'],
   ['What if I’m not happy with the work?', 'You can ask for up to 2 revisions. If it still isn’t right, open a dispute within 72 hours of delivery: the money stays in escrow while our team reviews the brief, the chat and the delivery, and can refund you in full or in part.'],
   ['What do I pay on top of the price?', 'A service fee shown at checkout before you pay. There are no subscriptions or hidden costs.'],
   ['How are creators vetted?', 'Our team checks every profile and its linked social accounts before it appears in search. Verified accounts carry a badge.'],

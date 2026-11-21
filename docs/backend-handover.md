@@ -61,14 +61,19 @@ Endpoints: `GET /orders/quote`, `POST /orders`, `GET /orders`, `GET /orders/{id}
 - `orders.version` (`@Version`) so approve and auto-approve can't both win.
 - Every transition emits an application event → notifications (both parties except the actor; system events go to both) and email.
 
-### payment + ledger (FR-60 – FR-64)
-Mock: `orderMachine.ts` (payment state), `ledger.ts`, `payoutsCore.ts`, `handlers/payouts.ts`.
-- PaymentIntent `capture_method=manual` at checkout; capture on accept; cancel on decline, expiry or cancel; refund (full or partial) on dispute.
+### payment + ledger (FR-60 – FR-64) — India / Razorpay (contract v2.0)
+Mock: `handlers/payments.ts`, `orderMachine.ts` (payment state), `ledger.ts`, `payoutsCore.ts`, `handlers/payouts.ts`.
+- Currency INR, amounts in paise. Minimum package price ₹500.
+- Checkout: `POST /payments/sessions` creates a Razorpay order for the exact total with `payment_capture=0`; the app pays it with Razorpay Custom Checkout (UPI, card, netbanking, wallet app); `POST /orders` (or `POST /applications/{id}/accept`) carries `{ sessionId, razorpayPaymentId, razorpaySignature }`. Verify the HMAC-SHA256 signature of `order_id|payment_id`, that the payment is `authorized` for the session amount and that the session is unused, **before** creating the order (402 `PAYMENT_FAILED`, 409 `AMOUNT_MISMATCH`, 409 `SESSION_USED`). Check email verification first (403 `EMAIL_NOT_VERIFIED`).
+- Capture on accept; void/refund the authorisation on decline, expiry or cancel; refund (full or partial) to the original method on dispute.
+- Saved methods are Razorpay customer tokens (RBI card-on-file tokenisation) and UPI IDs: `GET/DELETE /payments/methods`. Never store card numbers.
+- No brand wallet: every order is paid through Razorpay.
 - Double-entry ledger: accounts `BRAND_CHARGE`, `ESCROW`, `PLATFORM_REVENUE`, `CREATOR_BALANCE`, `PAYOUT`; each txn sums to zero (`findUnbalancedTxns` is the dev check; make it a DB-level test in Phase 1). Every txn is also an audit entry (`MONEY_MOVEMENT`).
 - **Partial refund rule (provisional, see §16):** 1 cent up to the creator payout, taken from the creator's share; the platform keeps both fees. Full refund returns everything, including the brand fee.
-- Payouts (FR-63): every Monday 00:00 UTC, each creator with Connect ENABLED gets their available balance sent (`PAYOUT_SENT` notification and audit entry); IN_TRANSIT → PAID when Stripe reports arrival (the mock uses Monday + 2 days). `GET /payouts/balance` returns available, in escrow, lifetime, paid out, next payout date, transfers and payouts.
-- Connect Express onboarding: `POST /payouts/onboarding-link`; account status comes from the `account.updated` webhook (the mock's `/dev/stripe/connect-complete` stands in for it). Orders to a creator without ENABLED payouts → 409 `CREATOR_PAYOUTS_DISABLED`.
-- Webhooks: signature-verified, idempotent through `stripe_webhook_events`, hourly reconciliation job.
+- Payout account: `PUT /payouts/account` with PAN + bank account/IFSC or UPI ID creates/updates the Razorpay Route linked account and a RazorpayX fund account, and verifies it (penny drop / VPA validation). VERIFIED → `payoutStatus` ENABLED; FAILED keeps it PENDING with a reason. Orders to a creator without ENABLED payouts → 409 `CREATOR_PAYOUTS_DISABLED`.
+- Payouts (FR-63) through RazorpayX: weekly every Monday 00:00 UTC for creators with `autoWeekly` on (`PUT /payouts/settings`), or on request with `POST /payouts/withdrawals` (Idempotency-Key): STANDARD (NEFT, free) or INSTANT (IMPS/UPI, 1% fee, min ₹10, posted to PLATFORM_REVENUE). Minimum ₹500; at most the available balance; needs a VERIFIED account (409 `PAYOUT_ACCOUNT_REQUIRED`). Each payout writes CREATOR_BALANCE → PAYOUT (+ fee), an audit entry and a `PAYOUT_SENT` notification.
+- Webhooks: `POST /webhooks/razorpay`, signature-verified, idempotent through a webhook-events table (payment.authorized/captured/failed, refund.processed, payout.processed/reversed); hourly reconciliation job.
+- Still to confirm with a CA: GST on platform fees, TDS under 194-O on creator payouts, and how both show on receipts.
 - Receipts (FR-65): the prototype prints `/receipts/{orderId}` (brand receipt once captured; creator earnings statement once released). Phase 1 renders the same content as a PDF.
 
 ### jobs

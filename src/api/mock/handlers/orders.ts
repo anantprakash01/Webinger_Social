@@ -17,6 +17,7 @@ import type { OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderPage,
 import { orderEventNotifications } from '../notify';
 import { auditLedger } from '../audit';
 import { runPayouts } from '../payoutsCore';
+import { resolveOrderPayment } from './payments';
 import { calculateFees } from '../fees';
 import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type ReviewRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
@@ -35,7 +36,7 @@ import {
   type OrderStatus,
 } from '../orderMachine';
 
-const CURRENCY = 'USD';
+const CURRENCY = 'INR';
 const ALL_STATUSES: OrderStatus[] = ['PENDING_ACCEPTANCE', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'REFUNDED', 'CLOSED'];
 
 /* ---------- Helpers ---------- */
@@ -267,7 +268,7 @@ export const createOrder: Handler = ({ req, user }) => {
     const o = body.offer!;
     line = { kind: 'CUSTOM_OFFER', packageId: null, campaignId: null, title: o.title, platform: o.platform, deliverables: o.deliverables, priceCents: o.priceCents, deliveryDays: o.deliveryDays };
   }
-  return ok(placeOrder(user, creator, line, normaliseBrief(body.brief)), 201);
+  return ok(placeOrder(user, creator, line, normaliseBrief(body.brief), body.payment), 201);
 };
 
 export interface OrderLine {
@@ -285,15 +286,20 @@ export interface OrderLine {
  * Checkout core shared by packages, custom offers and accepted campaign applications (FR-42: same flow).
  * FR-30: authorise, don't capture. The machine checks role, verified email (FR-02), price and days.
  */
-export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: OrderLine, brief: Omit<OrderBriefRow, 'orderId' | 'updatedAt'>): OrderCreated {
+export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: OrderLine, brief: Omit<OrderBriefRow, 'orderId' | 'updatedAt'>, payment: unknown): OrderCreated {
   if (creator.payoutStatus !== 'ENABLED') fail(409, 'This creator cannot take paid orders yet.', 'CREATOR_PAYOUTS_DISABLED');
+  if (!user.emailVerifiedAt) fail(403, 'Verify your email before placing orders.', 'EMAIL_NOT_VERIFIED');
   const db = getDb();
+  // v2.0: verify the payment (Razorpay proof or wallet balance) for the exact total before the order exists.
+  const fees = feeConfig();
+  const pay = resolveOrderPayment(user, payment, calculateFees(line.priceCents, fees).brandTotalCents);
   const { order, event } = machineCreate(
-    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees: feeConfig() },
+    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees, payment: pay.info },
     actorOf(user),
     { now: now() },
   );
-  const paymentIntentId = `pi_mock${order.id.slice(-12).toLowerCase()}`;
+  pay.commit(order.id);
+  const paymentIntentId = `pay_mock${order.id.slice(-12).toLowerCase()}`;
   db.orders.push(order);
   db.orderEvents.push(event);
   db.orderInfo.push({ orderId: order.id, kind: line.kind, title: line.title, platform: line.platform, deliverables: line.deliverables, paymentIntentId });
@@ -308,7 +314,6 @@ export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: Orde
     totalCents: order.priceCents + order.brandFeeCents,
     currency: order.currency,
     acceptBy: order.acceptBy,
-    stripeClientSecret: `${paymentIntentId}_secret_mock`,
   };
 }
 

@@ -1,0 +1,21 @@
+/* Payments and payouts (v2.0, India / Razorpay). Webinger tokens only. */
+
+/* Payment picker */
+.pay-picker .radio-card { align-items: center; }
+.pay-option__icon { display: inline-flex; width: 32px; height: 32px; flex: none; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); color: var(--navy); }
+.pay-details { display: grid; gap: var(--s-3); padding: var(--s-2) var(--s-3) var(--s-3) calc(var(--s-3) + 44px); }
+@media (max-width: 520px) { .pay-details { padding-left: var(--s-3); } }
+.pay-picker__secure { margin: var(--s-1) 0 0; }
+
+/* Saved methods and payout rows */
+.wallet-txn__icon { display: inline-flex; width: 32px; height: 32px; flex: none; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); }
+
+/* Payouts */
+.switch-row { display: flex; gap: var(--s-3); align-items: flex-start; margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--border); cursor: pointer; }
+.switch-row > span { display: grid; gap: 2px; }
+.switch-row input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--navy); flex: none; }
+
+/* Rupee amounts with Indian grouping are longer ("₹22,93,888.00"): let stat tiles shrink on phones. */
+.grid--stats > * { min-width: 0; }
+.stat__value { overflow-wrap: anywhere; }
+@media (max-width: 420px) { .stat__value { font-size: var(--fs-lg); } }

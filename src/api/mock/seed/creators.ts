@@ -179,7 +179,8 @@ function logFollowers(r: Rand, min: number, max: number) {
 function priceFor(r: Rand, platform: Platform, followers: number, factor: number): number {
   const base = platform === 'UGC' ? between(r, 90, 260) * 100 : followers * CENTS_PER_FOLLOWER[platform];
   const cents = Math.max(2_500, base * factor * (0.8 + r() * 0.4));
-  return Math.round(cents / 500) * 500; // round to $5
+  // Prices were modelled in USD; the market is India, so convert (≈ ₹80 per $) and round to ₹100.
+  return Math.round((cents * 80) / 10_000) * 10_000;
 }
 
 interface Spec {

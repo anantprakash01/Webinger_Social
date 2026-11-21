@@ -62,7 +62,9 @@ for (const width of [360, 1280]) {
   await page.getByRole('button', { name: /^Buy / }).first().click();
   await page.waitForURL((u) => u.pathname.startsWith('/checkout/'));
   await audit(page, width, 'checkout');
-  await page.getByRole('button', { name: /^Authorise/ }).click();
+  await page.getByRole('radio', { name: /^Debit or credit card/ }).click();
+  await page.getByRole('radio', { name: 'New card' }).click();
+  await page.getByRole('button', { name: /^Pay / }).click();
   await audit(page, width, 'checkout-errors');
   await page.goto(`${base}/checkout/offer/leomakes`, { waitUntil: 'networkidle' });
   await audit(page, width, 'offer-checkout');

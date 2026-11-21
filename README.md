@@ -20,7 +20,7 @@ npm run dev                  # http://localhost:5173
 | `npm run test:e2e` | Playwright smoke test in Microsoft Edge (starts its own dev server): sign up → onboard → admin approves → brand buys → creator delivers → brand approves → creator balance updated. |
 | `npm run lint` | ESLint (TypeScript + React hooks). |
 | `npm run gen:api` | Regenerate `src/types/openapi.ts` from `docs/api/openapi.yaml`. |
-| `npm run check:contract` | Fails if `src/types/openapi.ts` no longer matches the frozen contract (v1.0.0). |
+| `npm run check:contract` | Fails if `src/types/openapi.ts` no longer matches the contract (now v2.0.0, India / Razorpay). |
 | `npm run gen:art` | Regenerate the abstract demo images in `public/demo/`. |
 | `npm run check:layout` | With `npm run dev` running: checks key screens at 360 px and 1280 px in Microsoft Edge (no sideways scroll, no console errors). Pass a base URL and a folder to also save screenshots. |
 | `npm run check:a11y` | With `npm run dev` running: axe-core WCAG 2.1 A/AA check of public pages, auth screens and checkout at 360 px and 1280 px. |
@@ -47,12 +47,13 @@ The marketplace has 59 invented, approved creators to search (plus 4 not yet app
 Try `/search`, `/u/leomakes`, or press **Buy** on a profile while logged out.
 
 To walk the creator setup (Week 3), log in as `newcreator@demo.test`: the wizard covers profile, socials,
-packages, portfolio, payouts (a clearly labelled mock of the Stripe page) and submit for review. While the
+packages, portfolio, payouts (PAN + bank account or UPI ID, verified at once in the demo) and submit for review. While the
 profile is in review, the demo bar shows **Simulate review: Approve / Reject**. Brands edit their company at
 `/brand/profile`.
 
-Orders (Week 4): as `brand@demo.test`, press **Buy** on `/u/leomakes` and pay with the test card
-`4242 4242 4242 4242` (any future expiry and CVC; `4000 0000 0000 0002` shows a decline). Switch to
+Orders: as `brand@demo.test`, press **Buy** on `/u/leomakes` and pay in rupees by UPI, card, netbanking or a wallet
+app (Razorpay, mocked). The brand's saved UPI ID is preselected; `failure@razorpay` shows a failed UPI payment, card
+`4111 1111 1111 1111` pays and `4000 0000 0000 0002` is declined (any future expiry and CVC). Switch to
 `creator@demo.test` with **View as** to accept and deliver, then back to the brand to approve and review.
 The demo bar's **Simulate time** moves the clock forward so orders expire or auto-approve after 72 hours.
 
@@ -66,7 +67,8 @@ Admin console (Week 6): log in as `admin@demo.test`. **Vetting** approves or rej
 **Reports** handles reports sent with the **Report** link on profiles and chat messages, **Users** suspends,
 bans or opens a read-only **View as** session, **Fees & plans** changes the fees for new orders, **Audit log**
 lists every admin action and money movement, and **Orders** browses every order with Simulate time and Reset.
-Creators see their balance, earnings and weekly bank payouts at `/creator/payouts`; every charged order has a
+Creators see their balance and earnings at `/creator/payouts`, get paid every Monday (can be turned off) and can
+**Withdraw now** (standard free, instant 1%); brands manage saved cards and UPI IDs at `/brand/payment-methods`; every charged order has a
 printable **Receipt**.
 
 "Continue with Google" signs in as an invented Google identity. Emails (verification, password reset)
@@ -76,7 +78,7 @@ appear in a **demo inbox** box on the relevant screens. The demo bar inside the 
 ## Layout
 
 ```
-docs/api/openapi.yaml     API contract (single source of truth, frozen at v1.0.0)
+docs/api/openapi.yaml     API contract (single source of truth, v2.0.0)
 docs/backend-handover.md  what the Spring Boot API must do, module by module
 e2e/                      Playwright smoke test
 scripts/                  layout, accessibility and contract checks; demo art generator
@@ -87,7 +89,8 @@ src/features/search/      search page, filters, creator card, URL <-> query mapp
 src/features/creators/    public creator profile, creator workspace (wizard, packages, dashboard)
 src/features/brands/      brand company profile
 src/features/files/       image uploads (presign) and the image picker
-src/features/payouts/     payout onboarding (Stripe Connect, mocked), balance and payout history
+src/features/payments/    Razorpay payment picker, saved methods, payout account form, payout hooks
+src/features/payouts/     creator payouts page (balance, withdraw now, history)
 src/features/admin/       admin console, report dialog
 src/api/client.ts         the only module that talks to a backend (mock | http), 401 → refresh → retry
 src/api/mock/             db, seed, fees, ledger, orderMachine, server (router) and handlers

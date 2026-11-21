@@ -8,7 +8,7 @@ import type { CreatorCard, CreatorProfile, CreatorSearchPage, Platform } from '@
 import { getDb, now, type CreatorProfileRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
 
-const CURRENCY = 'USD';
+const CURRENCY = 'INR';
 /** Suspended or banned creators disappear from search and their profile (FR-82). */
 const isActive = (userId: string) => getDb().users.find((u) => u.id === userId)?.status === 'ACTIVE';
 

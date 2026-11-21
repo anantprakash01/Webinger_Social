@@ -1,6 +1,7 @@
 /**
  * Checkout (FR-30, FR-33, FR-60) for a package — /checkout/:packageId — and the custom-offer form
- * (FR-31) — /checkout/offer/:username. The card is authorised, not charged, until the creator accepts.
+ * (FR-31) — /checkout/offer/:username. The payment is authorised, not
+ * charged, until the creator accepts. Methods: UPI, card, netbanking, wallet app via Razorpay (v2.0).
  * The fee summary comes from the server's quote, so it always matches what is charged.
  */
 import { useEffect, useState } from 'react';
@@ -12,13 +13,14 @@ import { RequireVerified } from '@/app/guards';
 import { CreatorPhoto, PlatformLabel } from '@/components/creator';
 import { Button, Card, ErrorState, FormError, Input, PageHeader, PageSkeleton, TextArea } from '@/components/ui';
 import { PLATFORMS } from '@/lib/catalog';
-import { formatMoney, parseDollarsToCents } from '@/lib/money';
+import { formatMoney, parseAmount } from '@/lib/money';
 import { ApiError, type OrderQuote } from '@/types';
 import { BriefFields } from '../components/BriefFields';
-import { MockCardFields } from '../components/MockCardFields';
 import { useCreateOrder, useOrderQuote } from '../hooks';
-import { DECLINE_TEST_CARD, emptyCheckoutForm, formFieldFor, makeCheckoutSchema, type CheckoutFormOutput, type CheckoutFormValues } from '../schemas';
-import { isMock } from '@/api/client';
+import { emptyCheckoutForm, formFieldFor, makeCheckoutSchema, type CheckoutFormOutput, type CheckoutFormValues } from '../schemas';
+import { collectOrderPayment } from '@/features/payments/hooks';
+import { emptyChoice, PaymentPicker, payErrorsFrom, validateChoice, type PayChoice, type PayErrors } from '@/features/payments/components/PaymentPicker';
+import { MIN_PRICE_CENTS } from '@/api/mock/fees';
 
 export function CheckoutPage() {
   return (
@@ -34,9 +36,12 @@ function Checkout() {
   const navigate = useNavigate();
   const create = useCreateOrder();
   const [formError, setFormError] = useState<string | null>(null);
+  const [pay, setPay] = useState<PayChoice>(emptyChoice());
+  const [payErrors, setPayErrors] = useState<PayErrors>({});
+  const [paying, setPaying] = useState(false);
 
   const form = useForm<CheckoutFormValues, unknown, CheckoutFormOutput>({
-    resolver: zodResolver(makeCheckoutSchema({ offer: offerMode, card: isMock })),
+    resolver: zodResolver(makeCheckoutSchema({ offer: offerMode, card: false })),
     defaultValues: emptyCheckoutForm(),
   });
   const { register, handleSubmit, setError, control, formState } = form;
@@ -48,26 +53,33 @@ function Checkout() {
   useEffect(() => {
     if (!offerMode) return undefined;
     const t = setTimeout(() => {
-      const c = parseDollarsToCents(price ?? '');
-      setQuotedPrice(c !== null && c >= 1000 ? c : undefined);
+      const c = parseAmount(price ?? '');
+      setQuotedPrice(c !== null && c >= MIN_PRICE_CENTS ? c : undefined);
     }, 300);
     return () => clearTimeout(t);
   }, [price, offerMode]);
-  const quote = useOrderQuote(offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? 1000 } : { packageId }, offerMode ? !!username : !!packageId);
+  const quote = useOrderQuote(offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId }, offerMode ? !!username : !!packageId);
 
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
-    // Prototype: Stripe's decline test card fails at confirmation, before any order exists.
-    if (v.card?.number === DECLINE_TEST_CARD) {
-      setFormError('Your card was declined. Try another card.');
-      return;
-    }
+    const pe = validateChoice(pay);
+    setPayErrors(pe);
+    if (Object.keys(pe).length) return;
+    if (!quote.data) return;
+    setPaying(true);
     try {
-      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief! } : { packageId, brief: v.brief! });
+      // Pay first (authorise only); the server verifies the payment before the order exists.
+      const payment = await collectOrderPayment(pay, quote.data.totalCents);
+      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment } : { packageId, brief: v.brief!, payment });
       navigate(`/brand/orders/${res.orderId}`, { replace: true, state: { placed: true } });
     } catch (e) {
       let placed = false;
       if (e instanceof ApiError) {
+        const pe2 = payErrorsFrom(e.fieldErrors);
+        if (Object.keys(pe2).length) {
+          setPayErrors(pe2);
+          placed = true;
+        }
         for (const fe of e.fieldErrors) {
           const field = formFieldFor(fe.field);
           if (field) {
@@ -77,6 +89,8 @@ function Checkout() {
         }
       }
       setFormError(placed ? 'Please check the highlighted fields.' : e instanceof Error ? e.message : 'Something went wrong. Try again.');
+    } finally {
+      setPaying(false);
     }
   });
 
@@ -106,7 +120,10 @@ function Checkout() {
   return (
     <div className="page checkout">
       <PageHeader eyebrow={offerMode ? 'Custom offer' : 'Checkout'} title={offerMode ? `Send ${q.creator.name.split(' ')[0]} an offer` : 'Book this package'} />
-      <form className="checkout__layout" onSubmit={onSubmit} noValidate>
+      <form className="checkout__layout" onSubmit={(e) => {
+          setPayErrors(validateChoice(pay));
+          void onSubmit(e);
+        }} noValidate>
         <div className="checkout__main">
           {offerMode && (
             <Card title="1. Your offer">
@@ -126,7 +143,7 @@ function Checkout() {
                 </div>
                 <TextArea label="Deliverables" rows={3} hint="One per line, e.g. “2 TikTok videos (30–60 s)”." error={errors.deliverablesText?.message} {...register('deliverablesText')} />
                 <div className="form-row">
-                  <Input label="Price (USD)" inputMode="decimal" placeholder="250" hint="At least $10." error={errors.price?.message} {...register('price')} />
+                  <Input label="Price (₹)" inputMode="decimal" placeholder="20000" hint="At least ₹500." error={errors.price?.message} {...register('price')} />
                   <Input label="Delivery (days after acceptance)" inputMode="numeric" hint="1 to 60 days." error={errors.deliveryDays?.message} {...register('deliveryDays')} />
                 </div>
               </div>
@@ -138,7 +155,7 @@ function Checkout() {
           </Card>
 
           <Card title={`${offerMode ? '3' : '2'}. Payment`}>
-            {isMock ? <MockCardFields form={form} /> : <p className="small muted">The Stripe Payment Element loads here (Phase 1).</p>}
+            <PaymentPicker value={pay} onChange={setPay} errors={payErrors} />
           </Card>
         </div>
 
@@ -151,13 +168,13 @@ function Checkout() {
               <span className="small muted">Total</span>
               <strong>{!offerMode || quotedPrice !== undefined ? formatMoney(q.totalCents, q.currency) : '—'}</strong>
             </span>
-            <Button type="submit" block loading={create.isPending} disabled={offerMode && quotedPrice === undefined}>
-              {offerMode ? 'Send offer and authorise ' : 'Authorise '}
+            <Button type="submit" block loading={paying || create.isPending} disabled={offerMode && quotedPrice === undefined}>
+              {offerMode ? 'Send offer and pay ' : 'Pay '}
               {(!offerMode || quotedPrice !== undefined) && formatMoney(q.totalCents, q.currency)}
             </Button>
           </div>
           <p className="small muted checkout__fine">
-            <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Your card is authorised now and <strong>charged only when {q.creator.name.split(' ')[0]} accepts</strong>. If they
+            <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Your payment is held now and <strong>charged only when {q.creator.name.split(' ')[0]} accepts</strong>. If they
             decline or don't respond within {q.acceptWindowHours} hours, the hold is released. Money stays in escrow until you approve the work.
           </p>
         </aside>

@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 1.1.0
+  version: 2.0.0
   description: |
-    **Contract v1.1 — frozen at the end of Phase 0 (21 Nov 2026); v1.1 adds fields only (UX pass).** The Spring Boot API (Phase 1) implements
+    **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
     additive changes, major for breaking ones) and regenerates the frontend types; CI runs `npm run check:contract`.
 
@@ -12,7 +12,7 @@ info:
     Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
 
     Conventions
-    - All money is integer minor units (cents) plus an ISO 4217 currency. Never floating point.
+    - All money is integer minor units plus an ISO 4217 currency (INR: paise; fields keep the `Cents` suffix). Never floating point.
     - Errors are RFC 7807 `application/problem+json` (`Problem`). Field errors use status 422.
     - Lists accept `?page=&size=&sort=` and return `content` plus `PageMeta`.
     - Money-moving endpoints accept an `Idempotency-Key` header.
@@ -21,7 +21,8 @@ info:
       every use) lives only in an httpOnly, Secure, SameSite=Strict cookie on `/api/v1/auth`.
 
     Mock-only endpoints (Phase 0, never in production, not in this contract): `/dev/*` — demo outbox, reset,
-    simulate time and clock, Stripe Connect completion, vetting decision and the real-time poller.
+    simulate time and clock, a stand-in for Razorpay Checkout (`/dev/razorpay/pay`), vetting decision and
+    the real-time poller.
 servers:
   - url: /api/v1
 tags:
@@ -39,6 +40,7 @@ tags:
   - name: Notifications
   - name: Admin
   - name: Reports
+  - name: Payments
 
 paths:
   /auth/register:
@@ -427,21 +429,6 @@ paths:
         '200': { description: Upload target., content: { application/json: { schema: { $ref: '#/components/schemas/PresignResponse' } } } }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
-  /payouts/onboarding-link:
-    post:
-      tags: [Payouts]
-      summary: Start or continue Stripe Connect Express onboarding (FR-62)
-      description: |
-        Creates the connected account on first use and returns a one-time Stripe-hosted onboarding URL.
-        Stripe sends the creator back to `returnUrl`; the payout status changes when Stripe's
-        `account.updated` webhook arrives.
-      operationId: createPayoutOnboardingLink
-      security: [{ bearerAuth: [] }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OnboardingLinkRequest' } } } }
-      responses:
-        '200': { description: The link., content: { application/json: { schema: { $ref: '#/components/schemas/OnboardingLink' } } } }
-        '403': { $ref: '#/components/responses/Forbidden' }
-
   /orders/quote:
     get:
       tags: [Orders]
@@ -467,10 +454,10 @@ paths:
       tags: [Orders]
       summary: Place an order — buy a package or send a custom offer (FR-30, FR-31, FR-33)
       description: |
-        Verified brands only (FR-02). Creates a Stripe PaymentIntent with `capture_method=manual`: the card is
-        authorised now and captured only when the creator accepts. Fees are copied onto the order.
-        The order becomes visible as PENDING_ACCEPTANCE once the authorisation succeeds
-        (in the mock, immediately). Repeating a request with the same `Idempotency-Key` returns the first result.
+        Verified brands only (FR-02). `payment` is proof of an authorised Razorpay payment (UPI, card, netbanking or
+        wallet app) for a session of exactly the order total; it is captured only when the creator accepts. The
+        server verifies the signature and amount before creating the order, so a failed payment never creates
+        one (402 PAYMENT_FAILED; 409 AMOUNT_MISMATCH if the price changed). Fees are copied onto the order. Repeating a request with the same `Idempotency-Key` returns the first result.
       operationId: createOrder
       security: [{ bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
@@ -1075,11 +1062,105 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
+  /payments/sessions:
+    post:
+      tags: [Payments]
+      summary: Open a payment session (a Razorpay order) for an exact amount
+      description: |
+        Step 1 of paying through Razorpay. The server creates a Razorpay order for `amountCents` and returns
+        what Razorpay Checkout needs. The brand then pays in Checkout (UPI, card, netbanking or a wallet
+        app); Checkout returns `razorpay_payment_id` and `razorpay_signature`, which the app sends with
+        `POST /orders` or `POST /applications/{id}/accept`. Sessions use `payment_capture=0` (authorise only;
+        captured when the creator accepts, released otherwise) and expire after 30 minutes.
+      operationId: createPaymentSession
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentSessionRequest' } } } }
+      responses:
+        '201': { description: Session opened., content: { application/json: { schema: { $ref: '#/components/schemas/PaymentSession' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /payments/methods:
+    get:
+      tags: [Payments]
+      summary: The brand's saved payment methods (tokenised cards and UPI IDs)
+      description: Cards are stored as RBI-compliant tokens at Razorpay, never on our servers; only the network, last four digits and expiry are shown.
+      operationId: listPaymentMethods
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/SavedPaymentMethodList' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /payments/methods/{id}:
+    delete:
+      tags: [Payments]
+      summary: Remove a saved payment method (deletes the Razorpay token)
+      operationId: deletePaymentMethod
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '204': { description: Removed. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /payouts/account:
+    get:
+      tags: [Payouts]
+      summary: The creator's payout account (bank account or UPI ID), or null
+      operationId: getPayoutAccount
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { oneOf: [{ $ref: '#/components/schemas/PayoutAccount' }, { type: 'null' }] } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Payouts]
+      summary: Add or change the payout account (FR-62)
+      description: |
+        Creates or updates the creator's Razorpay Route linked account with PAN and bank details (KYC), and
+        verifies the destination (penny drop for bank accounts, VPA validation for UPI). Status moves
+        VERIFYING → VERIFIED (payouts enabled) or FAILED with a reason.
+      operationId: savePayoutAccount
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PayoutAccountInput' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutAccount' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /payouts/withdrawals:
+    post:
+      tags: [Payouts]
+      summary: Withdraw now — standard (free) or instant (fee)
+      description: |
+        Pays part or all of the available balance to the payout account through RazorpayX.
+        STANDARD goes by NEFT, free, usually the same or next working day. INSTANT goes by IMPS or UPI
+        within minutes for a fee (see `PayoutOverview.instantFeeBps`, minimum `instantFeeMinCents`), taken
+        from the amount. Minimum withdrawal `minWithdrawalCents`.
+      operationId: createWithdrawal
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WithdrawalRequest' } } } }
+      responses:
+        '201': { description: Payout started., content: { application/json: { schema: { $ref: '#/components/schemas/Payout' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /payouts/settings:
+    put:
+      tags: [Payouts]
+      summary: Turn the automatic weekly payout on or off
+      operationId: updatePayoutSettings
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PayoutSettings' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutOverview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /payouts/balance:
     get:
       tags: [Payouts]
       summary: Creator balance, transfers and bank payouts (FR-63)
-      description: "Approved work moves to the balance (a Stripe Transfer to the connected account); the balance is paid to the bank every Monday (UTC)."
+      description: "Approved work moves to the balance (a Razorpay Route transfer released from hold); the balance is paid out every Monday (UTC) if `autoWeekly` is on, or on request (`POST /payouts/withdrawals`)."
       operationId: getPayoutBalance
       security: [{ bearerAuth: [] }]
       responses:
@@ -1477,7 +1558,7 @@ components:
 
     PayoutStatus:
       type: string
-      description: NOT_STARTED → PENDING (details submitted, Stripe checking) → ENABLED.
+      description: NOT_STARTED → PENDING (payout account being verified) → ENABLED (verified; payouts can be sent).
       enum: [NOT_STARTED, PENDING, ENABLED]
 
     CreatorChecklist:
@@ -1574,19 +1655,6 @@ components:
         method: { type: string, enum: [PUT] }
         headers: { type: object, additionalProperties: { type: string } }
         fileUrl: { type: string, description: Where the file will be served from once uploaded. }
-        expiresAt: { type: string, format: date-time }
-
-    OnboardingLinkRequest:
-      type: object
-      required: [returnUrl]
-      properties:
-        returnUrl: { type: string, description: App path Stripe sends the creator back to, e.g. /creator/onboarding?step=payouts. }
-
-    OnboardingLink:
-      type: object
-      required: [url, expiresAt]
-      properties:
-        url: { type: string }
         expiresAt: { type: string, format: date-time }
 
     # ---------- Admin (Week 6) ----------
@@ -1807,7 +1875,7 @@ components:
     # ---------- Payouts (Week 6) ----------
     Transfer:
       type: object
-      description: Approved work moved to the creator balance (a Stripe Transfer to the connected account).
+      description: Approved work moved to the creator balance (a Razorpay Route transfer released from hold).
       required: [orderId, orderTitle, amountCents, at]
       properties:
         orderId: { $ref: '#/components/schemas/Ulid' }
@@ -1817,18 +1885,21 @@ components:
 
     Payout:
       type: object
-      description: Balance paid to the creator's bank.
-      required: [id, amountCents, status, createdAt, arrivalDate]
+      description: Money sent from the balance to the payout account (RazorpayX payout).
+      required: [id, amountCents, feeCents, speed, destinationLabel, status, createdAt, arrivalDate]
       properties:
-        id: { type: string, examples: [po_mock123] }
-        amountCents: { type: integer, format: int64 }
+        id: { type: string, examples: [pout_mock123] }
+        amountCents: { type: integer, format: int64, description: Taken from the balance. }
+        feeCents: { type: integer, format: int64, description: Instant payout fee; the creator receives amount − fee. }
+        speed: { type: string, enum: [SCHEDULED, STANDARD, INSTANT] }
+        destinationLabel: { type: string, examples: ['HDFC Bank •••• 4321'] }
         status: { type: string, enum: [IN_TRANSIT, PAID] }
         createdAt: { type: string, format: date-time }
         arrivalDate: { type: string, format: date-time }
 
     PayoutOverview:
       type: object
-      required: [currency, availableCents, inEscrowCents, lifetimeEarnedCents, paidOutCents, nextPayoutAt, schedule, payoutStatus, transfers, payouts]
+      required: [currency, availableCents, inEscrowCents, lifetimeEarnedCents, paidOutCents, nextPayoutAt, schedule, payoutStatus, transfers, payouts, account, autoWeekly, minWithdrawalCents, instantFeeBps, instantFeeMinCents]
       properties:
         currency: { type: string }
         availableCents: { type: integer, format: int64, description: Balance waiting for the next payout. }
@@ -1840,6 +1911,100 @@ components:
         payoutStatus: { $ref: '#/components/schemas/PayoutStatus' }
         transfers: { type: array, description: Newest first., items: { $ref: '#/components/schemas/Transfer' } }
         payouts: { type: array, description: Newest first., items: { $ref: '#/components/schemas/Payout' } }
+        account: { oneOf: [{ $ref: '#/components/schemas/PayoutAccount' }, { type: 'null' }] }
+        autoWeekly: { type: boolean }
+        minWithdrawalCents: { type: integer, format: int64, examples: [50000] }
+        instantFeeBps: { type: integer, examples: [100] }
+        instantFeeMinCents: { type: integer, format: int64, examples: [1000] }
+
+    # ---------- Payments and payouts (v2.0, India / Razorpay) ----------
+    PaymentMethodType:
+      type: string
+      description: How the brand paid through Razorpay. WALLET_APP is a third-party wallet (Paytm, PhonePe, Amazon Pay, MobiKwik).
+      enum: [UPI, CARD, NETBANKING, WALLET_APP]
+
+    PaymentSessionRequest:
+      type: object
+      required: [purpose, amountCents]
+      properties:
+        purpose: { type: string, enum: [ORDER] }
+        amountCents: { type: integer, format: int64, minimum: 100, description: 'The quoted total (price + brand fee); the server rechecks it when the order is placed.' }
+
+    PaymentSession:
+      type: object
+      required: [id, purpose, amountCents, currency, razorpayOrderId, razorpayKeyId, expiresAt]
+      properties:
+        id: { type: string }
+        purpose: { type: string, enum: [ORDER] }
+        amountCents: { type: integer, format: int64 }
+        currency: { type: string, examples: [INR] }
+        razorpayOrderId: { type: string, examples: [order_Mock123] }
+        razorpayKeyId: { type: string, description: Publishable key for Razorpay Checkout. }
+        expiresAt: { type: string, format: date-time }
+
+    OrderPaymentInput:
+      type: object
+      description: Proof from Razorpay Checkout that a session of exactly the order total was authorised.
+      required: [sessionId, razorpayPaymentId, razorpaySignature]
+      properties:
+        sessionId: { type: string }
+        razorpayPaymentId: { type: string, examples: [pay_Mock123] }
+        razorpaySignature: { type: string, description: 'HMAC-SHA256 of "razorpay_order_id|razorpay_payment_id" with the key secret; verified server-side.' }
+
+    SavedPaymentMethod:
+      type: object
+      required: [id, type, label, network, last4, expiry, vpa, createdAt]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [CARD, UPI] }
+        label: { type: string, examples: ['Visa •••• 1111', 'maya@okhdfc'] }
+        network: { type: [string, 'null'], examples: [Visa] }
+        last4: { type: [string, 'null'] }
+        expiry: { type: [string, 'null'], examples: ['12/29'] }
+        vpa: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    SavedPaymentMethodList:
+      type: object
+      required: [content]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/SavedPaymentMethod' } }
+
+    PayoutAccountInput:
+      type: object
+      required: [pan, holderName, method]
+      properties:
+        pan: { type: string, pattern: '^[A-Z]{5}[0-9]{4}[A-Z]$', description: Permanent Account Number (KYC and TDS). }
+        holderName: { type: string, minLength: 2, maxLength: 100, description: As on the bank account. }
+        method: { type: string, enum: [BANK_ACCOUNT, UPI] }
+        accountNumber: { type: [string, 'null'], pattern: '^[0-9]{9,18}$' }
+        ifsc: { type: [string, 'null'], pattern: '^[A-Z]{4}0[A-Z0-9]{6}$' }
+        vpa: { type: [string, 'null'], description: 'UPI ID, e.g. name@okaxis.' }
+
+    PayoutAccount:
+      type: object
+      required: [method, holderName, panMasked, destinationLabel, status, failureReason, updatedAt]
+      properties:
+        method: { type: string, enum: [BANK_ACCOUNT, UPI] }
+        holderName: { type: string }
+        panMasked: { type: string, examples: ['ABCDE••••F'] }
+        destinationLabel: { type: string, examples: ['HDFC Bank •••• 4321', 'leo@okaxis'] }
+        status: { type: string, enum: [VERIFYING, VERIFIED, FAILED] }
+        failureReason: { type: [string, 'null'] }
+        updatedAt: { type: string, format: date-time }
+
+    WithdrawalRequest:
+      type: object
+      required: [amountCents, speed]
+      properties:
+        amountCents: { type: integer, format: int64 }
+        speed: { type: string, enum: [STANDARD, INSTANT] }
+
+    PayoutSettings:
+      type: object
+      required: [autoWeekly]
+      properties:
+        autoWeekly: { type: boolean, description: Pay the whole available balance every Monday. }
 
     # ---------- Campaigns (Week 5) ----------
     CampaignStatus:
@@ -1927,8 +2092,10 @@ components:
 
     ApplicationAcceptRequest:
       type: object
+      required: [payment]
       properties:
         note: { type: [string, 'null'], maxLength: 2000, description: Extra instructions added to the campaign brief. }
+        payment: { $ref: '#/components/schemas/OrderPaymentInput' }
 
     # ---------- Chat (Week 5) ----------
     ChatMessage:
@@ -2103,16 +2270,17 @@ components:
     OrderCreateRequest:
       type: object
       description: Either `packageId`, or `creatorUsername` + `offer` for a custom offer.
-      required: [brief]
+      required: [brief, payment]
       properties:
         packageId: { $ref: '#/components/schemas/Ulid' }
         creatorUsername: { type: string }
         offer: { $ref: '#/components/schemas/CustomOfferInput' }
         brief: { $ref: '#/components/schemas/OrderBrief' }
+        payment: { $ref: '#/components/schemas/OrderPaymentInput' }
 
     OrderCreated:
       type: object
-      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy, stripeClientSecret]
+      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy]
       properties:
         orderId: { $ref: '#/components/schemas/Ulid' }
         status: { $ref: '#/components/schemas/OrderStatus' }
@@ -2121,7 +2289,6 @@ components:
         totalCents: { type: integer, format: int64, examples: [22000] }
         currency: { type: string }
         acceptBy: { type: string, format: date-time }
-        stripeClientSecret: { type: string, description: For the Payment Element to confirm the authorisation. }
 
     OrderQuote:
       type: object
@@ -2160,11 +2327,13 @@ components:
 
     OrderPayment:
       type: object
-      required: [status, amountCents, refundedCents]
+      required: [status, amountCents, refundedCents, method, methodLabel]
       properties:
         status: { $ref: '#/components/schemas/PaymentStatus' }
         amountCents: { type: integer, format: int64 }
-        refundedCents: { type: integer, format: int64 }
+        refundedCents: { type: integer, format: int64, description: Refunds go back to the original payment method. }
+        method: { $ref: '#/components/schemas/PaymentMethodType' }
+        methodLabel: { type: string, examples: ['UPI · maya@okhdfc', 'Visa •••• 1111', 'HDFC Bank netbanking'] }
 
     Deadline:
       type: object

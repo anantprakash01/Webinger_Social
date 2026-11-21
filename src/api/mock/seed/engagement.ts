@@ -80,7 +80,7 @@ export function seedEngagement(now: Date, ids: { brandId: string; leoId: string;
       platforms: c.platforms,
       niches: c.niches,
       deliverables: c.deliverables,
-      budgetPerCreatorCents: c.budgetPerCreatorCents,
+      budgetPerCreatorCents: c.budgetPerCreatorCents * 80, // modelled in USD cents → INR paise
       deadline: c.deadline,
       status: c.status ?? 'OPEN',
       createdAt: ago(c.createdHoursAgo),
@@ -95,7 +95,7 @@ export function seedEngagement(now: Date, ids: { brandId: string; leoId: string;
       campaignId: cmp.id,
       creatorUserId,
       pitch: a.pitch,
-      priceCents: a.priceCents,
+      priceCents: a.priceCents * 80, // modelled in USD cents → INR paise
       deliveryDays: a.deliveryDays,
       status: a.status ?? 'PENDING',
       orderId: null,

@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/money';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -22,8 +23,14 @@ const leoPackage = () => {
   return getDb().packages.filter((k) => k.creatorId === leo && k.active).sort((a, b) => a.priceCents - b.priceCents)[0];
 };
 
-async function fillBriefAndCard(user: ReturnType<typeof userEvent.setup>, card = '4242 4242 4242 4242') {
+async function fillBrief(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('What do you need?'), 'Show the linen tote in a morning routine, natural light please.');
+}
+
+/** Pays with a new card (the brand's saved UPI ID is preselected otherwise). */
+async function useNewCard(user: ReturnType<typeof userEvent.setup>, card: string) {
+  await user.click(screen.getByRole('radio', { name: /^Debit or credit card/ }));
+  await user.click(await screen.findByRole('radio', { name: 'New card' }));
   await user.type(screen.getByLabelText('Card number'), card);
   await user.type(screen.getByLabelText('Expiry'), '12 / 39');
   await user.type(screen.getByLabelText('CVC'), '123');
@@ -43,11 +50,13 @@ describe('checkout (FR-30, FR-33, FR-60)', () => {
     // Summary comes from the server quote: price + 10% fee.
     expect(await screen.findByRole('heading', { name: 'Book this package' })).toBeInTheDocument();
     const total = pkg.priceCents + Math.floor((pkg.priceCents * 1000 + 5000) / 10000);
-    const totalText = `$${(total / 100).toFixed(2)}`;
+    const totalText = formatMoney(total);
     expect(screen.getAllByText(totalText).length).toBeGreaterThan(0);
 
-    await fillBriefAndCard(user);
-    await user.click(screen.getByRole('button', { name: new RegExp(`^Authorise \\${totalText}`) }));
+    // The saved UPI ID is preselected; paying authorises the total through Razorpay (mocked).
+    await fillBrief(user);
+    expect(await screen.findByRole('radio', { name: 'saltbay@okhdfcbank' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: `Pay ${totalText}` }));
     expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Waiting for Leo to accept' })).toBeInTheDocument();
     const orderId = window.location.pathname.split('/').pop()!;
@@ -80,24 +89,45 @@ describe('checkout (FR-30, FR-33, FR-60)', () => {
     expect(getDb().ledgerEntries.filter((e) => e.orderId === orderId && e.account === 'CREATOR_BALANCE')[0].debitCents).toBe(pkg.priceCents - Math.floor((pkg.priceCents * 1500 + 5000) / 10000));
   }, 60_000);
 
-  it('shows a decline for Stripe’s decline test card and creates no order', async () => {
+  it('shows a decline for the decline test card and creates no order', async () => {
     const user = userEvent.setup();
     await api.auth.login('brand@demo.test', DEMO_PASSWORD);
     const before = getDb().orders.length;
     renderAt(`/checkout/${leoPackage().id}`);
-    await fillBriefAndCard(user, '4000 0000 0000 0002');
-    await user.click(await screen.findByRole('button', { name: /^Authorise/ }));
-    expect(await screen.findByText('Your card was declined. Try another card.')).toBeInTheDocument();
+    await fillBrief(user);
+    await useNewCard(user, '4000 0000 0000 0002');
+    await user.click(screen.getByRole('button', { name: /^Pay / }));
+    expect(await screen.findByText('Your card was declined by the bank. Try another card or UPI.')).toBeInTheDocument();
     expect(getDb().orders.length).toBe(before);
   });
 
-  it('validates the brief and card before calling the API', async () => {
+  it('a failed UPI payment creates no order; netbanking then works', async () => {
+    const user = userEvent.setup();
+    await api.auth.login('brand@demo.test', DEMO_PASSWORD);
+    const before = getDb().orders.length;
+    renderAt(`/checkout/${leoPackage().id}`);
+    await fillBrief(user);
+    await user.click(await screen.findByRole('radio', { name: 'Another UPI ID' }));
+    await user.type(screen.getByLabelText('UPI ID'), 'failure@razorpay');
+    await user.click(screen.getByRole('button', { name: /^Pay / }));
+    expect(await screen.findByText(/declined in the UPI app/)).toBeInTheDocument();
+    expect(getDb().orders.length).toBe(before);
+    await user.click(screen.getByRole('radio', { name: /^Netbanking/ }));
+    await user.selectOptions(screen.getByLabelText('Your bank'), 'HDFC');
+    await user.click(screen.getByRole('button', { name: /^Pay / }));
+    expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();
+    expect(getDb().orders.at(-1)!.payment).toMatchObject({ method: 'NETBANKING', methodLabel: 'HDFC Bank netbanking', status: 'AUTHORIZED' });
+  });
+
+  it('validates the brief and payment details before calling the API', async () => {
     const user = userEvent.setup();
     await api.auth.login('brand@demo.test', DEMO_PASSWORD);
     renderAt(`/checkout/${leoPackage().id}`);
-    await user.click(await screen.findByRole('button', { name: /^Authorise/ }));
+    await user.click(await screen.findByRole('radio', { name: /^Debit or credit card/ }));
+    await user.click(await screen.findByRole('radio', { name: 'New card' }));
+    await user.click(screen.getByRole('button', { name: /^Pay / }));
     expect(await screen.findByText('Tell the creator what you need (at least 20 characters).')).toBeInTheDocument();
-    expect(screen.getByText('Enter a valid card number.')).toBeInTheDocument();
+    expect(screen.getByText('Enter the 16-digit card number.')).toBeInTheDocument();
   });
 });
 
@@ -110,10 +140,10 @@ describe('custom offer (FR-31)', () => {
     expect(await screen.findByRole('heading', { name: 'Send Leo an offer' })).toBeInTheDocument();
     await user.type(screen.getByLabelText('Title'), 'Desk tour feature');
     await user.type(screen.getByLabelText('Deliverables'), '1 YouTube integration');
-    await user.type(screen.getByLabelText('Price (USD)'), '300');
-    expect(await screen.findByRole('button', { name: /\$330\.00/ })).toBeInTheDocument();
-    await fillBriefAndCard(user);
-    await user.click(screen.getByRole('button', { name: /Send offer and authorise/ }));
+    await user.type(screen.getByLabelText('Price (₹)'), '10000');
+    expect(await screen.findByRole('button', { name: /₹11,000\.00/ })).toBeInTheDocument();
+    await fillBrief(user);
+    await user.click(screen.getByRole('button', { name: /Send offer and pay/ }));
     expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Desk tour feature' })).toBeInTheDocument();
   }, 30_000);

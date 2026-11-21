@@ -1,11 +1,14 @@
 /**
- * Creator balances and weekly bank payouts (FR-63).
- * Approval credits CREATOR_BALANCE (the Stripe Transfer); every Monday 00:00 UTC the available balance
- * is paid out: CREATOR_BALANCE → PAYOUT, referenced as `payout_<id>`. Arrives 2 days later.
+ * Creator balances and payouts (FR-63; v2.0 India / Razorpay).
+ * Approval credits CREATOR_BALANCE (a Razorpay Route transfer released from hold). Money leaves as a
+ * RazorpayX payout: every Monday 00:00 UTC for creators with the weekly payout on, or on request
+ * (standard or instant). CREATOR_BALANCE → PAYOUT (+ PLATFORM_REVENUE for an instant fee), referenced as
+ * `payout_<id>`.
  */
 import { auditLedger } from './audit';
-import { getDb, now, ulid, type PayoutRow } from './db';
+import { getDb, now, ulid, type PayoutAccountRow, type PayoutRow, type UserRow } from './db';
 import { payoutLines, postTxn, type LedgerEntry } from './ledger';
+import { bankNameFor } from './seed/payments';
 
 const DAY = 86_400_000;
 
@@ -29,6 +32,10 @@ export function creatorMoney(creatorId: string) {
   };
 }
 
+/** "HDFC Bank •••• 4321" or the UPI ID. */
+export const destinationOf = (a: Pick<PayoutAccountRow, 'method' | 'ifsc' | 'accountNumber' | 'vpa'>) =>
+  a.method === 'UPI' ? a.vpa! : `${bankNameFor(a.ifsc)} •••• ${(a.accountNumber ?? '').slice(-4)}`;
+
 /** The first Monday 00:00 UTC strictly after `t`. */
 export function nextMonday(t: Date): Date {
   const d = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
@@ -36,7 +43,44 @@ export function nextMonday(t: Date): Date {
   return new Date(d.getTime() + days * DAY);
 }
 
-/** Scheduled job: pays out every creator balance at each Monday boundary crossed since the last run. */
+const ARRIVAL_MS = { SCHEDULED: DAY, STANDARD: DAY, INSTANT: 5 * 60_000 } as const;
+
+/** One RazorpayX payout from the balance; writes the ledger, the audit entry and a notification. */
+export function sendPayout(creatorId: string, account: PayoutAccountRow, amountCents: number, feeCents: number, speed: NonNullable<PayoutRow['speed']>, actor: UserRow | null, at = now()): PayoutRow {
+  const db = getDb();
+  const t = now();
+  const arrival = new Date(at.getTime() + ARRIVAL_MS[speed]);
+  const payout: PayoutRow = {
+    id: `pout_mock${ulid(at.getTime() + db.payouts.length).slice(-10).toLowerCase()}`,
+    creatorId,
+    amountCents,
+    feeCents,
+    speed,
+    destinationLabel: destinationOf(account),
+    status: arrival <= t ? 'PAID' : 'IN_TRANSIT',
+    createdAt: at.toISOString(),
+    arrivalDate: arrival.toISOString(),
+  };
+  db.payouts.push(payout);
+  const memo = speed === 'SCHEDULED' ? 'Weekly payout' : speed === 'INSTANT' ? 'Instant withdrawal' : 'Withdrawal';
+  const entries = postTxn(payoutLines(amountCents, feeCents), { txnId: ulid(t.getTime() + db.payouts.length), orderId: `payout_${payout.id}`, memo, at: payout.createdAt });
+  db.ledgerEntries.push(...entries);
+  auditLedger(entries, actor);
+  const when = speed === 'INSTANT' ? 'in a few minutes' : 'by the next working day';
+  db.notifications.unshift({
+    id: ulid(t.getTime()),
+    userId: creatorId,
+    type: 'PAYOUT_SENT',
+    title: speed === 'SCHEDULED' ? 'Weekly payout on its way' : 'Withdrawal on its way',
+    body: `Sent to ${payout.destinationLabel}; it arrives ${when}.`,
+    link: '/creator/payouts',
+    readAt: null,
+    createdAt: t.toISOString(),
+  });
+  return payout;
+}
+
+/** Scheduled job: marks arrived payouts PAID and, at each Monday boundary, pays out weekly balances. */
 export function runPayouts(): number {
   const db = getDb();
   const t = now();
@@ -45,31 +89,12 @@ export function runPayouts(): number {
   const boundary = nextMonday(new Date(db.lastPayoutRunAt));
   if (boundary > t) return 0;
   for (const c of db.creatorProfiles) {
-    if (c.payoutStatus !== 'ENABLED') continue;
+    if (c.payoutStatus !== 'ENABLED' || c.autoWeekly === false) continue;
+    const account = db.payoutAccounts.find((a) => a.creatorId === c.userId && a.status === 'VERIFIED');
+    if (!account) continue;
     const { availableCents } = creatorMoney(c.userId);
     if (availableCents <= 0) continue;
-    const payout: PayoutRow = {
-      id: `po_mock${ulid(boundary.getTime()).slice(-10).toLowerCase()}`,
-      creatorId: c.userId,
-      amountCents: availableCents,
-      status: boundary.getTime() + 2 * DAY <= t.getTime() ? 'PAID' : 'IN_TRANSIT',
-      createdAt: boundary.toISOString(),
-      arrivalDate: new Date(boundary.getTime() + 2 * DAY).toISOString(),
-    };
-    db.payouts.push(payout);
-    const entries = postTxn(payoutLines(availableCents), { txnId: ulid(t.getTime()), orderId: `payout_${payout.id}`, memo: 'Weekly payout to bank', at: payout.createdAt });
-    db.ledgerEntries.push(...entries);
-    auditLedger(entries, null);
-    db.notifications.unshift({
-      id: ulid(t.getTime()),
-      userId: c.userId,
-      type: 'PAYOUT_SENT',
-      title: 'Payout on its way',
-      body: `Your weekly payout was sent to your bank and arrives in about 2 days.`,
-      link: '/creator/payouts',
-      readAt: null,
-      createdAt: t.toISOString(),
-    });
+    sendPayout(c.userId, account, availableCents, 0, 'SCHEDULED', null, boundary);
     made += 1;
   }
   db.lastPayoutRunAt = t.toISOString();

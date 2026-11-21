@@ -17,7 +17,7 @@ import { fail, ok, parseBody, type Handler } from '../http';
 import type { OrderStatus } from '../orderMachine';
 import { creatorMoney } from '../payoutsCore';
 
-const CURRENCY = 'USD';
+const CURRENCY = 'INR';
 
 /** The creator profile of the signed-in user, or 403 for other roles. */
 export function myProfile(user: UserRow): CreatorProfileRow {

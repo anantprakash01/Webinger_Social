@@ -65,9 +65,9 @@ export type OrderActionInput =
   | { type: 'deliver'; body: DeliverRequest };
 
 const ACTION_DONE: Record<OrderActionInput['type'], string> = {
-  accept: 'Order accepted. The card is charged and held in escrow.',
-  decline: 'Order declined. The card hold is released.',
-  cancel: 'Order cancelled. The card hold is released.',
+  accept: 'Order accepted. The payment is captured and held in escrow.',
+  decline: 'Order declined. The payment hold is released.',
+  cancel: 'Order cancelled. The payment hold is released.',
   deliver: 'Delivered. The brand has 72 hours to review.',
   approve: 'Approved. Payment released to the creator.',
   'request-revision': 'Revision requested.',

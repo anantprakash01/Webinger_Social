@@ -4,13 +4,13 @@
  */
 import { z } from 'zod';
 import { RESERVED_USERNAMES } from '@/lib/catalog';
-import { parseDollarsToCents } from '@/lib/money';
+import { parseAmount } from '@/lib/money';
 import { MIN_PRICE_CENTS } from '@/api/mock/fees';
 
 export const MAX_ACTIVE_PACKAGES = 8; // FR-13
 export const MAX_PORTFOLIO_ITEMS = 12; // FR-14
 export const MAX_NICHES = 3; // FR-10
-export const MAX_PRICE_CENTS = 10_000_000; // $100,000 sanity cap
+export const MAX_PRICE_CENTS = 500_000_000; // ₹50,00,000 sanity cap
 export const MIN_AGE = 16;
 export const MAX_AGE = 90;
 
@@ -81,12 +81,12 @@ const packageFields = {
     .array(z.string().trim().min(2, { error: 'Too short.' }).max(120, { error: 'Use at most 120 characters.' }))
     .min(1, { error: 'List at least one deliverable.' })
     .max(10, { error: 'List up to 10 deliverables.' }),
-  // FR-12 acceptance: under $10 is rejected with a field error.
+  // FR-12 acceptance: under the minimum (₹500) is rejected with a field error.
   priceCents: z
     .number({ error: 'Enter a price.' })
     .int({ error: 'Prices are whole cents.' })
-    .min(MIN_PRICE_CENTS, { error: 'The minimum price is $10.' })
-    .max(MAX_PRICE_CENTS, { error: 'The maximum price is $100,000.' }),
+    .min(MIN_PRICE_CENTS, { error: 'The minimum price is ₹500.' })
+    .max(MAX_PRICE_CENTS, { error: 'The maximum price is ₹50,00,000.' }),
   // FR-12 acceptance: delivery days outside 1–60 are rejected with a field error.
   deliveryDays: z
     .number({ error: 'Enter the number of days.' })
@@ -125,7 +125,7 @@ export const onboardingLinkRequestSchema = z.object({
 
 /* ---------- Form-only schemas ---------- */
 
-/** Package form: price typed in dollars, deliverables one per line. */
+/** Package form: price typed in rupees, deliverables one per line. */
 export const packageFormSchema = z
   .object({
     platform: PLATFORM,
@@ -137,7 +137,7 @@ export const packageFormSchema = z
     active: z.boolean(),
   })
   .transform((v, ctx) => {
-    const priceCents = parseDollarsToCents(v.price);
+    const priceCents = parseAmount(v.price);
     if (priceCents === null) ctx.addIssue({ code: 'custom', path: ['price'], message: 'Enter an amount like 150 or 149.99.' });
     const days = /^\d+$/.test(v.deliveryDays) ? Number(v.deliveryDays) : NaN;
     const out = {

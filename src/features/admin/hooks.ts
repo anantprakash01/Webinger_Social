@@ -76,4 +76,3 @@ export function useResolveReport() {
 }
 export const useCreateReport = () => useMutation({ mutationFn: (v: ReportInput) => api.reports.create(v) });
 
-export const usePayoutOverview = () => useQuery({ queryKey: ['creators', 'me', 'payouts'], queryFn: () => api.payouts.balance() });

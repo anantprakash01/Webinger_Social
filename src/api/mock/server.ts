@@ -18,6 +18,7 @@ import * as creators from './handlers/creators';
 import * as files from './handlers/files';
 import * as orders from './handlers/orders';
 import * as payouts from './handlers/payouts';
+import * as payments from './handlers/payments';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
 import { authenticate, impersonatorOf } from './handlers/session';
@@ -109,12 +110,19 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/admin/reports', auth: true, handler: admin.listReports },
   { method: 'POST', path: '/admin/reports/:id/resolve', auth: true, handler: admin.resolveReport },
   { method: 'GET', path: '/payouts/balance', auth: true, handler: payouts.getPayoutBalance },
+  { method: 'GET', path: '/payouts/account', auth: true, handler: payouts.getPayoutAccount },
+  { method: 'PUT', path: '/payouts/account', auth: true, handler: payouts.savePayoutAccount },
+  { method: 'POST', path: '/payouts/withdrawals', auth: true, handler: payouts.createWithdrawal, idempotent: true },
+  { method: 'PUT', path: '/payouts/settings', auth: true, handler: payouts.updatePayoutSettings },
+  // Payments (v2.0, Razorpay)
+  { method: 'POST', path: '/payments/sessions', auth: true, handler: payments.createPaymentSession },
+  { method: 'GET', path: '/payments/methods', auth: true, handler: payments.listPaymentMethods },
+  { method: 'DELETE', path: '/payments/methods/:id', auth: true, handler: payments.deletePaymentMethod },
   { method: 'GET', path: '/brands/me/profile', auth: true, handler: brands.getMyBrandProfile },
   { method: 'PUT', path: '/brands/me/profile', auth: true, handler: brands.updateMyBrandProfile },
   { method: 'POST', path: '/files/presign', auth: true, handler: files.presignUpload },
-  { method: 'POST', path: '/payouts/onboarding-link', auth: true, handler: payouts.createPayoutOnboardingLink },
   // Mock only
-  { method: 'POST', path: '/dev/stripe/connect-complete', auth: true, handler: payouts.completeMockConnectOnboarding },
+  { method: 'POST', path: '/dev/razorpay/pay', auth: true, handler: payments.mockRazorpayPay },
   { method: 'POST', path: '/dev/vetting-decision', auth: true, handler: dev.vettingDecision },
   { method: 'POST', path: '/dev/simulate-time', auth: false, handler: orders.simulateTime },
   { method: 'GET', path: '/dev/clock', auth: false, handler: orders.getClock },

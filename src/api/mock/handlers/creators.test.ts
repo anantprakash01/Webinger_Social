@@ -74,7 +74,7 @@ describe('GET /creators (search)', () => {
       displayName: 'Leo Marin',
       reach: { platform: 'TIKTOK', followers: 152_000 },
       verified: true,
-      currency: 'USD',
+      currency: 'INR',
     });
     expect(leo.ratingCount).toBe(7);
     expect(leo.startingPriceCents).toBe(Math.min(...getDb().packages.filter((k) => k.creatorId === profileOf('leomakes').userId).map((k) => k.priceCents)));

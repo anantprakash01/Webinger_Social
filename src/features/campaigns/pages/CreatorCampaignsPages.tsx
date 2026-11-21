@@ -218,7 +218,7 @@ function ApplyCard({ c }: { c: CampaignDetail }) {
         <FormError>{formError}</FormError>
         <TextArea label="Your pitch" rows={5} placeholder="Why you're a good fit, what you'd make, past results." error={errors.pitch?.message} {...register('pitch')} />
         <div className="form-row">
-          <Input label="Your price (USD)" inputMode="decimal" hint={`Budget up to ${formatMoney(c.budgetPerCreatorCents, c.currency, { whole: true })}.`} error={errors.price?.message} {...register('price')} />
+          <Input label="Your price (₹)" inputMode="decimal" hint={`Budget up to ${formatMoney(c.budgetPerCreatorCents, c.currency, { whole: true })}.`} error={errors.price?.message} {...register('price')} />
           <Input label="Delivery (days)" inputMode="numeric" error={errors.deliveryDays?.message} {...register('deliveryDays')} />
         </div>
         <Button type="submit" loading={apply.isPending}>

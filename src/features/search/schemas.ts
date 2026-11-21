@@ -4,7 +4,7 @@
  * - `creatorSearchQuerySchema` validates GET /creators query params; the mock answers 422 with it,
  *   like the backend's Bean Validation would.
  * - `parseSearchUrl` / `toSearchUrl` convert between the shareable page URL (/search?...) and that
- *   query. The URL is friendlier than the API: prices in dollars, follower and age buckets by name.
+ *   query. The URL is friendlier than the API: prices in whole rupees, follower and age buckets by name.
  */
 import { z } from 'zod';
 import { AGE_BUCKETS, FOLLOWER_BUCKETS, SORTS, type SortValue } from '@/lib/catalog';
@@ -70,7 +70,7 @@ export interface SearchState {
   country?: string;
   city?: string;
   followers?: (typeof FOLLOWER_BUCKETS)[number]['value'];
-  /** Whole dollars, as typed. */
+  /** Whole rupees, as typed. */
   priceMin?: number;
   priceMax?: number;
   language?: string;
@@ -82,7 +82,7 @@ export interface SearchState {
 }
 
 const oneOf = <T extends string>(values: readonly T[], v: string | null): T | undefined => (v && (values as readonly string[]).includes(v) ? (v as T) : undefined);
-const dollars = (v: string | null) => {
+const rupees = (v: string | null) => {
   if (!v || !/^\d{1,7}$/.test(v)) return undefined;
   return Number(v);
 };
@@ -97,8 +97,8 @@ export function parseSearchUrl(sp: URLSearchParams): SearchState {
     country: /^[A-Za-z]{2}$/.test(sp.get('country') ?? '') ? sp.get('country')!.toUpperCase() : undefined,
     city: sp.get('city')?.trim().slice(0, 80) || undefined,
     followers: oneOf(FOLLOWER_BUCKETS.map((b) => b.value), sp.get('followers')),
-    priceMin: dollars(sp.get('priceMin')),
-    priceMax: dollars(sp.get('priceMax')),
+    priceMin: rupees(sp.get('priceMin')),
+    priceMax: rupees(sp.get('priceMax')),
     language: /^[a-z]{2}$/.test(sp.get('language') ?? '') ? sp.get('language')! : undefined,
     gender: oneOf(GENDER_VALUES, sp.get('gender')?.toUpperCase() ?? null),
     age: oneOf(AGE_BUCKETS.map((b) => b.value), sp.get('age')),

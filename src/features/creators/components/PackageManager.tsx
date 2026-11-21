@@ -184,7 +184,7 @@ function PackageEditor({ pkg, defaultPlatform, activeFull, onDone }: { pkg: OwnP
         {...register('deliverablesText')}
       />
       <div className="form-row">
-        <Input label="Price (USD)" inputMode="decimal" placeholder="150" hint="At least $10." error={errors.price?.message} {...register('price')} />
+        <Input label="Price (₹)" inputMode="decimal" placeholder="10000" hint="At least ₹500." error={errors.price?.message} {...register('price')} />
         <Input label="Delivery (days)" inputMode="numeric" hint="1 to 60 days." error={errors.deliveryDays?.message} {...register('deliveryDays')} />
       </div>
       <label className="check small">

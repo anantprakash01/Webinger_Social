@@ -1,6 +1,6 @@
 /** Admin and report rules (FR-80 – FR-85), shared by the admin forms and the mock API. */
 import { z } from 'zod';
-import { parseDollarsToCents } from '@/lib/money';
+import { parseAmount } from '@/lib/money';
 
 export const MAX_FEE_BPS = 3000; // 30%
 
@@ -49,5 +49,5 @@ export const REPORT_REASONS = [
   { value: 'OTHER', label: 'Something else' },
 ] as const;
 
-/** Partial refund typed in dollars → cents, or null if invalid. */
-export const refundToCents = (s: string) => parseDollarsToCents(s);
+/** Partial refund typed in rupees → paise, or null if invalid. */
+export const refundToCents = (s: string) => parseAmount(s);
