@@ -2,13 +2,14 @@
  * Logged-in layout, ported from the Webinger AppShell: sidebar on desktop, bottom nav (4 items +
  * More) under 900 px, and a demo bar with "View as" + "Reset demo data" in mock mode.
  */
+import { useConfirm } from '@/components/feedback';
 import { Suspense, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LuBell, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-icons/lu';
+import { LuBell, LuChevronDown, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-icons/lu';
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
 import { Logo } from '@/components/Logo';
-import { Avatar, Button, PageSkeleton } from '@/components/ui';
+import { Avatar, Button, PageSkeleton, cx } from '@/components/ui';
 import { VerifyEmailBanner } from '@/features/auth/components/VerifyEmailGate';
 import { VettingBanner } from '@/features/creators/components/VettingBanner';
 import { useDemoVettingDecision } from '@/features/creators/workspaceHooks';
@@ -156,6 +157,8 @@ function DemoBar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const [open, setOpen] = useState(false);
   if (!user) return null;
   const known = demoAccounts.some((a) => a.email === user.email);
 
@@ -171,7 +174,7 @@ function DemoBar() {
   };
 
   const reset = async () => {
-    if (!window.confirm('Reset all demo data? Every change made in this tab is lost.')) return;
+    if (!(await confirm.ask({ title: 'Reset all demo data?', body: 'Every change made in this tab is lost and the demo starts again from its original data.', confirmLabel: 'Reset demo data' }))) return;
     await api.dev.reset();
     navigate('/login', { replace: true, state: { notice: 'Demo data was reset.' } });
   };
@@ -179,13 +182,18 @@ function DemoBar() {
   return (
     <div className="demo-bar" role="note">
       <strong>Prototype</strong>
-      <span>Demo data only, kept in this browser tab.</span>
+      <span className="demo-bar__text">Demo data only, kept in this browser tab.</span>
       {error && (
         <span role="alert" className="demo-bar__error">
           {error}
         </span>
       )}
       <span className="spacer" />
+      {/* Phones: one compact toggle instead of three rows of controls (UX pass, item 14). */}
+      <button type="button" className="demo-bar__btn demo-bar__toggle" aria-expanded={open} aria-controls="demo-controls" onClick={() => setOpen((v) => !v)}>
+        Demo controls <LuChevronDown aria-hidden className={open ? 'is-flipped' : undefined} />
+      </button>
+      <div className={cx('demo-bar__controls', open && 'is-open')} id="demo-controls">
       <label htmlFor="view-as">View as</label>
       <select id="view-as" value={known ? user.email : ''} onChange={(e) => void switchTo(e.target.value)}>
         {!known && <option value="">{user.email}</option>}
@@ -200,6 +208,8 @@ function DemoBar() {
       <button type="button" className="demo-bar__btn" onClick={() => void reset()}>
         Reset demo data
       </button>
+      </div>
+      {confirm.dialog}
     </div>
   );
 }
@@ -210,9 +220,10 @@ function DemoBar() {
  */
 function DemoVetting() {
   const decide = useDemoVettingDecision();
-  const reject = () => {
-    const reason = window.prompt('Reason shown to the creator:', 'Please add a clearer profile photo.');
-    if (reason?.trim()) decide.mutate({ decision: 'REJECT', reason: reason.trim() });
+  const confirm = useConfirm();
+  const reject = async () => {
+    const reason = await confirm.ask({ title: 'Simulate a rejection', confirmLabel: 'Reject profile', reasonLabel: 'Reason shown to the creator', reasonDefault: 'Please add a clearer profile photo.', reasonMin: 10 });
+    if (reason) decide.mutate({ decision: 'REJECT', reason });
   };
   return (
     <span className="demo-bar__group" role="group" aria-label="Simulate review">
@@ -220,9 +231,10 @@ function DemoVetting() {
       <button type="button" className="demo-bar__btn" disabled={decide.isPending} onClick={() => decide.mutate({ decision: 'APPROVE' })}>
         Approve
       </button>
-      <button type="button" className="demo-bar__btn" disabled={decide.isPending} onClick={reject}>
+      <button type="button" className="demo-bar__btn" disabled={decide.isPending} onClick={() => void reject()}>
         Reject
       </button>
+      {confirm.dialog}
     </span>
   );
 }

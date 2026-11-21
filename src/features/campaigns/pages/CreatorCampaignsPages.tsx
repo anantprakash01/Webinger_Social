@@ -1,4 +1,5 @@
 /** Creator side of campaigns (FR-41): /creator/campaigns (open + mine) and /creator/campaigns/:id (apply). */
+import { TabRow } from '@/components/feedback';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,14 +45,14 @@ export function CreatorCampaignsPage() {
         </div>
       )}
       <div className="campaign-filters">
-        <div className="platform-tabs" role="group" aria-label="Campaign list">
+        <TabRow label="Campaign list">
           <button type="button" className={cx('platform-tab', tab === 'open' && 'is-on')} aria-pressed={tab === 'open'} onClick={() => set({ tab: undefined })}>
             Open campaigns
           </button>
           <button type="button" className={cx('platform-tab', tab === 'mine' && 'is-on')} aria-pressed={tab === 'mine'} onClick={() => set({ tab: 'mine', platform: undefined, niche: undefined })}>
             My applications
           </button>
-        </div>
+        </TabRow>
         {tab === 'open' && (
           <div className="row" style={{ flexWrap: 'wrap' }}>
             <Select label="Platform" hideLabel value={platform} onChange={(v) => set({ platform: v })} options={PLATFORMS} allLabel="Any platform" />

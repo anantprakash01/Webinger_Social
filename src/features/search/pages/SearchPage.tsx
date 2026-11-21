@@ -2,6 +2,7 @@
  * /search (FR-20 – FR-24). All filters live in the URL so a search can be shared or bookmarked.
  * Desktop: filter sidebar. Under 900 px: a "Filters" button opens the same panel in a drawer.
  */
+import { TabRow } from '@/components/feedback';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LuSearchX, LuSlidersHorizontal, LuX } from 'react-icons/lu';
@@ -64,7 +65,7 @@ export function SearchPage() {
             <LuSlidersHorizontal aria-hidden /> Filters{filters > 0 && ` (${filters})`}
           </Button>
         </div>
-        <div className="platform-tabs" role="group" aria-label="Platform">
+        <TabRow label="Platform">
           <button type="button" className={cx('platform-tab', !state.platform && 'is-on')} aria-pressed={!state.platform} onClick={() => update({ platform: undefined })}>
             All platforms
           </button>
@@ -79,7 +80,7 @@ export function SearchPage() {
               <PlatformIcon platform={p.value} /> {p.label}
             </button>
           ))}
-        </div>
+        </TabRow>
       </div>
 
       <div className="search-layout">
@@ -134,7 +135,7 @@ export function SearchPage() {
             <>
               <CreatorGrid busy={isPlaceholderData}>
                 {data.content.map((c) => (
-                  <CreatorCard key={c.username} creator={c} />
+                  <CreatorCard key={c.username} creator={c} q={state.q} />
                 ))}
               </CreatorGrid>
               <Pagination

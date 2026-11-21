@@ -30,11 +30,16 @@ export function PublicLayout() {
               <NavLink to="/login" className="public-nav__link">
                 Log in
               </NavLink>
-              <Link to="/signup?role=creator" className="btn btn--primary btn--sm">
-                {/* One text box: the button's flex gap would otherwise split "Join" from "as creator". */}
-                <span>
-                  Join<span className="public-nav__label--wide"> as creator</span>
-                </span>
+              {/* Brands are the paying side, so they get their own entry point (UX pass, item 18). */}
+              <Link to="/signup?role=brand" className="btn btn--secondary btn--sm public-nav__brands">
+                Hire creators
+              </Link>
+              <Link to="/signup?role=creator" className="btn btn--primary btn--sm public-nav__creators">
+                Join as creator
+              </Link>
+              {/* Phones: one button; the sign-up page asks brand or creator. */}
+              <Link to="/signup" className="btn btn--primary btn--sm public-nav__join">
+                Join
               </Link>
             </>
           )}

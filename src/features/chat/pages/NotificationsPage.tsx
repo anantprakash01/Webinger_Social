@@ -1,4 +1,5 @@
 /** /notifications — the inbox (FR-52): one entry per order state change and campaign decision. */
+import { TabRow } from '@/components/feedback';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LuBell, LuCheckCheck } from 'react-icons/lu';
 import { timeAgo } from '@/components/status';
@@ -31,14 +32,14 @@ export function NotificationsPage() {
           ) : undefined
         }
       />
-      <div className="platform-tabs" role="group" aria-label="Show">
+      <TabRow label="Show">
         <button type="button" className={cx('platform-tab', !unreadOnly && 'is-on')} aria-pressed={!unreadOnly} onClick={() => setParams({})}>
           All
         </button>
         <button type="button" className={cx('platform-tab', unreadOnly && 'is-on')} aria-pressed={unreadOnly} onClick={() => setParams({ filter: 'unread' })}>
           Unread {data ? <span className="tab-count">{data.unreadCount}</span> : null}
         </button>
-      </div>
+      </TabRow>
       <Card flush>
         {isError ? (
           <ErrorState message={error.message} onRetry={() => void refetch()} />

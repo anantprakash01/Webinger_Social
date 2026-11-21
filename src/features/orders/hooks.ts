@@ -1,4 +1,5 @@
 /** Order hooks (TanStack Query). Money-moving actions carry an Idempotency-Key that survives retries. */
+import { toast } from '@/components/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, newIdempotencyKey } from '@/api/client';
@@ -63,6 +64,16 @@ export type OrderActionInput =
   | { type: 'dispute'; note: string }
   | { type: 'deliver'; body: DeliverRequest };
 
+const ACTION_DONE: Record<OrderActionInput['type'], string> = {
+  accept: 'Order accepted. The card is charged and held in escrow.',
+  decline: 'Order declined. The card hold is released.',
+  cancel: 'Order cancelled. The card hold is released.',
+  deliver: 'Delivered. The brand has 72 hours to review.',
+  approve: 'Approved. Payment released to the creator.',
+  'request-revision': 'Revision requested.',
+  dispute: 'Dispute opened. Our team will review it.',
+};
+
 export function useOrderAction(id: string) {
   const key = useIdempotencyKey();
   const refresh = useRefreshOrders();
@@ -86,9 +97,10 @@ export function useOrderAction(id: string) {
           return api.orders.deliver(id, a.body, k);
       }
     },
-    onSuccess: (detail) => {
+    onSuccess: (detail, a) => {
       key.done();
       refresh(detail);
+      toast(ACTION_DONE[a.type]);
     },
     // A 409 means the order moved on (e.g. auto-approved meanwhile): show the fresh state.
     onError: () => refresh(),
@@ -97,17 +109,26 @@ export function useOrderAction(id: string) {
 
 export function useUpdateBrief(id: string) {
   const refresh = useRefreshOrders();
-  return useMutation({ mutationFn: (brief: OrderBrief) => api.orders.updateBrief(id, brief), onSuccess: (d) => refresh(d) });
+  return useMutation({ mutationFn: (brief: OrderBrief) => api.orders.updateBrief(id, brief), onSuccess: (d) => {
+    refresh(d);
+    toast('Brief updated');
+  } });
 }
 
 export function useReviewOrder(id: string) {
   const refresh = useRefreshOrders();
-  return useMutation({ mutationFn: (body: ReviewRequest) => api.orders.review(id, body), onSuccess: () => refresh() });
+  return useMutation({ mutationFn: (body: ReviewRequest) => api.orders.review(id, body), onSuccess: () => {
+    refresh();
+    toast('Review posted');
+  } });
 }
 
 export function useReplyToReview() {
   const refresh = useRefreshOrders();
-  return useMutation({ mutationFn: (v: { reviewId: string; reply: string }) => api.orders.reply(v.reviewId, v.reply), onSuccess: () => refresh() });
+  return useMutation({ mutationFn: (v: { reviewId: string; reply: string }) => api.orders.reply(v.reviewId, v.reply), onSuccess: () => {
+    refresh();
+    toast('Reply posted');
+  } });
 }
 
 /** Re-renders every `ms` so countdowns stay current. */

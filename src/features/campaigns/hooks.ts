@@ -1,3 +1,4 @@
+import { toast } from '@/components/feedback';
 import { useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, newIdempotencyKey } from '@/api/client';
@@ -24,7 +25,10 @@ function useRefresh() {
 
 export function useCreateCampaign() {
   const refresh = useRefresh();
-  return useMutation({ mutationFn: (v: CampaignInput) => api.campaigns.create(v), onSuccess: refresh });
+  return useMutation({ mutationFn: (v: CampaignInput) => api.campaigns.create(v), onSuccess: () => {
+    refresh();
+    toast('Campaign posted');
+  } });
 }
 
 export function useCloseCampaign(id: string) {
@@ -34,17 +38,26 @@ export function useCloseCampaign(id: string) {
 
 export function useApply(id: string) {
   const refresh = useRefresh();
-  return useMutation({ mutationFn: (v: ApplicationInput) => api.campaigns.apply(id, v), onSuccess: refresh });
+  return useMutation({ mutationFn: (v: ApplicationInput) => api.campaigns.apply(id, v), onSuccess: () => {
+    refresh();
+    toast('Application sent');
+  } });
 }
 
 export function useWithdrawApplication() {
   const refresh = useRefresh();
-  return useMutation({ mutationFn: (applicationId: string) => api.campaigns.withdrawApplication(applicationId), onSuccess: refresh });
+  return useMutation({ mutationFn: (applicationId: string) => api.campaigns.withdrawApplication(applicationId), onSuccess: () => {
+    refresh();
+    toast('Application withdrawn');
+  } });
 }
 
 export function useRejectApplication() {
   const refresh = useRefresh();
-  return useMutation({ mutationFn: (applicationId: string) => api.campaigns.rejectApplication(applicationId), onSuccess: refresh });
+  return useMutation({ mutationFn: (applicationId: string) => api.campaigns.rejectApplication(applicationId), onSuccess: () => {
+    refresh();
+    toast('Application declined');
+  } });
 }
 
 /** FR-42: places an order, so it carries an Idempotency-Key kept across retries. */

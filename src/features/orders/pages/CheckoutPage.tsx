@@ -145,10 +145,17 @@ function Checkout() {
         <aside className="checkout__side">
           <Summary q={q} offerMode={offerMode} priceReady={!offerMode || quotedPrice !== undefined} />
           <FormError>{formError}</FormError>
-          <Button type="submit" block loading={create.isPending} disabled={offerMode && quotedPrice === undefined}>
-            {offerMode ? 'Send offer and authorise ' : 'Authorise '}
-            {(!offerMode || quotedPrice !== undefined) && formatMoney(q.totalCents, q.currency)}
-          </Button>
+          {/* On phones this sticks above the bottom nav, so paying never needs a scroll back (UX pass, item 4). */}
+          <div className="checkout__pay">
+            <span className="checkout__pay-total" aria-hidden>
+              <span className="small muted">Total</span>
+              <strong>{!offerMode || quotedPrice !== undefined ? formatMoney(q.totalCents, q.currency) : '—'}</strong>
+            </span>
+            <Button type="submit" block loading={create.isPending} disabled={offerMode && quotedPrice === undefined}>
+              {offerMode ? 'Send offer and authorise ' : 'Authorise '}
+              {(!offerMode || quotedPrice !== undefined) && formatMoney(q.totalCents, q.currency)}
+            </Button>
+          </div>
           <p className="small muted checkout__fine">
             <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Your card is authorised now and <strong>charged only when {q.creator.name.split(' ')[0]} accepts</strong>. If they
             decline or don't respond within {q.acceptWindowHours} hours, the hold is released. Money stays in escrow until you approve the work.

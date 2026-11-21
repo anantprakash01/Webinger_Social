@@ -158,7 +158,7 @@ describe('brand profile (FR-05)', () => {
     await user.clear(screen.getByLabelText('Website'));
     await user.type(screen.getByLabelText('Website'), 'saltbaygoods.example.com');
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
-    expect(await screen.findByText('Saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Company profile saved')).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'Main navigation' })).toHaveTextContent('Saltbay Goods');
   });
 });

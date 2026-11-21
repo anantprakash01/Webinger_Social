@@ -1,4 +1,5 @@
 /** Brand side of campaigns: /brand/campaigns (list + new) and /brand/campaigns/:id (applications). */
+import { toast, useConfirm } from '@/components/feedback';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuPlus } from 'react-icons/lu';
@@ -62,6 +63,7 @@ export function BrandCampaignDetailPage() {
   const { id = '' } = useParams();
   const { data: c, isPending, isError, error, refetch } = useCampaign(id);
   const close = useCloseCampaign(id);
+  const confirm = useConfirm();
 
   if (isPending) return <PageSkeleton />;
   if (isError) {
@@ -96,8 +98,13 @@ export function BrandCampaignDetailPage() {
             <Button
               variant="secondary"
               loading={close.isPending}
-              onClick={() => {
-                if (window.confirm(`Close “${c.title}”? ${pending ? `${pending} pending application${pending === 1 ? ' is' : 's are'} declined.` : ''}`)) close.mutate();
+              onClick={async () => {
+                const ok = await confirm.ask({
+                  title: `Close “${c.title}”?`,
+                  body: `Creators can no longer apply.${pending ? ` ${pending} pending application${pending === 1 ? ' is' : 's are'} declined.` : ''} Orders already placed continue.`,
+                  confirmLabel: 'Close campaign',
+                });
+                if (ok) close.mutate(undefined, { onSuccess: () => toast('Campaign closed') });
               }}
             >
               Close campaign
@@ -141,6 +148,7 @@ export function BrandCampaignDetailPage() {
           </Card>
         </aside>
       </div>
+      {confirm.dialog}
     </div>
   );
 }

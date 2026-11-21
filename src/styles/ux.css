@@ -1,0 +1,178 @@
+/* UX pass: toasts, sticky action bars, compact order cards, tab fades, demo bar on phones, etc. */
+
+/* ---------- Toasts ---------- */
+.toaster {
+  position: fixed; z-index: 200; right: var(--s-4); bottom: var(--s-4);
+  display: grid; gap: var(--s-2); width: min(380px, calc(100vw - 32px)); pointer-events: none;
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: flex-start; gap: var(--s-2);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); border-radius: var(--radius-sm);
+  background: var(--navy); color: #fff; font-size: var(--fs-sm); box-shadow: 0 8px 24px rgba(15, 27, 51, 0.25);
+  animation: toast-in 160ms ease-out;
+}
+.toast > svg { flex: none; margin-top: 2px; }
+.toast > span { flex: 1; }
+.toast--error { background: var(--danger); }
+.toast__close { flex: none; background: none; border: 0; color: inherit; opacity: 0.75; cursor: pointer; padding: 2px; display: inline-flex; }
+.toast__close:hover { opacity: 1; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+/* Above the phone bottom nav and sticky action bars. */
+@media (max-width: 900px) { .toaster { bottom: calc(64px + 72px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; width: auto; } }
+
+/* ---------- Pagination: icon-only arrows on phones ---------- */
+@media (max-width: 520px) {
+  .pager { flex-wrap: nowrap; }
+  .pager .pager__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .pager .btn { padding-inline: 10px; }
+}
+
+/* ---------- Edge fade on rows of tabs that scroll sideways ---------- */
+.platform-tabs { scrollbar-width: none; }
+.platform-tabs::-webkit-scrollbar { display: none; }
+.platform-tabs.has-more-right { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.platform-tabs.has-more-left { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
+.platform-tabs.has-more-left.has-more-right {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+/* ---------- Deadlines: under 24 h or overdue (item 2) ---------- */
+.deadline--urgent { color: var(--danger); font-weight: 700; }
+
+/* ---------- Needs your action (item 1) ---------- */
+.tab-count--alert { background: var(--brand-red); color: #fff; }
+.action-queue .list__item { gap: var(--s-3); }
+.action-queue .list__title { overflow-wrap: anywhere; }
+.action-queue__item .btn { flex: none; }
+@media (max-width: 520px) {
+  .action-queue__item { flex-wrap: wrap; }
+  .action-queue__item .list__main { flex: 1 1 calc(100% - 52px); }
+  .action-queue__item .btn { margin-left: 48px; }
+}
+
+/* ---------- Spend chart (item 19) ---------- */
+.spend { display: grid; gap: var(--s-4); }
+.spend__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-3); }
+.spend__value { font-size: var(--fs-xl); font-weight: 800; }
+.spend__plot { display: grid; grid-template-columns: repeat(6, 1fr); height: 160px; border-bottom: 1px solid var(--border); position: relative; }
+.spend__col { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 0 2px; cursor: default; }
+.spend__bar { width: min(28px, 70%); background: var(--navy); border-radius: 4px 4px 0 0; transition: opacity 120ms; }
+.spend__plot:hover .spend__bar { opacity: 0.45; }
+.spend__plot .spend__col.is-active .spend__bar { opacity: 1; }
+.spend__tick { position: absolute; bottom: -22px; font-size: var(--fs-xs); color: var(--ink-3); }
+.spend__tip {
+  position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 2;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  padding: 4px 8px; font-size: var(--fs-xs); white-space: nowrap; color: var(--ink-2);
+}
+.spend__col:first-child .spend__tip { left: 0; transform: none; }
+.spend__col:last-child .spend__tip { left: auto; right: 0; transform: none; }
+.spend { padding-bottom: 22px; }
+.spend__col .spend__tip { bottom: auto; top: 0; }
+
+/* ---------- Compact order cards on phones (item 5) ---------- */
+@media (max-width: 720px) {
+  .orders-table tr { grid-template-columns: 1fr auto; column-gap: var(--s-3); row-gap: 6px; }
+  .orders-table td { justify-content: flex-start; text-align: left; }
+  .orders-table td::before { display: none; }
+  .orders-table td:nth-child(1) { grid-column: 1 / -1; }
+  .orders-table td:nth-child(2) { grid-column: 1; grid-row: 2; }
+  .orders-table td:nth-child(2) > .row { justify-content: flex-start; }
+  .orders-table td:nth-child(4) { grid-column: 2; grid-row: 2; justify-content: flex-end; }
+  .orders-table td:nth-child(3) { grid-column: 1 / -1; min-width: 0; }
+  .orders-table td:nth-child(3) .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .orders-table td:nth-child(3):has(.muted) { display: none; }
+}
+
+/* ---------- Phone action bars (item 4) ---------- */
+.sticky-bar {
+  position: fixed; left: 0; right: 0; z-index: 25;
+  bottom: calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-4); background: var(--surface); border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(15, 27, 51, 0.08);
+}
+.sticky-bar--public { bottom: env(safe-area-inset-bottom, 0px); padding-bottom: calc(var(--s-2) + env(safe-area-inset-bottom, 0px)); }
+.sticky-bar__text { flex: 1; min-width: 0; display: grid; font-size: var(--fs-sm); }
+.sticky-bar__text strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sticky-bar__text .deadline { font-size: var(--fs-xs); }
+.sticky-bar .btn { flex: none; }
+
+.checkout__pay-total { display: none; }
+@media (max-width: 900px) {
+  .checkout { padding-bottom: calc(var(--s-6) + 72px); }
+  .checkout__pay {
+    position: fixed; left: 0; right: 0; z-index: 25;
+    bottom: calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; gap: var(--s-3);
+    padding: var(--s-2) var(--s-4); background: var(--surface); border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(15, 27, 51, 0.08);
+  }
+  .checkout__pay-total { display: grid; flex: none; line-height: 1.2; }
+  .checkout__pay .btn { flex: 1; }
+  .order { padding-bottom: calc(var(--s-6) + 64px); }
+}
+
+/* ---------- Demo bar: one row on phones (item 14) ---------- */
+.demo-bar__controls { display: contents; }
+.demo-bar__toggle { display: none; }
+@media (max-width: 900px) {
+  .demo-bar { flex-wrap: wrap; row-gap: var(--s-2); }
+  .demo-bar__text { display: none; }
+  .demo-bar__toggle { display: inline-flex; align-items: center; gap: 4px; }
+  .demo-bar__toggle .is-flipped { transform: rotate(180deg); }
+  .demo-bar__controls { display: none; }
+  .demo-bar__controls.is-open { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); width: 100%; }
+}
+
+/* ---------- Search (item 10) ---------- */
+.creator-photo--pattern { position: relative; display: block; }
+.creator-photo__initials {
+  position: absolute; left: 10px; top: 10px; padding: 2px 8px; border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.85); color: var(--ink); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.02em;
+}
+.ccard__why { font-size: var(--fs-xs); color: var(--info); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-page .results-head {
+  position: sticky; top: var(--topbar-h); z-index: 5; background: var(--surface);
+  padding: var(--s-2) 0; margin-top: calc(-1 * var(--s-2));
+}
+
+/* ---------- Messages (item 12) ---------- */
+.bubble__seen { font-weight: 600; }
+.bubble__report { display: inline-flex; padding: 2px; color: inherit; }
+@media (hover: hover) {
+  .bubble .bubble__report { opacity: 0; transition: opacity 120ms; }
+  .bubble:hover .bubble__report, .bubble:focus-within .bubble__report { opacity: 1; }
+}
+
+/* ---------- Admin (item 13) ---------- */
+.vet-card:focus { outline: none; }
+.vet-card:focus-visible > .card, .vet-card:focus > .card { box-shadow: 0 0 0 2px var(--info); }
+
+/* ---------- Public header and landing (item 18) ---------- */
+.public-nav__join { display: none; }
+@media (max-width: 720px) {
+  .public-nav__brands, .public-nav__creators { display: none; }
+  .public-nav__join { display: inline-flex; }
+}
+.public-nav__brands { margin-right: var(--s-2); }
+.trust { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4); }
+.trust__item { display: grid; gap: var(--s-2); align-content: start; padding: var(--s-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.trust__item > svg { width: 28px; height: 28px; color: var(--navy); }
+.trust__item h3 { margin: 0; font-size: var(--fs-md); }
+.trust__item p { margin: 0; }
+@media (max-width: 1000px) { .trust { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .trust { grid-template-columns: 1fr; } }
+.faq { margin-top: var(--s-5); max-width: 820px; }
+.faq__title { font-size: var(--fs-lg); margin: 0 0 var(--s-2); }
+.faq__item { border-bottom: 1px solid var(--border); }
+.faq__item summary { cursor: pointer; padding: var(--s-3) 0; font-weight: 600; list-style-position: outside; }
+.faq__item summary:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.faq__item p { margin: 0 0 var(--s-3); color: var(--ink-2); }
+
+/* Grid items may not grow past their column because of a wide child (tab rows, no-wrap titles). */
+.profile__section, .action-queue, .action-queue .list__main, .search-layout__results { min-width: 0; }
+.card { min-width: 0; }
+.reviews__summary + .platform-tabs { margin: var(--s-3) 0 var(--s-2); }

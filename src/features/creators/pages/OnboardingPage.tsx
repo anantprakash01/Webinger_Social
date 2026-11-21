@@ -29,11 +29,9 @@ export const STEPS = [
 ] as const;
 export type StepKey = (typeof STEPS)[number]['key'];
 
-/** Required items done, as a percentage, for the progress bar. */
-const progressOf = (c: CreatorChecklist) => {
-  const required = [c.profile, c.photo, c.socials, c.packages, c.payouts];
-  return (required.filter(Boolean).length / required.length) * 100;
-};
+/** Required items done (profile, photo, socials, packages, payouts), for the progress bar. */
+const requiredDone = (c: CreatorChecklist) => [c.profile, c.photo, c.socials, c.packages, c.payouts].filter(Boolean).length;
+const progressOf = (c: CreatorChecklist) => (requiredDone(c) / 5) * 100;
 
 export function OnboardingPage() {
   const { data: me, isPending, isError, error, refetch } = useMyCreator();
@@ -60,7 +58,9 @@ export function OnboardingPage() {
       {!live && (
         <div className="onboarding__progress">
           <Progress value={progressOf(me.checklist)} label="Setup progress" />
-          <span className="small muted">{Math.round(progressOf(me.checklist))}% of required steps done</span>
+          <span className="small muted">
+            Step {index + 1} of {STEPS.length} · {requiredDone(me.checklist)} of 5 required items done
+          </span>
         </div>
       )}
 
@@ -99,7 +99,7 @@ export function OnboardingPage() {
 function StepBody({ step, me, next, back, go }: { step: StepKey; me: CreatorMe; next: () => void; back?: () => void; go: (k: StepKey) => void }) {
   switch (step) {
     case 'profile':
-      return <ProfileStep me={me} onSaved={next} />;
+      return <ProfileStep me={me} onSaved={next} showOptional={me.vettingStatus === 'APPROVED'} />;
     case 'socials':
       return <SocialsStep me={me} next={next} back={back} />;
     case 'packages':

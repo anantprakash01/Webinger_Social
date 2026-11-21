@@ -108,9 +108,15 @@ function Checkout() {
             </div>
           </Card>
           <FormError>{formError}</FormError>
-          <Button type="submit" block loading={accept.isPending}>
-            Accept and authorise {formatMoney(q.totalCents, q.currency)}
-          </Button>
+          <div className="checkout__pay">
+            <span className="checkout__pay-total" aria-hidden>
+              <span className="small muted">Total</span>
+              <strong>{formatMoney(q.totalCents, q.currency)}</strong>
+            </span>
+            <Button type="submit" block loading={accept.isPending}>
+              Accept and authorise {formatMoney(q.totalCents, q.currency)}
+            </Button>
+          </div>
           <p className="small muted checkout__fine">
             <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Your card is charged only when {app.creator.name.split(' ')[0]} accepts the order, within {q.acceptWindowHours} hours.
           </p>

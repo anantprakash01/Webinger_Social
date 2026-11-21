@@ -42,6 +42,7 @@ export function issueSession(user: UserRow, status = 200, familyId = randomToken
     const body: AuthSession = { accessToken, expiresIn: ACCESS_TTL_MS / 1000, user: toMe(user, opts.impersonator.name) };
     return { status, body };
   }
+  user.lastActiveAt = new Date(t).toISOString();
   const refreshToken = `mock-rt-${randomToken()}`;
   db.accessTokens.push({ token: accessToken, userId: user.id, expiresAt: new Date(t + ACCESS_TTL_MS).toISOString() });
   db.refreshTokens.push({

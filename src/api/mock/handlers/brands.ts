@@ -36,6 +36,25 @@ export const updateMyBrandProfile: Handler = ({ req, user }) => {
   return ok(toBrandProfile(b));
 };
 
+/**
+ * v1.1: charges by the month the card was captured (the ACCEPT event) minus refunds by the month of the
+ * refund, for the last 6 calendar months (UTC), oldest first.
+ */
+function spendByMonth(charges: Array<{ orderId: string; cents: number }>, orders: Array<{ id: string; payment: { refundedCents: number } }>) {
+  const db = getDb();
+  const t = now();
+  const months: string[] = [];
+  for (let i = 5; i >= 0; i--) months.push(new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() - i, 1)).toISOString().slice(0, 7));
+  const sums = new Map(months.map((m) => [m, 0]));
+  const add = (iso: string | undefined, cents: number) => {
+    const m = iso?.slice(0, 7);
+    if (m && sums.has(m)) sums.set(m, sums.get(m)! + cents);
+  };
+  for (const c of charges) add(db.orderEvents.find((e) => e.orderId === c.orderId && e.type === 'ACCEPT')?.at, c.cents);
+  for (const o of orders) if (o.payment.refundedCents > 0) add(db.orderEvents.find((e) => e.orderId === o.id && e.type === 'ADMIN_REFUND')?.at, -o.payment.refundedCents);
+  return months.map((month) => ({ month, cents: sums.get(month)! }));
+}
+
 /** FR-71: spend, orders by status, delivered post links. */
 export const getMyBrandStats: Handler = ({ user }) => {
   myBrand(user);
@@ -73,6 +92,7 @@ export const getMyBrandStats: Handler = ({ user }) => {
       .slice(0, 20),
     openCampaigns: campaigns.filter((c) => c.status === 'OPEN' && c.deadline >= today).length,
     pendingApplications: db.applications.filter((a) => a.status === 'PENDING' && campaigns.some((c) => c.id === a.campaignId)).length,
+    spendByMonth: spendByMonth(captured.map((o) => ({ orderId: o.id, cents: total(o) })), orders),
   };
   return ok(body);
 };

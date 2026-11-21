@@ -72,7 +72,8 @@ describe('admin console (Week 6)', () => {
     await user.type(brandFee, '800');
     expect(screen.getByText(/brand pays/)).toHaveTextContent('$216.00');
     await user.click(screen.getByRole('button', { name: 'Save fees' }));
-    expect(await screen.findByText(/New orders use these fees/)).toBeInTheDocument();
+    await user.click(within(await screen.findByRole('dialog', { name: 'Apply the new fees?' })).getByRole('button', { name: 'Apply fees' }));
+    expect(await screen.findByText('Fees updated for new orders')).toBeInTheDocument();
     expect(getDb().feeConfigs.at(-1)).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1500 });
   });
 

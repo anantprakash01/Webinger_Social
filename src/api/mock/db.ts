@@ -30,6 +30,8 @@ export interface UserRow {
   emailVerifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Last sign-in or token refresh (v1.1). */
+  lastActiveAt?: string | null;
 }
 
 export interface CreatorProfileRow {

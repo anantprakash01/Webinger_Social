@@ -7,9 +7,18 @@ import { formatMoney } from '@/lib/money';
 import type { OrderStatus } from '@/api/mock/orderMachine';
 import { MAX_ACTIVE_PACKAGES } from '../schemas';
 import { VettingBanner } from '../components/VettingBanner';
+import { ActionQueue } from '@/features/orders/components/ActionQueue';
 import { useCreatorStats, useMyCreator } from '../workspaceHooks';
 
-const ORDER_ROWS: OrderStatus[] = ['PENDING_ACCEPTANCE', 'IN_PROGRESS', 'DELIVERED', 'DISPUTED', 'COMPLETED', 'CLOSED', 'REFUNDED'];
+const ORDER_ROWS: Array<{ status: OrderStatus; filter: string }> = [
+  { status: 'PENDING_ACCEPTANCE', filter: 'pending' },
+  { status: 'IN_PROGRESS', filter: 'in-progress' },
+  { status: 'DELIVERED', filter: 'delivered' },
+  { status: 'DISPUTED', filter: 'disputed' },
+  { status: 'COMPLETED', filter: 'completed' },
+  { status: 'CLOSED', filter: 'closed' },
+  { status: 'REFUNDED', filter: 'closed' },
+];
 const PAYOUT_LABEL = { NOT_STARTED: ['warn', 'Not set up'], PENDING: ['info', 'Being checked'], ENABLED: ['ok', 'Active'] } as const;
 
 export function CreatorDashboardPage() {
@@ -34,6 +43,7 @@ export function CreatorDashboardPage() {
     <div className="page">
       <PageHeader eyebrow="Creator workspace" title={`Hi, ${p.displayName.split(' ')[0]}`} />
       <VettingBanner status={p.vettingStatus} reason={p.rejectionReason} username={p.username} showApproved />
+      {p.vettingStatus === 'APPROVED' && <ActionQueue role="CREATOR" base="/creator/orders" />}
 
       <div className="grid grid--stats">
         <Stat label="Available balance" value={formatMoney(s.availableCents, s.currency)} hint="Paid out weekly" accent />
@@ -51,12 +61,14 @@ export function CreatorDashboardPage() {
             </div>
           ) : (
             <ul className="list">
-              {ORDER_ROWS.map((st) => (
-                <li key={st} className="list__item">
+              {ORDER_ROWS.filter((r) => (s.ordersByStatus[r.status] ?? 0) > 0).map((r) => (
+                <li key={r.status} className="list__item">
                   <div className="list__main">
-                    <div className="list__title">{orderStatusLabel(st)}</div>
+                    <Link to={`/creator/orders?status=${r.filter}`} className="list__title link">
+                      {orderStatusLabel(r.status)}
+                    </Link>
                   </div>
-                  <strong>{s.ordersByStatus[st] ?? 0}</strong>
+                  <strong>{s.ordersByStatus[r.status]}</strong>
                 </li>
               ))}
             </ul>

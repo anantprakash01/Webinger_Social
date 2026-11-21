@@ -501,7 +501,7 @@ export interface paths {
         };
         /**
          * The signed-in brand's or creator's orders
-         * @description Brands see their own orders, creators the orders addressed to them. Newest activity first.
+         * @description Brands see their own orders, creators the orders addressed to them. Sorted by urgency (v1.1): orders waiting on the caller first, then open orders by nearest deadline, then everything else by newest activity.
          */
         get: operations["listOrders"];
         put?: never;
@@ -1471,6 +1471,10 @@ export interface components {
         };
         CreatorProfile: components["schemas"]["CreatorCard"] & {
             bio: string | null;
+            /** @description Orders completed on the platform (v1.1). */
+            completedOrders: number;
+            /** @description Median hours from order to acceptance over the last 20 accepted orders, rounded up; null with fewer than 3 (v1.1). */
+            typicalAcceptHours: number | null;
             languages: string[];
             coverUrls: string[];
             socials: components["schemas"]["SocialAccount"][];
@@ -1722,6 +1726,11 @@ export interface components {
             emailVerified: boolean;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: date-time
+             * @description Last sign-in or token refresh (v1.1).
+             */
+            lastActiveAt: string | null;
             orderCount: number;
             /** @description Company name or creator username. */
             label: string | null;
@@ -1955,6 +1964,11 @@ export interface components {
             masked: boolean;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: date-time
+             * @description When the other participant read it (v1.1).
+             */
+            readAt: string | null;
         };
         MessageList: {
             messages: components["schemas"]["ChatMessage"][];
@@ -2036,6 +2050,13 @@ export interface components {
             deliveredPosts: components["schemas"]["DeliveredPost"][];
             openCampaigns: number;
             pendingApplications: number;
+            /** @description Card charges minus refunds per calendar month (UTC), last 6 months, oldest first, including empty months (v1.1). */
+            spendByMonth: {
+                /** @example 2026-11 */
+                month: string;
+                /** Format: int64 */
+                cents: number;
+            }[];
         };
         /** @enum {string} */
         OrderStatus: "PENDING_ACCEPTANCE" | "IN_PROGRESS" | "DELIVERED" | "COMPLETED" | "DISPUTED" | "REFUNDED" | "CLOSED";

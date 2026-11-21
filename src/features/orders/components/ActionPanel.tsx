@@ -2,7 +2,8 @@
  * "What happens next" for the viewer, with a live countdown and only the actions the server allows
  * (`allowedActions`, convention 5). Every action is confirmed in a dialog that says what it does to the money.
  */
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { StickyBar } from '@/components/StickyBar';
 import { LuCircleCheck, LuCircleX, LuClock, LuFlag, LuHourglass, LuPlus, LuRotateCcw, LuThumbsUp, LuTrash2, LuUpload } from 'react-icons/lu';
 import { Badge, Button, Card, Drawer, FormError, Input, TextArea, cx } from '@/components/ui';
 import { ImagePicker } from '@/features/files/components/ImagePicker';
@@ -17,6 +18,7 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
   const deviceNow = useTicker();
   const nowMs = serverNow(o.serverTime, fetchedAt, deviceNow);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const can = (a: OrderDetail['allowedActions'][number]) => o.allowedActions.includes(a);
   const first = o.counterparty.name.split(' ')[0];
   const m = o.money;
@@ -98,6 +100,15 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
       break;
   }
 
+  // Phones: the main action stays in reach once the panel scrolls away (UX pass, item 4).
+  const primary: { dialog: Exclude<Dialog, null>; label: string } | null = can('ACCEPT')
+    ? { dialog: 'accept', label: 'Accept' }
+    : can('DELIVER')
+      ? { dialog: 'deliver', label: 'Deliver' }
+      : can('APPROVE')
+        ? { dialog: 'approve', label: 'Approve' }
+        : null;
+
   return (
     <Card className={cx('next', `next--${tone}`)}>
       <div className="next__head">
@@ -115,7 +126,7 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
         </div>
       </div>
 
-      <div className="next__actions">
+      <div className="next__actions" ref={actionsRef}>
         {can('ACCEPT') && (
           <Button onClick={() => setDialog('accept')}>
             <LuCircleCheck aria-hidden /> Accept order
@@ -152,6 +163,18 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
           </Button>
         )}
       </div>
+
+      {primary && (
+        <StickyBar label="Next step" watch={actionsRef}>
+          <div className="sticky-bar__text">
+            <strong>{title}</strong>
+            {when}
+          </div>
+          <Button size="sm" onClick={() => setDialog(primary.dialog)}>
+            {primary.label}
+          </Button>
+        </StickyBar>
+      )}
 
       {dialog === 'deliver' ? (
         <DeliverDialog o={o} onClose={() => setDialog(null)} />

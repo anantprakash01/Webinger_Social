@@ -2,7 +2,7 @@
 
 For the Spring Boot engineers building the Phase 1 API (CLAUDE.md §11). The React prototype runs entirely on an in-browser mock that follows the same rules the backend must follow. This document lists, per module, what the API must do and where the mock shows the expected behaviour.
 
-- **Contract:** `docs/api/openapi.yaml` **v1.0.0, frozen 21 Nov 2026**. Implement it exactly. Any change needs a PR that bumps the version and regenerates the frontend types (`npm run gen:api`); `npm run check:contract` fails CI on drift.
+- **Contract:** `docs/api/openapi.yaml` **v1.1.0** (v1.0.0 frozen 21 Nov 2026; v1.1 adds fields only, see "Contract v1.1" below). Implement it exactly. Any change needs a PR that bumps the version and regenerates the frontend types (`npm run gen:api`); `npm run check:contract` fails CI on drift.
 - **Reference behaviour:** `src/api/mock/` — `server.ts` (routing, auth, idempotency, read-only impersonation), `handlers/*.ts` (one file per module), `orderMachine.ts`, `fees.ts`, `ledger.ts`, `payoutsCore.ts`. Unit tests next to them (`*.test.ts`) describe the expected cases and can be ported to JUnit.
 - **Switching a module to the real API:** set `VITE_API_MODE=http` (everything goes through `src/api/client.ts`). Vite proxies `/api` and `/ws` to `localhost:8080`.
 
@@ -99,6 +99,17 @@ Endpoints: `GET /admin/summary`, `/admin/vetting`, `POST /admin/creators/{id}/ap
 - Fees: 0–3000 bps each; a new row with `effective_from` and `changed_by`; audited as `FEES_CHANGED`.
 - Reports: anyone signed in can report a creator (username), brand, message or review; 404 `TARGET_NOT_FOUND`, 409 `ALREADY_REPORTED` for a second open report on the same target by the same person. Admins mark ACTION_TAKEN or DISMISSED with a note.
 - Audit log: append-only, newest first, filter by action; `before` / `after` JSON; IP recorded. Actions: `CREATOR_APPROVED`, `CREATOR_REJECTED`, `DISPUTE_RESOLVED`, `USER_STATUS_CHANGED`, `IMPERSONATION_STARTED`, `FEES_CHANGED`, `REPORT_RESOLVED`, `MONEY_MOVEMENT`, `PAYOUT_SENT`. Keep 7 years.
+
+## Contract v1.1 (UX pass, additive)
+
+| Change | Rule |
+| --- | --- |
+| `GET /orders` sort | Orders waiting on the caller first (`needsAction`), then open orders by nearest deadline, then the rest by newest activity. The dashboards' "Needs your action" list relies on it. |
+| `CreatorProfile.completedOrders` | Completed orders for the creator. |
+| `CreatorProfile.typicalAcceptHours` | Median hours from CREATE to ACCEPT over the last 20 accepted orders, rounded up, minimum 1; `null` with fewer than 3. |
+| `BrandStats.spendByMonth` | Last 6 calendar months (UTC), oldest first, empty months included: captured totals by the month of capture minus refunds by the month of refund. |
+| `ChatMessage.readAt` | When the other participant read the message (already tracked for unread counts). |
+| `AdminUser.lastActiveAt` | Last sign-in or token refresh. The mock also counts order actions and chat messages for seeded users. `GET /admin/users` now lists newest accounts first. |
 
 ## Decisions still to confirm (CLAUDE.md §16 and §17)
 - Partial-refund rule above (who absorbs a partial refund).

@@ -122,6 +122,31 @@ export const searchCreators: Handler = ({ req }) => {
   return ok(body);
 };
 
+/**
+ * v1.1 track record. Completed orders on the platform; seeded historic reviews stand for orders
+ * completed before the demo data starts. Typical acceptance time = median over the last 20 accepted
+ * orders, rounded up to whole hours; null with fewer than 3.
+ */
+function trackRecord(creatorId: string): { completedOrders: number; typicalAcceptHours: number | null } {
+  const db = getDb();
+  const mine = db.orders.filter((o) => o.creatorUserId === creatorId);
+  const ids = new Set(db.orders.map((o) => o.id));
+  const historic = db.reviews.filter((r) => r.creatorId === creatorId && !ids.has(r.orderId)).length;
+  const waits = mine
+    .map((o) => {
+      const created = db.orderEvents.find((e) => e.orderId === o.id && e.type === 'CREATE')?.at;
+      const accepted = db.orderEvents.find((e) => e.orderId === o.id && e.type === 'ACCEPT')?.at;
+      return created && accepted ? { at: accepted, h: (new Date(accepted).getTime() - new Date(created).getTime()) / 3_600_000 } : null;
+    })
+    .filter((x): x is { at: string; h: number } => !!x)
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 20)
+    .map((x) => x.h)
+    .sort((a, b) => a - b);
+  const median = waits.length >= 3 ? waits[Math.floor((waits.length - 1) / 2)] : null;
+  return { completedOrders: mine.filter((o) => o.status === 'COMPLETED').length + historic, typicalAcceptHours: median === null ? null : Math.max(1, Math.ceil(median)) };
+}
+
 export const getCreatorProfile: Handler = ({ params, user }) => {
   const db = getDb();
   const viewer = user as UserRow | undefined;
@@ -137,6 +162,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
 
   const body: CreatorProfile = {
     ...facts.card,
+    ...trackRecord(p.userId),
     bio: p.bio,
     languages: p.languages,
     coverUrls: p.coverUrls.slice(0, 3),

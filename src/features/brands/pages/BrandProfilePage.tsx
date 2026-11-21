@@ -48,20 +48,17 @@ const toFormValues = (p: BrandProfile): BrandProfileForm => ({
 function BrandForm({ profile }: { profile: BrandProfile }) {
   const save = useSaveBrandProfile();
   const [formError, setFormError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const { register, control, handleSubmit, setError, reset, formState } = useForm<BrandProfileForm, unknown, BrandProfileInput>({
     resolver: zodResolver(brandProfileFormSchema),
     defaultValues: toFormValues(profile),
   });
-  const { errors, isDirty } = formState;
+  const { errors } = formState;
 
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
-    setSaved(false);
     try {
-      // The saved values become the new baseline, so the form is clean and shows "Saved.".
+      // The saved values become the new baseline, so the form is clean.
       reset(toFormValues(await save.mutateAsync(v)));
-      setSaved(true);
     } catch (e) {
       setFormError(applyServerErrors(e, setError, ['companyName', 'website', 'logoUrl', 'industry', 'country']));
     }
@@ -112,11 +109,6 @@ function BrandForm({ profile }: { profile: BrandProfile }) {
         <Button type="submit" loading={save.isPending}>
           Save profile
         </Button>
-        {saved && !isDirty && (
-          <span className="small" role="status">
-            Saved.
-          </span>
-        )}
       </div>
     </form>
   );

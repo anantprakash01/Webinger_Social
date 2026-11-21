@@ -6,12 +6,13 @@ import type { ReportReason, ReportTargetType } from '@/types';
 import { useCreateReport } from '../hooks';
 import { REPORT_REASONS } from '../schemas';
 
-export function ReportButton({ targetType, targetId, what, className }: { targetType: ReportTargetType; targetId: string; what: string; className?: string }) {
+export function ReportButton({ targetType, targetId, what, className, iconOnly }: { targetType: ReportTargetType; targetId: string; what: string; className?: string; iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button type="button" className={className ?? 'link small report-link'} onClick={() => setOpen(true)}>
-        <LuFlag aria-hidden /> Report<span className="sr-only"> {what}</span>
+        <LuFlag aria-hidden />
+        {iconOnly ? <span className="sr-only">Report {what}</span> : <>Report<span className="sr-only"> {what}</span></>}
       </button>
       <Drawer open={open} onClose={() => setOpen(false)} title={`Report ${what}`}>
         {open && <ReportForm targetType={targetType} targetId={targetId} onClose={() => setOpen(false)} />}

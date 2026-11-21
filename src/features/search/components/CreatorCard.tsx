@@ -1,17 +1,32 @@
 import { Link } from 'react-router-dom';
 import { CreatorPhoto, PlatformIcon, Rating, VerifiedBadge, placeLabel } from '@/components/creator';
-import { formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
+import { COUNTRY_LABEL, formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import type { CreatorCard as Card } from '@/types';
 
 /** Search result card (FR-24): photo, name, top platform, followers, starting price, rating. */
-export function CreatorCard({ creator: c }: { creator: Card }) {
-  const place = placeLabel(c.city, c.country);
+/** Why a card matched a keyword search, when it isn't obvious from the name (UX pass, item 10). */
+function matchReason(c: Card, q: string | undefined): string | null {
+  const words = (q ?? '').toLowerCase().split(/s+/).filter(Boolean);
+  if (!words.length) return null;
+  const nameHit = words.every((w) => `${c.displayName} ${c.username}`.toLowerCase().includes(w));
+  if (nameHit) return null;
+  const niche = c.niches.find((n) => words.some((w) => NICHE_LABEL[n].toLowerCase().includes(w)));
+  if (niche) return `Matches niche: ${NICHE_LABEL[niche]}`;
+  const place = `${c.city ?? ''} ${c.country ? (COUNTRY_LABEL[c.country] ?? '') : ''}`.toLowerCase();
+  if (words.some((w) => place.includes(w))) return 'Matches location';
+  return `Mentions “${q!.trim()}” in their bio`;
+}
+
+export function CreatorCard({ creator: c, q }: { creator: Card; q?: string }) {
+  // Cards show the city only (the full place is on the profile); country when there is no city.
+  const place = c.city ?? (c.country ? (COUNTRY_LABEL[c.country] ?? placeLabel(null, c.country)) : '');
+  const why = matchReason(c, q);
   return (
     <article className="ccard">
       <Link to={`/u/${c.username}`} className="ccard__link">
         <div className="ccard__media">
-          <CreatorPhoto name={c.displayName} url={c.photoUrl} seed={c.username} className="ccard__photo" />
+          <CreatorPhoto name={c.displayName} url={c.photoUrl} seed={c.username} className="ccard__photo" pattern />
           {c.reach && (
             <span className="ccard__reach">
               <PlatformIcon platform={c.reach.platform} size={14} />
@@ -29,6 +44,7 @@ export function CreatorCard({ creator: c }: { creator: Card }) {
           </h3>
           <div className="ccard__meta">{place || `@${c.username}`}</div>
           {c.niches.length > 0 && <div className="ccard__niches">{c.niches.slice(0, 2).map((n) => NICHE_LABEL[n]).join(' · ')}</div>}
+          {why && <div className="ccard__why">{why}</div>}
           <div className="ccard__foot">
             <span className="ccard__price">
               {c.startingPriceCents !== null ? (

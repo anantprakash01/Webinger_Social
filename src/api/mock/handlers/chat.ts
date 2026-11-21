@@ -40,6 +40,7 @@ const toMessage = (m: MessageRow, viewer: UserRow): ChatMessage => ({
   body: m.body,
   masked: m.masked,
   createdAt: m.createdAt,
+  readAt: m.readAt,
 });
 
 const unreadFor = (c: ConversationRow, viewer: UserRow) => getDb().messages.filter((m) => m.conversationId === c.id && m.senderUserId !== viewer.id && !m.readAt).length;

@@ -1,3 +1,4 @@
+import { toast } from '@/components/feedback';
 import { useRef } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, newIdempotencyKey } from '@/api/client';
@@ -22,7 +23,10 @@ export function useVettingDecision() {
   const refresh = useRefresh();
   return useMutation({
     mutationFn: (v: { id: string; decision: 'APPROVE' | 'REJECT'; reason?: string }) => (v.decision === 'APPROVE' ? api.admin.approveCreator(v.id) : api.admin.rejectCreator(v.id, v.reason!)),
-    onSuccess: refresh,
+    onSuccess: (c, v) => {
+      refresh();
+      toast(v.decision === 'APPROVE' ? `${c.displayName} approved. Their profile is live.` : `${c.displayName} rejected. They can fix and resubmit.`);
+    },
   });
 }
 
@@ -35,6 +39,7 @@ export function useResolveDispute(id: string) {
     onSuccess: () => {
       key.current = null;
       refresh();
+      toast('Dispute resolved');
     },
   });
 }
@@ -43,7 +48,10 @@ export const useAdminUsers = (q: { q?: string; role?: string; status?: string; p
   useQuery({ queryKey: ['admin', 'users', q], queryFn: () => api.admin.users(q), placeholderData: keepPreviousData });
 export function useUpdateUserStatus() {
   const refresh = useRefresh();
-  return useMutation({ mutationFn: (v: { id: string; body: UserStatusChange }) => api.admin.updateUser(v.id, v.body), onSuccess: refresh });
+  return useMutation({ mutationFn: (v: { id: string; body: UserStatusChange }) => api.admin.updateUser(v.id, v.body), onSuccess: (u) => {
+    refresh();
+    toast(`${u.name} is now ${u.status.toLowerCase()}`);
+  } });
 }
 export const useImpersonate = () => useMutation({ mutationFn: (id: string) => api.admin.impersonate(id) });
 
@@ -61,7 +69,10 @@ export const useAuditLog = (action: string | undefined, page: number) =>
 export const useReports = (status?: string) => useQuery({ queryKey: ['admin', 'reports', status ?? 'all'], queryFn: () => api.admin.reports(status) });
 export function useResolveReport() {
   const refresh = useRefresh();
-  return useMutation({ mutationFn: (v: { id: string; body: ReportResolveRequest }) => api.admin.resolveReport(v.id, v.body), onSuccess: refresh });
+  return useMutation({ mutationFn: (v: { id: string; body: ReportResolveRequest }) => api.admin.resolveReport(v.id, v.body), onSuccess: (rep) => {
+    refresh();
+    toast(rep.status === 'DISMISSED' ? 'Report dismissed' : 'Report closed: action taken');
+  } });
 }
 export const useCreateReport = () => useMutation({ mutationFn: (v: ReportInput) => api.reports.create(v) });
 
