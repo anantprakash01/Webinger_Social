@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 0.3.0
+  version: 0.4.0
   description: |
-    Contract v0.3 (Phase 0, Week 3): authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
+    Contract v0.4 (Phase 0, Week 4): orders, checkout quote, reviews; plus authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
     This file is the single source of truth between the React app and the Spring Boot API.
     Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
 
@@ -28,6 +28,8 @@ tags:
   - name: Brand workspace
   - name: Files
   - name: Payouts
+  - name: Orders
+  - name: Reviews
 
 paths:
   /auth/register:
@@ -431,6 +433,241 @@ paths:
         '200': { description: The link., content: { application/json: { schema: { $ref: '#/components/schemas/OnboardingLink' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /orders/quote:
+    get:
+      tags: [Orders]
+      summary: Price a package or a custom offer before checkout (FR-30, FR-31, FR-60)
+      description: |
+        Server-side fee calculation with the brand's plan, so the checkout summary always matches what will be charged.
+        Pass `packageId` for a package, or `creatorUsername` + `priceCents` for a custom offer.
+      operationId: quoteOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: packageId, in: query, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { name: creatorUsername, in: query, schema: { type: string } }
+        - { name: priceCents, in: query, schema: { type: integer, minimum: 1000 } }
+      responses:
+        '200': { description: The quote., content: { application/json: { schema: { $ref: '#/components/schemas/OrderQuote' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Place an order — buy a package or send a custom offer (FR-30, FR-31, FR-33)
+      description: |
+        Verified brands only (FR-02). Creates a Stripe PaymentIntent with `capture_method=manual`: the card is
+        authorised now and captured only when the creator accepts. Fees are copied onto the order.
+        The order becomes visible as PENDING_ACCEPTANCE once the authorisation succeeds
+        (in the mock, immediately). Repeating a request with the same `Idempotency-Key` returns the first result.
+      operationId: createOrder
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderCreateRequest' } } } }
+      responses:
+        '201': { description: Order placed., content: { application/json: { schema: { $ref: '#/components/schemas/OrderCreated' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    get:
+      tags: [Orders]
+      summary: The signed-in brand's or creator's orders
+      description: Brands see their own orders, creators the orders addressed to them. Newest activity first.
+      operationId: listOrders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, description: 'Comma-separated OrderStatus values; empty = all.', schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200': { description: One page of orders., content: { application/json: { schema: { $ref: '#/components/schemas/OrderPage' } } } }
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: One order, as the brand or the creator sees it
+      description: 404 for anyone who is not a participant, so order ids cannot be probed.
+      operationId: getOrder
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses:
+        '200': { description: The order., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /orders/{id}/accept:
+    post:
+      tags: [Orders]
+      summary: Creator accepts (FR-32) — card captured into escrow
+      description: PENDING_ACCEPTANCE → IN_PROGRESS within 72 h of the order. Needs a verified email. Sets the due date.
+      operationId: acceptOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/decline:
+    post:
+      tags: [Orders]
+      summary: Creator declines (FR-32) — hold released
+      description: PENDING_ACCEPTANCE → CLOSED (DECLINED). The brand is never charged (FR-64).
+      operationId: declineOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } } }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/deliver:
+    post:
+      tags: [Orders]
+      summary: Creator delivers files and/or post links (FR-34)
+      description: IN_PROGRESS → DELIVERED. Starts the 72-hour review window.
+      operationId: deliverOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeliverRequest' } } } }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/brief:
+    post:
+      tags: [Orders]
+      summary: Brand updates the brief (FR-33)
+      description: Allowed while PENDING_ACCEPTANCE or IN_PROGRESS.
+      operationId: updateOrderBrief
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderBrief' } } } }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/approve:
+    post:
+      tags: [Orders]
+      summary: Brand approves the delivery (FR-35) — creator paid
+      description: "DELIVERED → COMPLETED within the review window. Escrow is released: creator balance gets price − creator fee."
+      operationId: approveOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/request-revision:
+    post:
+      tags: [Orders]
+      summary: Brand asks for a revision (FR-35, max 2)
+      description: DELIVERED → IN_PROGRESS. The due date moves to at least 3 days from now.
+      operationId: requestRevision
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NoteRequest' } } } }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/dispute:
+    post:
+      tags: [Orders]
+      summary: Brand opens a dispute (FR-35)
+      description: DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81).
+      operationId: disputeOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NoteRequest' } } } }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel before acceptance (FR-37)
+      description: Brand or creator, PENDING_ACCEPTANCE → CLOSED (CANCELED), hold released. After acceptance only an admin can cancel.
+      operationId: cancelOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } } }
+      responses:
+        '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/review:
+    post:
+      tags: [Reviews]
+      summary: Brand reviews a completed order (FR-38)
+      description: One review per order, COMPLETED orders only, 1–5 stars.
+      operationId: reviewOrder
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewRequest' } } } }
+      responses:
+        '201': { description: Review saved., content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /reviews/{id}/reply:
+    post:
+      tags: [Reviews]
+      summary: Creator replies to a review, once (FR-38)
+      operationId: replyToReview
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplyRequest' } } } }
+      responses:
+        '200': { description: Reply saved., content: { application/json: { schema: { $ref: '#/components/schemas/Review' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
   /creators/{username}:
     get:
       tags: [Creators]
@@ -451,6 +688,19 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
 components:
+  parameters:
+    OrderId:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Ulid' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice.
+      schema: { type: string, maxLength: 100 }
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -890,7 +1140,7 @@ components:
       type: object
       required: [purpose, fileName, contentType, sizeBytes]
       properties:
-        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO] }
+        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE] }
         fileName: { type: string, maxLength: 200 }
         contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
         sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
@@ -917,6 +1167,258 @@ components:
       properties:
         url: { type: string }
         expiresAt: { type: string, format: date-time }
+
+    # ---------- Orders (Week 4) ----------
+    OrderStatus:
+      type: string
+      enum: [PENDING_ACCEPTANCE, IN_PROGRESS, DELIVERED, COMPLETED, DISPUTED, REFUNDED, CLOSED]
+
+    CloseReason:
+      type: string
+      enum: [DECLINED, EXPIRED, CANCELED]
+
+    PaymentStatus:
+      type: string
+      description: AUTHORIZED (held, not charged) → CAPTURED (in escrow) → REFUNDED, or CANCELED (hold released).
+      enum: [AUTHORIZED, CAPTURED, REFUNDED, CANCELED]
+
+    OrderAction:
+      type: string
+      description: What the viewer may do now. The UI offers only these; the server checks again.
+      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY]
+
+    OrderKind:
+      type: string
+      enum: [PACKAGE, CUSTOM_OFFER]
+
+    ShippingAddress:
+      type: object
+      required: [name, line1, city, postalCode, country]
+      properties:
+        name: { type: string, maxLength: 100 }
+        line1: { type: string, maxLength: 200 }
+        line2: { type: [string, 'null'], maxLength: 200 }
+        city: { type: string, maxLength: 100 }
+        postalCode: { type: string, maxLength: 20 }
+        country: { type: string, minLength: 2, maxLength: 2 }
+
+    OrderBrief:
+      type: object
+      description: FR-33. What the brand wants.
+      required: [requirements, needsShipping]
+      properties:
+        requirements: { type: string, minLength: 20, maxLength: 4000 }
+        needsShipping: { type: boolean, description: The creator needs the product shipped to them. }
+        shippingAddress: { oneOf: [{ $ref: '#/components/schemas/ShippingAddress' }, { type: 'null' }], description: 'Required when needsShipping. Where the brand ships to — collected from the creator after acceptance in v2; the brand enters it now for MVP.' }
+        links: { type: array, maxItems: 5, items: { type: string, maxLength: 500 } }
+        referenceFiles: { type: array, maxItems: 5, items: { type: string }, description: File URLs from /files/presign. }
+
+    CustomOfferInput:
+      type: object
+      required: [title, platform, deliverables, priceCents, deliveryDays]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 80 }
+        platform: { $ref: '#/components/schemas/Platform' }
+        deliverables: { type: array, minItems: 1, maxItems: 10, items: { type: string, minLength: 2, maxLength: 120 } }
+        priceCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
+        deliveryDays: { type: integer, minimum: 1, maximum: 60, description: Days after the creator accepts. }
+
+    OrderCreateRequest:
+      type: object
+      description: Either `packageId`, or `creatorUsername` + `offer` for a custom offer.
+      required: [brief]
+      properties:
+        packageId: { $ref: '#/components/schemas/Ulid' }
+        creatorUsername: { type: string }
+        offer: { $ref: '#/components/schemas/CustomOfferInput' }
+        brief: { $ref: '#/components/schemas/OrderBrief' }
+
+    OrderCreated:
+      type: object
+      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy, stripeClientSecret]
+      properties:
+        orderId: { $ref: '#/components/schemas/Ulid' }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        priceCents: { type: integer, format: int64 }
+        brandFeeCents: { type: integer, format: int64 }
+        totalCents: { type: integer, format: int64, examples: [22000] }
+        currency: { type: string }
+        acceptBy: { type: string, format: date-time }
+        stripeClientSecret: { type: string, description: For the Payment Element to confirm the authorisation. }
+
+    OrderQuote:
+      type: object
+      required: [kind, creator, package, priceCents, brandFeeCents, totalCents, brandFeeBps, currency, acceptWindowHours]
+      properties:
+        kind: { $ref: '#/components/schemas/OrderKind' }
+        creator: { $ref: '#/components/schemas/OrderParty' }
+        package: { oneOf: [{ $ref: '#/components/schemas/Package' }, { type: 'null' }] }
+        priceCents: { type: integer, format: int64 }
+        brandFeeCents: { type: integer, format: int64 }
+        totalCents: { type: integer, format: int64 }
+        brandFeeBps: { type: integer, examples: [1000] }
+        currency: { type: string }
+        acceptWindowHours: { type: integer, examples: [72] }
+
+    OrderParty:
+      type: object
+      description: The other side of an order, as shown on it.
+      required: [name, photoUrl, username]
+      properties:
+        name: { type: string }
+        photoUrl: { type: [string, 'null'] }
+        username: { type: [string, 'null'], description: Creator username (links to the profile); null for brands. }
+
+    OrderMoney:
+      type: object
+      description: Copied onto the order at checkout; later fee changes never alter it.
+      required: [currency, priceCents, brandFeeCents, totalCents, creatorFeeCents, creatorPayoutCents]
+      properties:
+        currency: { type: string }
+        priceCents: { type: integer, format: int64 }
+        brandFeeCents: { type: integer, format: int64 }
+        totalCents: { type: integer, format: int64, description: What the brand pays. }
+        creatorFeeCents: { type: integer, format: int64 }
+        creatorPayoutCents: { type: integer, format: int64, description: What the creator receives (price − creator fee). }
+
+    OrderPayment:
+      type: object
+      required: [status, amountCents, refundedCents]
+      properties:
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        amountCents: { type: integer, format: int64 }
+        refundedCents: { type: integer, format: int64 }
+
+    Deadline:
+      type: object
+      required: [kind, at]
+      properties:
+        kind: { type: string, enum: [ACCEPT, DUE, REVIEW] }
+        at: { type: string, format: date-time }
+
+    OrderSummary:
+      type: object
+      required: [id, status, closeReason, kind, title, platform, counterparty, money, nextDeadline, late, needsAction, createdAt, updatedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        closeReason: { oneOf: [{ $ref: '#/components/schemas/CloseReason' }, { type: 'null' }] }
+        kind: { $ref: '#/components/schemas/OrderKind' }
+        title: { type: string }
+        platform: { $ref: '#/components/schemas/Platform' }
+        counterparty: { $ref: '#/components/schemas/OrderParty' }
+        money: { $ref: '#/components/schemas/OrderMoney' }
+        nextDeadline: { oneOf: [{ $ref: '#/components/schemas/Deadline' }, { type: 'null' }] }
+        late: { type: boolean, description: IN_PROGRESS past its due date. }
+        needsAction: { type: boolean, description: The viewer has something to do now. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    OrderPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content, statusCounts, serverTime]
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+            statusCounts:
+              type: object
+              description: The viewer's orders per status, for filter tabs.
+              additionalProperties: { type: integer }
+            serverTime: { type: string, format: date-time, description: Countdowns are computed from this, not the device clock. }
+
+    DeliveryItem:
+      type: object
+      required: [type, url]
+      properties:
+        type: { type: string, enum: [FILE, POST_URL] }
+        url: { type: string, description: 'FILE: a fileUrl from /files/presign. POST_URL: the live post (https).' }
+        name: { type: [string, 'null'], maxLength: 200 }
+
+    Delivery:
+      type: object
+      required: [id, revisionNo, items, note, submittedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        revisionNo: { type: integer, description: 0 = first delivery, 1–2 = after revision requests. }
+        items: { type: array, items: { $ref: '#/components/schemas/DeliveryItem' } }
+        note: { type: [string, 'null'] }
+        submittedAt: { type: string, format: date-time }
+
+    OrderEventView:
+      type: object
+      required: [type, fromStatus, toStatus, actor, note, at]
+      properties:
+        type: { type: string, enum: [CREATE, ACCEPT, DECLINE, CANCEL, EXPIRE, DELIVER, REQUEST_REVISION, APPROVE, AUTO_APPROVE, DISPUTE, ADMIN_RELEASE, ADMIN_REFUND] }
+        fromStatus: { oneOf: [{ $ref: '#/components/schemas/OrderStatus' }, { type: 'null' }] }
+        toStatus: { $ref: '#/components/schemas/OrderStatus' }
+        actor: { type: string, enum: [BRAND, CREATOR, ADMIN, SYSTEM] }
+        note: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+
+    DisputeView:
+      type: object
+      required: [reason, status, openedAt, resolution, refundCents]
+      properties:
+        reason: { type: string }
+        status: { type: string, enum: [OPEN, RESOLVED] }
+        openedAt: { type: string, format: date-time }
+        resolution: { type: [string, 'null'], enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND, null] }
+        refundCents: { type: [integer, 'null'] }
+
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          required: [packageId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime]
+          properties:
+            packageId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
+            deliverables: { type: array, items: { type: string }, description: What was bought (snapshot). }
+            deliveryDays: { type: integer }
+            payment: { $ref: '#/components/schemas/OrderPayment' }
+            acceptBy: { type: string, format: date-time }
+            dueAt: { type: [string, 'null'], format: date-time }
+            reviewBy: { type: [string, 'null'], format: date-time }
+            revisionCount: { type: integer }
+            maxRevisions: { type: integer, examples: [2] }
+            brief: { $ref: '#/components/schemas/OrderBrief' }
+            deliveries: { type: array, description: Newest first., items: { $ref: '#/components/schemas/Delivery' } }
+            events: { type: array, description: Oldest first (FR-52 timeline)., items: { $ref: '#/components/schemas/OrderEventView' } }
+            dispute: { oneOf: [{ $ref: '#/components/schemas/DisputeView' }, { type: 'null' }] }
+            review: { oneOf: [{ $ref: '#/components/schemas/Review' }, { type: 'null' }] }
+            allowedActions: { type: array, items: { $ref: '#/components/schemas/OrderAction' } }
+            serverTime: { type: string, format: date-time }
+
+    ReasonRequest:
+      type: object
+      properties:
+        reason: { type: [string, 'null'], maxLength: 500 }
+
+    NoteRequest:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string, minLength: 10, maxLength: 2000 }
+
+    DeliverRequest:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, minItems: 1, maxItems: 10, items: { $ref: '#/components/schemas/DeliveryItem' } }
+        note: { type: [string, 'null'], maxLength: 1000 }
+
+    ReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: [string, 'null'], maxLength: 1000 }
+
+    ReplyRequest:
+      type: object
+      required: [reply]
+      properties:
+        reply: { type: string, minLength: 2, maxLength: 500 }
 
     # ---------- Auth ----------
     AuthSession:

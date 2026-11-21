@@ -63,6 +63,15 @@ for (const width of [360, 1280]) {
   await page.waitForURL(/\/checkout\//);
   await check(page, width, 'checkout');
   for (const [name, path] of AS_BRAND) await check(page, width, name, path);
+  // Week 4: order list, a delivered order (review actions) and the custom-offer checkout.
+  await check(page, width, 'brand-orders', '/brand/orders');
+  await check(page, width, 'brand-orders-delivered', '/brand/orders?status=delivered');
+  await page.locator('.row-link').first().click();
+  await page.waitForURL(/\/brand\/orders\/[0-9A-Z]{26}$/);
+  await check(page, width, 'brand-order-delivered');
+  await page.getByRole('button', { name: /Request revision/ }).click();
+  await check(page, width, 'brand-order-revision-dialog');
+  await check(page, width, 'offer-checkout', '/checkout/offer/leomakes');
   await ctx.close();
 
   for (const [email, pages] of [['newcreator@demo.test', AS_DRAFT_CREATOR], ['creator@demo.test', AS_CREATOR]]) {
@@ -80,6 +89,19 @@ for (const width of [360, 1280]) {
     await p.goto(`${base}/creator/packages`, { waitUntil: 'networkidle' });
     await p.getByRole('button', { name: 'Add package' }).click();
     await check(p, width, `package-editor-${email.split('@')[0]}`);
+    if (email === 'creator@demo.test') {
+      // Week 4: the creator's orders, a new order to accept, and the deliver dialog on an accepted one.
+      await check(p, width, 'creator-orders', '/creator/orders');
+      await check(p, width, 'creator-orders-pending', '/creator/orders?status=pending');
+      await p.locator('.row-link').first().click();
+      await p.waitForURL(/\/creator\/orders\/[0-9A-Z]{26}$/);
+      await check(p, width, 'creator-order-pending');
+      await p.goto(`${base}/creator/orders?status=in-progress`, { waitUntil: 'networkidle' });
+      await p.locator('.row-link').first().click();
+      await p.waitForURL(/\/creator\/orders\/[0-9A-Z]{26}$/);
+      await p.getByRole('button', { name: /Deliver work/ }).click();
+      await check(p, width, 'creator-deliver-dialog');
+    }
     await c.close();
   }
 }

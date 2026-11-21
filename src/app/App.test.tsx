@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { api } from '@/api/client';
+import { getDb } from '@/api/mock/db';
 import { DEMO_PASSWORD } from '@/api/mock/demo';
 import { App } from './App';
 
@@ -68,8 +69,9 @@ describe('email verification (FR-02)', () => {
 
   it('lets a verified brand reach checkout', async () => {
     await api.auth.login('brand@demo.test', DEMO_PASSWORD);
-    renderAt('/checkout/PKG1');
-    expect(await screen.findByRole('heading', { name: 'Checkout' })).toBeInTheDocument();
+    const pkg = getDb().packages.find((k) => k.active && k.creatorId === getDb().users.find((u) => u.email === 'creator@demo.test')!.id)!;
+    renderAt(`/checkout/${pkg.id}`);
+    expect(await screen.findByRole('heading', { name: 'Book this package' })).toBeInTheDocument();
   });
 
   it('signs up a brand, then verifies through the demo inbox link', async () => {

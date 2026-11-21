@@ -28,17 +28,15 @@ const SearchPage = area(() => import('@/features/search/pages/SearchPage'), 'Sea
 const CreatorProfilePage = area(() => import('@/features/creators/pages/CreatorProfilePage'), 'CreatorProfilePage');
 
 const BrandDashboard = area(brand, 'BrandDashboard');
-const BrandOrders = area(brand, 'BrandOrders');
-const BrandOrderDetail = area(brand, 'BrandOrderDetail');
+const OrdersListPage = area(() => import('@/features/orders/pages/OrdersListPage'), 'OrdersListPage');
+const OrderDetailPage = area(() => import('@/features/orders/pages/OrderDetailPage'), 'OrderDetailPage');
 const BrandCampaigns = area(brand, 'BrandCampaigns');
 const BrandCampaignDetail = area(brand, 'BrandCampaignDetail');
 const BrandProfile = area(() => import('@/features/brands/pages/BrandProfilePage'), 'BrandProfilePage');
-const CheckoutPage = area(brand, 'CheckoutPage');
+const CheckoutPage = area(() => import('@/features/orders/pages/CheckoutPage'), 'CheckoutPage');
 
 const CreatorOnboarding = area(() => import('@/features/creators/pages/OnboardingPage'), 'OnboardingPage');
 const CreatorDashboard = area(() => import('@/features/creators/pages/CreatorDashboardPage'), 'CreatorDashboardPage');
-const CreatorOrders = area(creator, 'CreatorOrders');
-const CreatorOrderDetail = area(creator, 'CreatorOrderDetail');
 const CreatorCampaigns = area(creator, 'CreatorCampaigns');
 const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
 const MockStripeConnectPage = area(() => import('@/features/payouts/pages/MockStripeConnectPage'), 'MockStripeConnectPage');
@@ -75,12 +73,13 @@ export function AppRoutes() {
       {/* Signed in */}
       <Route element={<AppShell />}>
         <Route element={<RequireRole roles={['BRAND']} />}>
+          <Route path="checkout/offer/:username" element={<CheckoutPage />} />
           <Route path="checkout/:packageId" element={<CheckoutPage />} />
           <Route path="brand">
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<BrandDashboard />} />
-            <Route path="orders" element={<BrandOrders />} />
-            <Route path="orders/:id" element={<BrandOrderDetail />} />
+            <Route path="orders" element={<OrdersListPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="campaigns" element={<BrandCampaigns />} />
             <Route path="campaigns/:id" element={<BrandCampaignDetail />} />
             <Route path="profile" element={<BrandProfile />} />
@@ -92,8 +91,8 @@ export function AppRoutes() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="onboarding" element={<CreatorOnboarding />} />
             <Route path="dashboard" element={<CreatorDashboard />} />
-            <Route path="orders" element={<CreatorOrders />} />
-            <Route path="orders/:id" element={<CreatorOrderDetail />} />
+            <Route path="orders" element={<OrdersListPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="campaigns" element={<CreatorCampaigns />} />
             <Route path="packages" element={<CreatorPackages />} />
             <Route path="payouts" element={<CreatorPayouts />} />

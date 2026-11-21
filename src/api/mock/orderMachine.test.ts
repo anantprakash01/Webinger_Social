@@ -180,6 +180,22 @@ describe('IN_PROGRESS and DELIVERED', () => {
     expect(allowedEvents(order, brand, hours(71))).toEqual(['APPROVE', 'DISPUTE']);
   });
 
+  it('a revision request gives the creator at least 3 more days', () => {
+    // Accepted at 1 h with 5-day delivery: due at 121 h.
+    const early = run([
+      [{ type: 'ACCEPT' }, creator, 1],
+      [{ type: 'DELIVER' }, creator, 10],
+      [{ type: 'REQUEST_REVISION' }, brand, 12],
+    ]).order;
+    expect(early.dueAt).toBe(hours(1 + 5 * 24).toISOString()); // 121 h is later than 12 h + 72 h
+    const late = run([
+      [{ type: 'ACCEPT' }, creator, 1],
+      [{ type: 'DELIVER' }, creator, 118],
+      [{ type: 'REQUEST_REVISION' }, brand, 120],
+    ]).order;
+    expect(late.dueAt).toBe(hours(120 + 72).toISOString());
+  });
+
   it('DISPUTE → DISPUTED, money stays in escrow', () => {
     const { order, ledger } = run([...delivered(), [{ type: 'DISPUTE', note: 'Wrong product shown' }, brand, 50]]);
     expect(order.status).toBe('DISPUTED');

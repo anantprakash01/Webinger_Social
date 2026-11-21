@@ -137,7 +137,8 @@ describe('vetting banner (FR-16)', () => {
     renderAt('/creator/dashboard');
     expect(await screen.findByText('Your profile is live.')).toBeInTheDocument();
     expect(screen.getByText('Profile views')).toBeInTheDocument();
-    expect(screen.getByText('No orders yet')).toBeInTheDocument();
+    // Week 4 seed: Leo has orders waiting, in progress and completed.
+    expect(screen.getByText('Awaiting acceptance')).toBeInTheDocument();
     expect(screen.getByText(/of 8 active/)).toBeInTheDocument();
   });
 });

@@ -81,7 +81,7 @@ describe('creator profile', () => {
     await user.type(screen.getByLabelText('Email'), 'brand@demo.test');
     await user.type(screen.getByLabelText('Password'), DEMO_PASSWORD);
     await user.click(screen.getByRole('button', { name: 'Log in' }));
-    expect(await screen.findByRole('heading', { name: 'Checkout' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Book this package' })).toBeInTheDocument();
     expect(window.location.pathname).toMatch(/^\/checkout\/[0-9A-Z]{26}$/);
   });
 

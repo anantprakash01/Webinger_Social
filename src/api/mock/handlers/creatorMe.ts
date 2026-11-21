@@ -180,7 +180,10 @@ export const updateMyPackage: Handler = ({ req, params, user }) => {
 export const deleteMyPackage: Handler = ({ params, user }) => {
   const k = ownPackage(user, params.id);
   const db = getDb();
-  // Week 4: a package with open orders is switched off instead of deleted, so order history keeps its title.
+  // Orders keep a snapshot of what was bought, but the package stays for reference once it has orders.
+  if (db.orders.some((o) => o.packageId === k.id)) {
+    fail(409, 'This package has orders, so it can only be switched off, not deleted.', 'PACKAGE_HAS_ORDERS');
+  }
   db.packages.splice(db.packages.indexOf(k), 1);
   return { status: 204 };
 };

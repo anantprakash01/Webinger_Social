@@ -48,6 +48,11 @@ packages, portfolio, payouts (a clearly labelled mock of the Stripe page) and su
 profile is in review, the demo bar shows **Simulate review: Approve / Reject**. Brands edit their company at
 `/brand/profile`.
 
+Orders (Week 4): as `brand@demo.test`, press **Buy** on `/u/leomakes` and pay with the test card
+`4242 4242 4242 4242` (any future expiry and CVC; `4000 0000 0000 0002` shows a decline). Switch to
+`creator@demo.test` with **View as** to accept and deliver, then back to the brand to approve and review.
+The demo bar's **Simulate time** moves the clock forward so orders expire or auto-approve after 72 hours.
+
 "Continue with Google" signs in as an invented Google identity. Emails (verification, password reset)
 appear in a **demo inbox** box on the relevant screens. The demo bar inside the app has **View as** and
 **Reset demo data**. Demo state lives in `sessionStorage`, so it survives a refresh but not a new tab.
@@ -68,5 +73,6 @@ src/api/client.ts         the only module that talks to a backend (mock | http),
 src/api/mock/             db, seed, fees, ledger, orderMachine, server (router) and handlers
 src/components/ui/        Webinger base components
 src/lib/                  money formatting, catalog (platforms, niches, locations), form error mapping
-src/styles/               Webinger tokens + global styles
+src/styles/               Webinger tokens and styles; index.ts imports them in order
+src/features/orders/      checkout, order lists, order detail, reviews
 ```

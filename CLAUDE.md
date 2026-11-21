@@ -390,7 +390,7 @@ src/
       handlers/       one file per API module, enforcing role + ownership
   components/ui/  Webinger base components
   lib/            money (cents → display), dates, stomp client
-  styles/         tokens.css, global.css
+  styles/         index.ts (imports every stylesheet in order), tokens.css, base.css, …
   types/          generated OpenAPI types
 ```
 
@@ -411,7 +411,7 @@ src/
 | 1 | Foundation: scaffold, Webinger UI, contract v0, mock layer core, auth screens, role routing, layouts | Done (21 Nov 2026) |
 | 2 | Public marketplace: landing, search, creator profile | Done (21 Nov 2026) |
 | 3 | Creator side: onboarding wizard, packages, vetting status, payouts setup, creator dashboard; brand profile | Done (21 Nov 2026) |
-| 4 | Orders: checkout, custom offers, order detail for both sides, full state machine, reviews | |
+| 4 | Orders: checkout, custom offers, order detail for both sides, full state machine, reviews | Done (21 Nov 2026) |
 | 5 | Campaigns, chat, notifications, brand dashboard | |
 | 6 | Admin console, payouts and receipts, polish, contract freeze | |
 
@@ -589,4 +589,22 @@ Decisions to confirm:
 - Payouts must be set up before submitting for review; portfolio is recommended, not required.
 - Deleting a package removes it; from Week 4, packages with orders should be switched off instead (noted in `deleteMyPackage`).
 
-**Next: Week 4 — Orders and the state machine (section 10).** Start with the contract (all `/orders/*` endpoints, `/reviews/{id}/reply`), then wire `orderMachine.ts` into mock handlers, then checkout and the order detail screens.
+**Week 4 — Orders and the state machine: done (21 Nov 2026).** `npm test` 154 passing (two clean runs); `tsc`, lint, build and `npm run check:layout` (now including order list, order detail, dialogs and both checkouts) clean.
+
+What exists:
+- Contract v0.4: `GET /orders/quote`, `POST /orders` (Idempotency-Key), `GET /orders` (status filter, `statusCounts`, `serverTime`), `GET /orders/{id}`, `POST /orders/{id}/accept|decline|deliver|brief|approve|request-revision|dispute|cancel`, `POST /orders/{id}/review`, `POST /reviews/{id}/reply`. Shared `IdempotencyKey` and `OrderId` parameters. Mock-only: `POST /dev/simulate-time`, `GET /dev/clock`.
+- Mock `handlers/orders.ts`: every status change goes through `orderMachine.ts` (`applyTransition`), so payment states and ledger entries match the backend. Scheduled jobs (expire, auto-approve) run before every mock request. Idempotency: stored per user+key; a reused key on another path → 422 `IDEMPOTENCY_KEY_REUSED`. Non-participants get 404.
+- `orderMachine.ts`: a revision request now moves the due date to at least 3 days from now (`REVISION_MIN_DAYS`).
+- Seed `seed/orders.ts`: 13 orders between Saltbay and Leo plus invented creators, one in every state (incl. a custom offer, a late order, a dispute and a partial refund), built by running the machine with back-dated clocks. Two orders are close to their deadline, so "Simulate time" shows expiry and auto-approval straight away. `SCHEMA_VERSION` = 4.
+- New tables: `orderInfo` (what was bought, snapshot), `orderBriefs`, `deliveries`, `disputes`, `idempotency`; reviews gained `brandUserId`.
+- Screens: `/checkout/:packageId` and `/checkout/offer/:username` (brief, mock card element with Stripe's test numbers, server quote, "authorised, not charged" note); `/brand/orders`, `/creator/orders` (status tabs with counts, phone cards); order detail for both sides ("what happens next" with live countdown from server time, actions only from `allowedActions` in confirm dialogs, deliver dialog, deliveries, editable brief, review and one reply, payment card, timeline). Profile "Send custom offer" opens the offer checkout. Demo bar: **Simulate time** (+24 h, +73 h, +7 days).
+- Stylesheets are now imported from `src/styles/index.ts` instead of `@import`s in `global.css`: Vite did not reliably refresh changes inside `@import`ed files, so a running dev server could serve stale CSS (including a stuck error).
+
+Decisions to confirm:
+- Custom offers ask for "delivery within N days of acceptance" (like packages), not a calendar due date, so the state machine stays the same for both.
+- Brief shipping: the brand enters a return address; the creator's delivery address is exchanged in chat after acceptance (no address collection flow in MVP).
+- Revision requests give the creator at least 3 more days.
+- Packages with orders can't be deleted, only switched off (409 `PACKAGE_HAS_ORDERS`).
+- The decline test card fails before an order exists (as Stripe's confirmation would); the real backend should create the order only after the authorisation succeeds.
+
+**Next: Week 5 — Campaigns, chat, notifications, brand dashboard (section 10).** Start with the contract (campaigns and applications, conversations/messages, notifications), then the mock chat with a polling stand-in for STOMP, then notifications from `order_events`.

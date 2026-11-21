@@ -2,7 +2,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { LuSearch } from 'react-icons/lu';
 import { Badge, Card, PageHeader, Stat } from '@/components/ui';
-import { RequireVerified } from '../guards';
 import { useAuth } from '../AuthContext';
 import { Placeholder } from './Placeholder';
 
@@ -50,23 +49,9 @@ export function BrandDashboard() {
   );
 }
 
-export const BrandOrders = () => <Placeholder title="Orders" week={4} frs={['FR-30', 'FR-35', 'FR-37', 'FR-38']} />;
-export function BrandOrderDetail() {
-  const { id } = useParams();
-  return <Placeholder eyebrow="Order" title={id ?? ''} week={4} frs={['FR-33', 'FR-35', 'FR-36']} />;
-}
 export const BrandCampaigns = () => <Placeholder title="Campaigns" week={5} frs={['FR-40', 'FR-42']} />;
 export function BrandCampaignDetail() {
   const { id } = useParams();
   return <Placeholder eyebrow="Campaign" title={id ?? ''} week={5} frs={['FR-40', 'FR-42']} />;
 }
 
-/** Checkout is blocked until the email is verified (FR-02). The screen itself arrives in Week 4. */
-export function CheckoutPage() {
-  const { packageId } = useParams();
-  return (
-    <RequireVerified action="place orders">
-      <Placeholder eyebrow={`Package ${packageId}`} title="Checkout" week={4} frs={['FR-30', 'FR-33', 'FR-60']} />
-    </RequireVerified>
-  );
-}

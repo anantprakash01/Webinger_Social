@@ -12,6 +12,7 @@ import { Avatar, Button, PageSkeleton } from '@/components/ui';
 import { VerifyEmailBanner } from '@/features/auth/components/VerifyEmailGate';
 import { VettingBanner } from '@/features/creators/components/VettingBanner';
 import { useDemoVettingDecision } from '@/features/creators/workspaceHooks';
+import { useDemoClock, useSimulateTime } from '@/features/orders/hooks';
 import { ROLE_LABEL } from '@/types';
 import { homePath, useAuth } from '../AuthContext';
 import { AREA_TITLE, NAV } from '../nav';
@@ -173,6 +174,7 @@ function DemoBar() {
           </option>
         ))}
       </select>
+      <DemoClock />
       {user.role === 'CREATOR' && user.creator?.vettingStatus === 'PENDING_REVIEW' && <DemoVetting />}
       <button type="button" className="demo-bar__btn" onClick={() => void reset()}>
         Reset demo data
@@ -200,6 +202,41 @@ function DemoVetting() {
       <button type="button" className="demo-bar__btn" disabled={decide.isPending} onClick={reject}>
         Reject
       </button>
+    </span>
+  );
+}
+
+/**
+ * Mock-only "Simulate time" (section 4.3): moves the demo clock forward and runs the expiry and
+ * auto-approve jobs at once, so reviewers can see FR-32 / FR-36 without waiting 72 hours.
+ */
+function DemoClock() {
+  const clock = useDemoClock(true);
+  const sim = useSimulateTime();
+  const offset = sim.data?.offsetHours ?? clock.data?.offsetHours ?? 0;
+  const result = sim.data ? `${sim.data.expired} expired, ${sim.data.autoApproved} auto-approved` : null;
+  return (
+    <span className="demo-bar__group" role="group" aria-label="Demo clock">
+      <label htmlFor="sim-time">Simulate time</label>
+      <select
+        id="sim-time"
+        value=""
+        disabled={sim.isPending}
+        onChange={(e) => {
+          const h = Number(e.target.value);
+          if (h) sim.mutate(h);
+        }}
+      >
+        <option value="">{offset ? `Clock +${offset} h` : 'Now'}</option>
+        <option value="24">+24 hours</option>
+        <option value="73">+73 hours</option>
+        <option value="168">+7 days</option>
+      </select>
+      {result && (
+        <span role="status" className="demo-bar__note">
+          {result}
+        </span>
+      )}
     </span>
   );
 }

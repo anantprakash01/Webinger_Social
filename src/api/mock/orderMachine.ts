@@ -122,6 +122,8 @@ export class TransitionError extends Error {
 export const ACCEPT_WINDOW_HOURS = 72;
 export const REVIEW_WINDOW_HOURS = 72;
 export const MAX_REVISIONS = 2;
+/** A revision request gives the creator at least this many days, even if the original due date has passed. */
+export const REVISION_MIN_DAYS = 3;
 export const MIN_DELIVERY_DAYS = 1;
 export const MAX_DELIVERY_DAYS = 60;
 
@@ -273,10 +275,13 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
     case 'DELIVER':
       next.reviewBy = addHours(ctx.now, REVIEW_WINDOW_HOURS);
       break;
-    case 'REQUEST_REVISION':
+    case 'REQUEST_REVISION': {
       next.revisionCount = order.revisionCount + 1;
       next.reviewBy = null;
+      const floor = addHours(ctx.now, REVISION_MIN_DAYS * 24);
+      next.dueAt = order.dueAt && order.dueAt > floor ? order.dueAt : floor;
       break;
+    }
     case 'APPROVE':
     case 'AUTO_APPROVE':
     case 'ADMIN_RELEASE':
