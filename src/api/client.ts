@@ -38,6 +38,21 @@ import {
   type ReviewRequest,
   type Application,
   type ApplicationInput,
+  type AdminDispute,
+  type AdminSummary,
+  type AdminUser,
+  type AdminUserPage,
+  type AuditPage,
+  type FeeRates,
+  type FeeSettings,
+  type FeeUpdate,
+  type PayoutOverview,
+  type Report,
+  type ReportInput,
+  type ReportResolveRequest,
+  type ResolveDisputeRequest,
+  type UserStatusChange,
+  type VettingItem,
   type BrandStats,
   type CampaignDetail,
   type CampaignInput,
@@ -91,6 +106,9 @@ const store = {
 };
 
 let session: ClientSession | null = store.get<ClientSession>(SESSION_KEY);
+/** The admin's own session while they view as another user (FR-82). Memory only in http mode. */
+const IMPERSONATOR_KEY = 'cm.mock.impersonator';
+let impersonator: ClientSession | null = store.get<ClientSession>(IMPERSONATOR_KEY);
 
 export type SessionEvent = { type: 'signedIn' | 'userChanged'; user: Me } | { type: 'signedOut'; reason: string | null };
 const listeners = new Set<(e: SessionEvent) => void>();
@@ -319,11 +337,21 @@ export const api = {
       return s.user;
     },
     async logout(): Promise<void> {
+      // Signing out while viewing as someone just ends the read-only view.
+      if (impersonator) return api.auth.stopImpersonating();
       try {
         await request<void>('POST', '/auth/logout');
       } finally {
         clearSession(null);
       }
+    },
+    /** FR-82: back to the admin's own session. */
+    async stopImpersonating(): Promise<void> {
+      const admin = impersonator;
+      impersonator = null;
+      store.set(IMPERSONATOR_KEY, null);
+      if (admin) setSession({ accessToken: admin.accessToken, expiresIn: 0, user: admin.user }, 'signedIn');
+      else clearSession(null);
     },
     /** On app start in http mode: turn the refresh cookie back into a session, if there is one. */
     async restoreSession(): Promise<Me | null> {
@@ -384,6 +412,8 @@ export const api = {
   payouts: {
     /** FR-62: Stripe Connect Express onboarding. The browser then goes to `url`. */
     onboardingLink: (returnUrl: string) => request<OnboardingLink>('POST', '/payouts/onboarding-link', { body: { returnUrl } }),
+    /** FR-63: balance, transfers and bank payouts. */
+    balance: () => request<PayoutOverview>('GET', '/payouts/balance'),
   },
   files: {
     /**
@@ -446,6 +476,44 @@ export const api = {
     list: (q: { unreadOnly?: boolean; page?: number; size?: number } = {}) => request<NotificationPage>('GET', '/notifications', { query: q }),
     markRead: (body: MarkReadRequest) => request<void>('POST', '/notifications/read', { body }),
   },
+  /** Admin console (Week 6, FR-80 – FR-85). */
+  admin: {
+    summary: () => request<AdminSummary>('GET', '/admin/summary'),
+    vetting: (status?: string) => request<{ content: VettingItem[] }>('GET', '/admin/vetting', { query: { status } }),
+    approveCreator: (id: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/approve`),
+    rejectCreator: (id: string, reason: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/reject`, { body: { reason } }),
+    disputes: (status?: string) => request<{ content: AdminDispute[] }>('GET', '/admin/disputes', { query: { status } }),
+    resolveDispute: (id: string, body: ResolveDisputeRequest, idempotencyKey: string) =>
+      request<AdminDispute>('POST', `/admin/disputes/${enc(id)}/resolve`, { body, headers: { 'idempotency-key': idempotencyKey } }),
+    users: (q: { q?: string; role?: string; status?: string; page?: number } = {}) => request<AdminUserPage>('GET', '/admin/users', { query: q }),
+    updateUser: (id: string, body: UserStatusChange) => request<AdminUser>('PATCH', `/admin/users/${enc(id)}`, { body }),
+    fees: () => request<FeeSettings>('GET', '/admin/fees'),
+    updateFees: (body: FeeUpdate) => request<FeeSettings>('PUT', '/admin/fees', { body }),
+    audit: (q: { action?: string; page?: number } = {}) => request<AuditPage>('GET', '/admin/audit-logs', { query: q }),
+    reports: (status?: string) => request<{ content: Report[] }>('GET', '/admin/reports', { query: { status } }),
+    resolveReport: (id: string, body: ReportResolveRequest) => request<Report>('POST', `/admin/reports/${enc(id)}/resolve`, { body }),
+    /**
+     * FR-82: read-only view as a user. The admin's own session is kept aside and restored by
+     * `stopImpersonating`; the impersonation session is short-lived and cannot be refreshed.
+     */
+    async impersonate(id: string): Promise<Me> {
+      const s = await request<AuthSession>('POST', `/admin/users/${enc(id)}/impersonate`);
+      if (session) {
+        impersonator = session;
+        store.set(IMPERSONATOR_KEY, impersonator);
+      }
+      setSession(s, 'signedIn');
+      return s.user;
+    },
+  },
+  reports: {
+    /** FR-85: report a creator, brand, message or review. */
+    create: (body: ReportInput) => request<Report>('POST', '/reports', { body }),
+  },
+  fees: {
+    /** Current public rates, for explanatory copy (the server always calculates the real fees). */
+    current: () => request<FeeRates>('GET', '/fees', { auth: false }),
+  },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {
     /** Stand-in for the STOMP broker: events for this user since `since`. */
@@ -456,6 +524,8 @@ export const api = {
     outbox: (to?: string) => request<OutboxEmail[]>('GET', '/dev/outbox', { query: { to }, auth: false }),
     async reset(): Promise<void> {
       await request<void>('POST', '/dev/reset', { auth: false });
+      impersonator = null;
+      store.set(IMPERSONATOR_KEY, null);
       clearSession(null);
     },
     /** Stands in for Stripe's account.updated webhook after the mock onboarding page. */

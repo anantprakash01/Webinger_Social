@@ -14,6 +14,7 @@ import { DEMO_PASSWORD } from './demo';
 import { seedCreators } from './seed/creators';
 import { seedOrders } from './seed/orders';
 import { seedEngagement } from './seed/engagement';
+import { seedAdmin } from './seed/admin';
 
 /* ---------- Row types ---------- */
 
@@ -160,6 +161,7 @@ export interface DisputeRow {
   resolvedBy: string | null;
   createdAt: string;
   resolvedAt: string | null;
+  resolutionNote?: string | null;
 }
 
 export interface CampaignRow {
@@ -213,12 +215,57 @@ export interface MessageRow {
 export interface NotificationRow {
   id: string;
   userId: string;
-  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED';
+  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT';
   title: string;
   body: string;
   link: string | null;
   readAt: string | null;
   createdAt: string;
+}
+
+/** fee_configs: the newest row applies to new orders (FR-83). */
+export interface FeeConfigRow extends FeeConfig {
+  effectiveFrom: string;
+  changedBy: string | null;
+}
+
+/** audit_logs: append-only (FR-84). */
+export interface AuditRow {
+  id: string;
+  actorId: string | null;
+  actorName: string;
+  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT';
+  entityType: string;
+  entityId: string;
+  summary: string;
+  before: unknown;
+  after: unknown;
+  ip: string | null;
+  at: string;
+}
+
+export interface ReportRow {
+  id: string;
+  reporterId: string;
+  targetType: 'CREATOR' | 'BRAND' | 'MESSAGE' | 'REVIEW';
+  targetId: string;
+  reason: 'SPAM' | 'FAKE_ACCOUNT' | 'INAPPROPRIATE' | 'SCAM' | 'OFF_PLATFORM_PAYMENT' | 'OTHER';
+  details: string | null;
+  status: 'OPEN' | 'DISMISSED' | 'ACTION_TAKEN';
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolutionNote: string | null;
+}
+
+/** Bank payouts (FR-63). Ledger: CREATOR_BALANCE → PAYOUT, referenced as `payout_<id>`. */
+export interface PayoutRow {
+  id: string;
+  creatorId: string;
+  amountCents: number;
+  status: 'IN_TRANSIT' | 'PAID';
+  createdAt: string;
+  arrivalDate: string;
 }
 
 /** Stored responses for Idempotency-Key retries. */
@@ -256,6 +303,8 @@ export interface AccessTokenRow {
   token: string;
   userId: string;
   expiresAt: string;
+  /** Set on read-only admin impersonation sessions (FR-82): the admin's user id. */
+  impersonatorId?: string | null;
 }
 
 export interface RefreshTokenRow {
@@ -291,7 +340,7 @@ export interface Db {
   accessTokens: AccessTokenRow[];
   refreshTokens: RefreshTokenRow[];
   outbox: OutboxEmailRow[];
-  feeConfigs: FeeConfig[];
+  feeConfigs: FeeConfigRow[];
   orders: MockOrder[];
   orderEvents: OrderEvent[];
   ledgerEntries: LedgerEntry[];
@@ -305,6 +354,11 @@ export interface Db {
   conversations: ConversationRow[];
   messages: MessageRow[];
   notifications: NotificationRow[];
+  auditLogs: AuditRow[];
+  reports: ReportRow[];
+  payouts: PayoutRow[];
+  /** Last weekly payout run (Mondays 00:00 UTC). */
+  lastPayoutRunAt: string;
 }
 
 /* ---------- Helpers ---------- */
@@ -349,7 +403,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 7;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -378,6 +432,7 @@ function seed(now: Date): Db {
   const creators = seedCreators(now, { leoId: SEED_IDS.creator, newCreatorId: SEED_IDS.newCreator, passwordHash: pw });
   const orders = seedOrders(now, { brandId: SEED_IDS.brand, brandName: 'Saltbay Supply Co.', leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators);
   const engagement = seedEngagement(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, passwordHash: pw }, creators, orders);
+  const admin = seedAdmin(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators, orders, engagement);
   return {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
@@ -405,7 +460,7 @@ function seed(now: Date): Db {
     accessTokens: [],
     refreshTokens: [],
     outbox: [],
-    feeConfigs: [{ ...DEFAULT_FEES }],
+    feeConfigs: [{ ...DEFAULT_FEES, effectiveFrom: new Date(now.getTime() - 120 * 86_400_000).toISOString(), changedBy: null }],
     orders: orders.orders,
     orderEvents: orders.orderEvents,
     ledgerEntries: orders.ledgerEntries,
@@ -419,6 +474,10 @@ function seed(now: Date): Db {
     conversations: engagement.conversations,
     messages: engagement.messages,
     notifications: engagement.notifications,
+    auditLogs: admin.auditLogs,
+    reports: admin.reports,
+    payouts: [],
+    lastPayoutRunAt: now.toISOString(),
   };
 }
 

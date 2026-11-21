@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Logo } from '@/components/Logo';
+import { Logo, PRODUCT_NAME } from '@/components/Logo';
 import '@/app/layouts/shell.css';
 
 /** Split screen used by every signed-out auth page (same as the Webinger login). */
@@ -8,7 +8,7 @@ export function AuthLayout({ title, tagline, children }: { title?: string; tagli
   return (
     <div className="auth">
       <section className="auth__panel">
-        <Link to="/" aria-label="Home" style={{ textDecoration: 'none', alignSelf: 'flex-start' }}>
+        <Link to="/" aria-label={`${PRODUCT_NAME} home`} style={{ textDecoration: 'none', alignSelf: 'flex-start' }}>
           <Logo height={30} inverse />
         </Link>
         <div>

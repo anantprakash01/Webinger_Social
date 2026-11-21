@@ -1,9 +1,13 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 0.5.0
+  version: 1.0.0
   description: |
-    Contract v0.5 (Phase 0, Week 5): campaigns, chat, notifications, brand stats; orders, checkout quote, reviews; plus authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
+    **Contract v1.0 — frozen at the end of Phase 0 (21 Nov 2026).** The Spring Boot API (Phase 1) implements
+    exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
+    additive changes, major for breaking ones) and regenerates the frontend types; CI runs `npm run check:contract`.
+
+    Covers: admin, reports, payouts, audit; campaigns, chat, notifications, brand stats; orders, checkout quote, reviews; plus authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
     This file is the single source of truth between the React app and the Spring Boot API.
     Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
 
@@ -16,8 +20,8 @@ info:
     - The access token (15 min) is sent as `Authorization: Bearer`. The refresh token (7 days, rotated on
       every use) lives only in an httpOnly, Secure, SameSite=Strict cookie on `/api/v1/auth`.
 
-    Mock-only endpoints (Phase 0, never in production, not in this contract): `GET /dev/outbox`,
-    `POST /dev/reset`, `POST /dev/simulate-time`.
+    Mock-only endpoints (Phase 0, never in production, not in this contract): `/dev/*` — demo outbox, reset,
+    simulate time and clock, Stripe Connect completion, vetting decision and the real-time poller.
 servers:
   - url: /api/v1
 tags:
@@ -33,6 +37,8 @@ tags:
   - name: Campaigns
   - name: Chat
   - name: Notifications
+  - name: Admin
+  - name: Reports
 
 paths:
   /auth/register:
@@ -861,6 +867,225 @@ paths:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandStats' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /admin/summary:
+    get:
+      tags: [Admin]
+      summary: Queue sizes for the admin navigation badges
+      operationId: getAdminSummary
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminSummary' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/vetting:
+    get:
+      tags: [Admin]
+      summary: Creator vetting queue (FR-80)
+      description: "Default PENDING_REVIEW, oldest submission first."
+      operationId: listVetting
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/VettingStatus' } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/VettingQueue' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/creators/{id}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve a creator profile (FR-80) — it appears in search
+      operationId: approveCreator
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/VettingItem' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/creators/{id}/reject:
+    post:
+      tags: [Admin]
+      summary: Reject a creator profile with a reason shown to the creator (FR-80)
+      operationId: rejectCreator
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RequiredReason' } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/VettingItem' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /admin/disputes:
+    get:
+      tags: [Admin]
+      summary: Dispute console list (FR-81), open first
+      operationId: listDisputes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [OPEN, RESOLVED] } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminDisputeList' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/disputes/{id}/resolve:
+    post:
+      tags: [Admin]
+      summary: Resolve a dispute — release, full refund or partial refund (FR-81, FR-64)
+      description: "Runs ADMIN_RELEASE or ADMIN_REFUND on the order state machine. A partial refund is 1 cent up to the creator's payout and comes out of the creator's share; a full refund returns everything incl. the brand fee."
+      operationId: resolveDispute
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ResolveDisputeRequest' } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminDispute' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: Find users (FR-82)
+      operationId: listUsers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: q, in: query, description: Name or email contains., schema: { type: string } }
+        - { name: role, in: query, schema: { $ref: '#/components/schemas/Role' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/UserStatus' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminUserPage' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/users/{id}:
+    patch:
+      tags: [Admin]
+      summary: Suspend, ban or reactivate a user (FR-82)
+      description: "Suspending or banning ends every session of the user. Suspended or banned creators disappear from search and their profile 404s. Admins cannot change their own status."
+      operationId: updateUserStatus
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UserStatusChange' } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminUser' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /admin/users/{id}/impersonate:
+    post:
+      tags: [Admin]
+      summary: Start a read-only session as the user (FR-82)
+      description: "Returns a short-lived, non-refreshable session whose user has impersonatedBy set. Every request other than GET answers 403 READ_ONLY_IMPERSONATION. Logged in the audit log."
+      operationId: impersonateUser
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AuthSession' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/fees:
+    get:
+      tags: [Admin]
+      summary: Current fees and their history (FR-83)
+      operationId: getFees
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FeeSettings' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Admin]
+      summary: Change the fees for new orders (FR-83)
+      description: "Takes effect immediately for new orders; existing orders keep the fees copied onto them at checkout."
+      operationId: updateFees
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FeeUpdate' } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FeeSettings' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /fees:
+    get:
+      tags: [Payouts]
+      summary: The current public fee rates, for explanatory copy in the UI
+      operationId: getCurrentFees
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FeeRates' } } } }
+
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Audit log of admin actions and money movements (FR-84), newest first
+      operationId: listAuditLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: action, in: query, schema: { $ref: '#/components/schemas/AuditAction' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AuditPage' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reports:
+    post:
+      tags: [Reports]
+      summary: Report a user or content (FR-85)
+      operationId: createReport
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReportInput' } } } }
+      responses:
+        '201': { description: Reported., content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /admin/reports:
+    get:
+      tags: [Admin]
+      summary: Reports queue (FR-85), open first
+      operationId: listReports
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ReportStatus' } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ReportList' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/reports/{id}/resolve:
+    post:
+      tags: [Admin]
+      summary: Close a report — dismissed, or action taken
+      operationId: resolveReport
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReportResolveRequest' } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /payouts/balance:
+    get:
+      tags: [Payouts]
+      summary: Creator balance, transfers and bank payouts (FR-63)
+      description: "Approved work moves to the balance (a Stripe Transfer to the connected account); the balance is paid to the bank every Monday (UTC)."
+      operationId: getPayoutBalance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutOverview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /creators/{username}:
     get:
       tags: [Creators]
@@ -1023,6 +1248,7 @@ components:
           type: boolean
           description: Placing or accepting orders needs a verified email (FR-02).
         createdAt: { type: string, format: date-time }
+        impersonatedBy: { type: [string, 'null'], description: 'Set in a read-only admin impersonation session (FR-82): the admin''s name.' }
         creator: { $ref: '#/components/schemas/CreatorSummary' }
         brand: { $ref: '#/components/schemas/BrandSummary' }
 
@@ -1361,6 +1587,257 @@ components:
         url: { type: string }
         expiresAt: { type: string, format: date-time }
 
+    # ---------- Admin (Week 6) ----------
+    AdminSummary:
+      type: object
+      required: [pendingVetting, openDisputes, openReports]
+      properties:
+        pendingVetting: { type: integer }
+        openDisputes: { type: integer }
+        openReports: { type: integer }
+
+    VettingItem:
+      type: object
+      required: [creatorId, username, displayName, email, photoUrl, bio, city, country, niches, languages, socials, packages, portfolio, vettingStatus, rejectionReason, submittedAt, createdAt]
+      properties:
+        creatorId: { $ref: '#/components/schemas/Ulid' }
+        username: { type: [string, 'null'] }
+        displayName: { type: string }
+        email: { type: string }
+        photoUrl: { type: [string, 'null'] }
+        bio: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        country: { type: [string, 'null'] }
+        niches: { type: array, items: { $ref: '#/components/schemas/Niche' } }
+        languages: { type: array, items: { type: string } }
+        socials: { type: array, items: { $ref: '#/components/schemas/SocialAccount' } }
+        packages: { type: array, items: { $ref: '#/components/schemas/OwnPackage' } }
+        portfolio: { type: array, items: { $ref: '#/components/schemas/PortfolioItem' } }
+        vettingStatus: { $ref: '#/components/schemas/VettingStatus' }
+        rejectionReason: { type: [string, 'null'] }
+        submittedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    VettingQueue:
+      type: object
+      required: [content]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/VettingItem' } }
+
+    RequiredReason:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 10, maxLength: 500 }
+
+    AdminDispute:
+      type: object
+      required: [id, orderId, orderTitle, brand, creator, money, reason, status, openedAt, resolution, refundCents, resolvedAt, resolutionNote]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        orderId: { $ref: '#/components/schemas/Ulid' }
+        orderTitle: { type: string }
+        brand: { $ref: '#/components/schemas/OrderParty' }
+        creator: { $ref: '#/components/schemas/OrderParty' }
+        money: { $ref: '#/components/schemas/OrderMoney' }
+        reason: { type: string }
+        status: { type: string, enum: [OPEN, RESOLVED] }
+        openedAt: { type: string, format: date-time }
+        resolution: { type: [string, 'null'], enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND, null] }
+        refundCents: { type: [integer, 'null'] }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolutionNote: { type: [string, 'null'] }
+
+    AdminDisputeList:
+      type: object
+      required: [content]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/AdminDispute' } }
+
+    ResolveDisputeRequest:
+      type: object
+      required: [resolution, note]
+      properties:
+        resolution: { type: string, enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND] }
+        refundCents: { type: [integer, 'null'], format: int64, description: Required for PARTIAL_REFUND. }
+        note: { type: string, minLength: 10, maxLength: 1000, description: Shown to both sides and kept in the audit log. }
+
+    AdminUser:
+      type: object
+      required: [id, name, email, role, status, emailVerified, createdAt, orderCount, label]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        email: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { $ref: '#/components/schemas/UserStatus' }
+        emailVerified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        orderCount: { type: integer }
+        label: { type: [string, 'null'], description: Company name or creator username. }
+
+    AdminUserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+
+    UserStatusChange:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { $ref: '#/components/schemas/UserStatus' }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+
+    FeeRates:
+      type: object
+      required: [plan, brandFeeBps, creatorFeeBps]
+      properties:
+        plan: { type: string, enum: [FREE] }
+        brandFeeBps: { type: integer, minimum: 0, maximum: 3000 }
+        creatorFeeBps: { type: integer, minimum: 0, maximum: 3000 }
+
+    FeeConfigEntry:
+      allOf:
+        - $ref: '#/components/schemas/FeeRates'
+        - type: object
+          required: [effectiveFrom, changedBy]
+          properties:
+            effectiveFrom: { type: string, format: date-time }
+            changedBy: { type: [string, 'null'] }
+
+    FeeSettings:
+      type: object
+      required: [current, history]
+      properties:
+        current: { $ref: '#/components/schemas/FeeConfigEntry' }
+        history: { type: array, description: Newest first., items: { $ref: '#/components/schemas/FeeConfigEntry' } }
+
+    FeeUpdate:
+      type: object
+      required: [brandFeeBps, creatorFeeBps]
+      properties:
+        brandFeeBps: { type: integer, minimum: 0, maximum: 3000, description: 'Basis points: 1000 = 10%. At most 30%.' }
+        creatorFeeBps: { type: integer, minimum: 0, maximum: 3000 }
+
+    AuditAction:
+      type: string
+      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT]
+
+    AuditEntry:
+      type: object
+      required: [id, actorName, action, entityType, entityId, summary, before, after, ip, at]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        actorName: { type: string, description: SYSTEM for scheduled jobs. }
+        action: { $ref: '#/components/schemas/AuditAction' }
+        entityType: { type: string, examples: [ORDER, USER, CREATOR_PROFILE, FEE_CONFIG, REPORT, PAYOUT] }
+        entityId: { type: string }
+        summary: { type: string }
+        before: { description: JSON snapshot before the change, or null. }
+        after: { description: JSON snapshot after the change, or null. }
+        ip: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+
+    AuditPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+
+    # ---------- Reports (Week 6) ----------
+    ReportTargetType:
+      type: string
+      enum: [CREATOR, BRAND, MESSAGE, REVIEW]
+
+    ReportReason:
+      type: string
+      enum: [SPAM, FAKE_ACCOUNT, INAPPROPRIATE, SCAM, OFF_PLATFORM_PAYMENT, OTHER]
+
+    ReportStatus:
+      type: string
+      enum: [OPEN, DISMISSED, ACTION_TAKEN]
+
+    ReportInput:
+      type: object
+      required: [targetType, targetId, reason]
+      properties:
+        targetType: { $ref: '#/components/schemas/ReportTargetType' }
+        targetId: { type: string, description: 'Creator username, brand user id, message id or review id.' }
+        reason: { $ref: '#/components/schemas/ReportReason' }
+        details: { type: [string, 'null'], maxLength: 1000 }
+
+    Report:
+      type: object
+      required: [id, targetType, targetId, targetLabel, targetLink, reason, details, reporterName, status, createdAt, resolvedAt, resolutionNote]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        targetType: { $ref: '#/components/schemas/ReportTargetType' }
+        targetId: { type: string }
+        targetLabel: { type: string }
+        targetLink: { type: [string, 'null'] }
+        reason: { $ref: '#/components/schemas/ReportReason' }
+        details: { type: [string, 'null'] }
+        reporterName: { type: string }
+        status: { $ref: '#/components/schemas/ReportStatus' }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolutionNote: { type: [string, 'null'] }
+
+    ReportList:
+      type: object
+      required: [content]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/Report' } }
+
+    ReportResolveRequest:
+      type: object
+      required: [status, note]
+      properties:
+        status: { type: string, enum: [DISMISSED, ACTION_TAKEN] }
+        note: { type: string, minLength: 5, maxLength: 1000 }
+
+    # ---------- Payouts (Week 6) ----------
+    Transfer:
+      type: object
+      description: Approved work moved to the creator balance (a Stripe Transfer to the connected account).
+      required: [orderId, orderTitle, amountCents, at]
+      properties:
+        orderId: { $ref: '#/components/schemas/Ulid' }
+        orderTitle: { type: string }
+        amountCents: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+
+    Payout:
+      type: object
+      description: Balance paid to the creator's bank.
+      required: [id, amountCents, status, createdAt, arrivalDate]
+      properties:
+        id: { type: string, examples: [po_mock123] }
+        amountCents: { type: integer, format: int64 }
+        status: { type: string, enum: [IN_TRANSIT, PAID] }
+        createdAt: { type: string, format: date-time }
+        arrivalDate: { type: string, format: date-time }
+
+    PayoutOverview:
+      type: object
+      required: [currency, availableCents, inEscrowCents, lifetimeEarnedCents, paidOutCents, nextPayoutAt, schedule, payoutStatus, transfers, payouts]
+      properties:
+        currency: { type: string }
+        availableCents: { type: integer, format: int64, description: Balance waiting for the next payout. }
+        inEscrowCents: { type: integer, format: int64 }
+        lifetimeEarnedCents: { type: integer, format: int64 }
+        paidOutCents: { type: integer, format: int64 }
+        nextPayoutAt: { type: string, format: date-time }
+        schedule: { type: string, enum: [WEEKLY_MONDAY] }
+        payoutStatus: { $ref: '#/components/schemas/PayoutStatus' }
+        transfers: { type: array, description: Newest first., items: { $ref: '#/components/schemas/Transfer' } }
+        payouts: { type: array, description: Newest first., items: { $ref: '#/components/schemas/Payout' } }
+
     # ---------- Campaigns (Week 5) ----------
     CampaignStatus:
       type: string
@@ -1501,7 +1978,7 @@ components:
     # ---------- Notifications (Week 5) ----------
     NotificationType:
       type: string
-      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED]
+      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT]
 
     Notification:
       type: object
@@ -1685,7 +2162,7 @@ components:
 
     OrderSummary:
       type: object
-      required: [id, status, closeReason, kind, title, platform, counterparty, money, nextDeadline, late, needsAction, createdAt, updatedAt]
+      required: [id, status, closeReason, kind, title, platform, counterparty, brand, creator, money, nextDeadline, late, needsAction, createdAt, updatedAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         status: { $ref: '#/components/schemas/OrderStatus' }
@@ -1694,6 +2171,8 @@ components:
         title: { type: string }
         platform: { $ref: '#/components/schemas/Platform' }
         counterparty: { $ref: '#/components/schemas/OrderParty' }
+        brand: { $ref: '#/components/schemas/OrderParty' }
+        creator: { $ref: '#/components/schemas/OrderParty' }
         money: { $ref: '#/components/schemas/OrderMoney' }
         nextDeadline: { oneOf: [{ $ref: '#/components/schemas/Deadline' }, { type: 'null' }] }
         late: { type: boolean, description: IN_PROGRESS past its due date. }

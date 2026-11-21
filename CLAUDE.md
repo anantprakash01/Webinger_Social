@@ -413,7 +413,7 @@ src/
 | 3 | Creator side: onboarding wizard, packages, vetting status, payouts setup, creator dashboard; brand profile | Done (21 Nov 2026) |
 | 4 | Orders: checkout, custom offers, order detail for both sides, full state machine, reviews | Done (21 Nov 2026) |
 | 5 | Campaigns, chat, notifications, brand dashboard | Done (21 Nov 2026) |
-| 6 | Admin console, payouts and receipts, polish, contract freeze | |
+| 6 | Admin console, payouts and receipts, polish, contract freeze | Done (21 Nov 2026) |
 
 ### Week 1 — Foundation
 - Vite + React 19 + TS project; copy `tokens.css`, `global.css`, `components/ui`, `components/status`, `Logo` and `AppShell` pattern from webinger-portal. Add TanStack Query, React Hook Form, Zod.
@@ -624,4 +624,24 @@ Decisions to confirm:
 - Contact details stay masked in messages sent before completion (only the masked text is stored).
 - Notifications go to the participant who didn't act; chat messages don't create notifications (they show as unread counts instead).
 
-**Next: Week 6 — Admin, payouts, polish, freeze (section 10).** Admin vetting queue (reuse `decideVetting`), dispute console (`ADMIN_RELEASE` / `ADMIN_REFUND` already in the machine), users, fees editor, audit log, reports, order browser with Simulate time and Reset; creator payouts and printable receipts; accessibility pass; Playwright smoke test; contract freeze.
+**Week 6 — Admin, payouts, polish, freeze: done (21 Nov 2026).** `npm test` 200 passing (two clean runs); `tsc`, lint, build, `npm run check:layout` (now incl. every admin screen, payouts, receipt, report dialog, "view as"), `npm run check:a11y` (no WCAG 2.1 A/AA violations), `npm run check:contract` and `npm run test:e2e` clean.
+
+What exists:
+- Contract **v1.0.0, frozen**: `/admin/summary`, `/admin/vetting`, `/admin/creators/{id}/approve|reject`, `/admin/disputes`, `/admin/disputes/{id}/resolve` (Idempotency-Key), `/admin/users`, `PATCH /admin/users/{id}`, `/admin/users/{id}/impersonate`, `GET/PUT /admin/fees`, public `GET /fees`, `/admin/audit-logs`, `POST /reports`, `/admin/reports`, `/admin/reports/{id}/resolve`, `GET /payouts/balance`. `Me.impersonatedBy`; `OrderSummary` gained `brand` and `creator`. `scripts/check-contract.mjs` (`npm run check:contract`) fails on drift between the YAML and `src/types/openapi.ts`.
+- Mock: `handlers/admin.ts` (vetting reuses `decideVetting`; disputes go through `ADMIN_RELEASE` / `ADMIN_REFUND`; suspend/ban revokes sessions and hides creators from search and profile; fees add a new `feeConfigs` row; reports), `audit.ts` (every admin action + every ledger txn as `MONEY_MOVEMENT`), `payoutsCore.ts` (balances from the ledger; weekly Monday payouts run with the scheduled jobs; `PAYOUT_SENT` notification), `handlers/payouts.ts` (balance, transfers, payouts). Read-only impersonation: the server refuses every non-GET with 403 `READ_ONLY_IMPERSONATION`; the client keeps the admin session aside and `stopImpersonating` restores it. Seed `seed/admin.ts` (audit history, 3 reports). In-review creators now have payouts set up (Week 3 rule) and recent submit dates. `SCHEMA_VERSION` = 7.
+- Screens: `/admin/vetting` (tabs, socials/packages/niches per creator, approve, reject with preset reasons), `/admin/disputes` + `/admin/disputes/:id` (order, deliveries, brief, chat transcript, timeline; release / full refund / partial refund capped at the creator payout, note required), `/admin/reports`, `/admin/users` (search, role/status filters, suspend/ban/reactivate with reason, **View as (read-only)** with a navy banner and "Stop viewing"), `/admin/fees` (bps with live $200 example, history), `/admin/audit` (action filter, before/after JSON), `/admin/orders` + `/admin/orders/:id` (all orders, Simulate +73 h, Reset demo). Sidebar badges for vetting, disputes and reports. `/creator/payouts` (available, escrow, paid out, lifetime, next Monday, bank payouts, earnings per order). `/receipts/:id` printable receipt (brand) / earnings statement (creator), "Receipt" button on order detail, print CSS. **Report** link (FR-85) on creator profiles and on other people's chat messages. Fee copy elsewhere reads the live rates (`GET /fees`).
+- Accessibility: `@axe-core/playwright` + `scripts/check-a11y.mjs` over landing, search (incl. phone filter drawer), profile, login, sign-up, forgot password, checkout (incl. errors) and offer checkout at 360/1280 px. Fixed: logo links whose label didn't contain the visible wordmark text, pagination "Prev" vs "Previous page".
+- Lighthouse (production build, simulated mobile 4G): accessibility, best practices and SEO 100; performance 80–87 (FCP 2.6–3.5 s, LCP 3.3–4.0 s, CLS 0, TBT 0). Fixed: Google Fonts no longer block first paint, service-worker registration deferred, `robots.txt` added. The rest is client-side rendering plus the mock API and seed shipping in prototype builds (absent in http mode); see the open Next.js question in §16.
+- E2E: `playwright.config.ts` (Edge, own dev server on 5199) + `e2e/smoke.spec.ts` — the full §10 journey with a brand-new creator, ending with the creator balance +$170.00. Vitest now only picks up `src/**/*.test.*`.
+- `docs/backend-handover.md`: per-module rules, error codes, jobs and tests to port, for the Spring Boot team.
+
+Decisions to confirm:
+- Suspending or banning signs the user out everywhere and hides a creator from search and the public profile; their open orders continue (admins handle them through disputes/cancel).
+- "View as" is read-only and limited to brands and creators; the session is short-lived and has no refresh token.
+- Fee changes apply to new orders only (already the rule); the editor caps each fee at 30% (3000 bps).
+- Payouts run every Monday 00:00 UTC for creators with payouts enabled; the whole available balance is paid, no minimum.
+- A person can have one open report per target; reporters stay anonymous to the reported user.
+
+**Phase 0 complete.** The smoke test runs the creator setup and the brand search → paid, accepted order in seconds; the 10- and 15-minute targets still need a timed run with real people before the gate is formally signed off.
+
+**Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.

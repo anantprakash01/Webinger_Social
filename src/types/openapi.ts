@@ -980,6 +980,297 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Queue sizes for the admin navigation badges */
+        get: operations["getAdminSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vetting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Creator vetting queue (FR-80)
+         * @description Default PENDING_REVIEW, oldest submission first.
+         */
+        get: operations["listVetting"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/creators/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a creator profile (FR-80) — it appears in search */
+        post: operations["approveCreator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/creators/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a creator profile with a reason shown to the creator (FR-80) */
+        post: operations["rejectCreator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dispute console list (FR-81), open first */
+        get: operations["listDisputes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/disputes/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a dispute — release, full refund or partial refund (FR-81, FR-64)
+         * @description Runs ADMIN_RELEASE or ADMIN_REFUND on the order state machine. A partial refund is 1 cent up to the creator's payout and comes out of the creator's share; a full refund returns everything incl. the brand fee.
+         */
+        post: operations["resolveDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find users (FR-82) */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Suspend, ban or reactivate a user (FR-82)
+         * @description Suspending or banning ends every session of the user. Suspended or banned creators disappear from search and their profile 404s. Admins cannot change their own status.
+         */
+        patch: operations["updateUserStatus"];
+        trace?: never;
+    };
+    "/admin/users/{id}/impersonate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a read-only session as the user (FR-82)
+         * @description Returns a short-lived, non-refreshable session whose user has impersonatedBy set. Every request other than GET answers 403 READ_ONLY_IMPERSONATION. Logged in the audit log.
+         */
+        post: operations["impersonateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current fees and their history (FR-83) */
+        get: operations["getFees"];
+        /**
+         * Change the fees for new orders (FR-83)
+         * @description Takes effect immediately for new orders; existing orders keep the fees copied onto them at checkout.
+         */
+        put: operations["updateFees"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The current public fee rates, for explanatory copy in the UI */
+        get: operations["getCurrentFees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit log of admin actions and money movements (FR-84), newest first */
+        get: operations["listAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report a user or content (FR-85) */
+        post: operations["createReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reports queue (FR-85), open first */
+        get: operations["listReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reports/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a report — dismissed, or action taken */
+        post: operations["resolveReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payouts/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Creator balance, transfers and bank payouts (FR-63)
+         * @description Approved work moves to the balance (a Stripe Transfer to the connected account); the balance is paid to the bank every Monday (UTC).
+         */
+        get: operations["getPayoutBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators/{username}": {
         parameters: {
             query?: never;
@@ -1083,6 +1374,8 @@ export interface components {
             emailVerified: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description Set in a read-only admin impersonation session (FR-82): the admin's name. */
+            impersonatedBy?: string | null;
             creator?: components["schemas"]["CreatorSummary"];
             brand?: components["schemas"]["BrandSummary"];
         };
@@ -1355,6 +1648,223 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        AdminSummary: {
+            pendingVetting: number;
+            openDisputes: number;
+            openReports: number;
+        };
+        VettingItem: {
+            creatorId: components["schemas"]["Ulid"];
+            username: string | null;
+            displayName: string;
+            email: string;
+            photoUrl: string | null;
+            bio: string | null;
+            city: string | null;
+            country: string | null;
+            niches: components["schemas"]["Niche"][];
+            languages: string[];
+            socials: components["schemas"]["SocialAccount"][];
+            packages: components["schemas"]["OwnPackage"][];
+            portfolio: components["schemas"]["PortfolioItem"][];
+            vettingStatus: components["schemas"]["VettingStatus"];
+            rejectionReason: string | null;
+            /** Format: date-time */
+            submittedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        VettingQueue: {
+            content: components["schemas"]["VettingItem"][];
+        };
+        RequiredReason: {
+            reason: string;
+        };
+        AdminDispute: {
+            id: components["schemas"]["Ulid"];
+            orderId: components["schemas"]["Ulid"];
+            orderTitle: string;
+            brand: components["schemas"]["OrderParty"];
+            creator: components["schemas"]["OrderParty"];
+            money: components["schemas"]["OrderMoney"];
+            reason: string;
+            /** @enum {string} */
+            status: "OPEN" | "RESOLVED";
+            /** Format: date-time */
+            openedAt: string;
+            /** @enum {string|null} */
+            resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND" | null;
+            refundCents: number | null;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            resolutionNote: string | null;
+        };
+        AdminDisputeList: {
+            content: components["schemas"]["AdminDispute"][];
+        };
+        ResolveDisputeRequest: {
+            /** @enum {string} */
+            resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND";
+            /**
+             * Format: int64
+             * @description Required for PARTIAL_REFUND.
+             */
+            refundCents?: number | null;
+            /** @description Shown to both sides and kept in the audit log. */
+            note: string;
+        };
+        AdminUser: {
+            id: components["schemas"]["Ulid"];
+            name: string;
+            email: string;
+            role: components["schemas"]["Role"];
+            status: components["schemas"]["UserStatus"];
+            emailVerified: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            orderCount: number;
+            /** @description Company name or creator username. */
+            label: string | null;
+        };
+        AdminUserPage: components["schemas"]["PageMeta"] & {
+            content: components["schemas"]["AdminUser"][];
+        };
+        UserStatusChange: {
+            status: components["schemas"]["UserStatus"];
+            reason: string;
+        };
+        FeeRates: {
+            /** @enum {string} */
+            plan: "FREE";
+            brandFeeBps: number;
+            creatorFeeBps: number;
+        };
+        FeeConfigEntry: components["schemas"]["FeeRates"] & {
+            /** Format: date-time */
+            effectiveFrom: string;
+            changedBy: string | null;
+        };
+        FeeSettings: {
+            current: components["schemas"]["FeeConfigEntry"];
+            /** @description Newest first. */
+            history: components["schemas"]["FeeConfigEntry"][];
+        };
+        FeeUpdate: {
+            /** @description Basis points: 1000 = 10%. At most 30%. */
+            brandFeeBps: number;
+            creatorFeeBps: number;
+        };
+        /** @enum {string} */
+        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT";
+        AuditEntry: {
+            id: components["schemas"]["Ulid"];
+            /** @description SYSTEM for scheduled jobs. */
+            actorName: string;
+            action: components["schemas"]["AuditAction"];
+            /**
+             * @example ORDER
+             * @example USER
+             * @example CREATOR_PROFILE
+             * @example FEE_CONFIG
+             * @example REPORT
+             * @example PAYOUT
+             */
+            entityType: string;
+            entityId: string;
+            summary: string;
+            /** @description JSON snapshot before the change */
+            before: unknown;
+            /** @description JSON snapshot after the change */
+            after: unknown;
+            ip: string | null;
+            /** Format: date-time */
+            at: string;
+        };
+        AuditPage: components["schemas"]["PageMeta"] & {
+            content: components["schemas"]["AuditEntry"][];
+        };
+        /** @enum {string} */
+        ReportTargetType: "CREATOR" | "BRAND" | "MESSAGE" | "REVIEW";
+        /** @enum {string} */
+        ReportReason: "SPAM" | "FAKE_ACCOUNT" | "INAPPROPRIATE" | "SCAM" | "OFF_PLATFORM_PAYMENT" | "OTHER";
+        /** @enum {string} */
+        ReportStatus: "OPEN" | "DISMISSED" | "ACTION_TAKEN";
+        ReportInput: {
+            targetType: components["schemas"]["ReportTargetType"];
+            /** @description Creator username, brand user id, message id or review id. */
+            targetId: string;
+            reason: components["schemas"]["ReportReason"];
+            details?: string | null;
+        };
+        Report: {
+            id: components["schemas"]["Ulid"];
+            targetType: components["schemas"]["ReportTargetType"];
+            targetId: string;
+            targetLabel: string;
+            targetLink: string | null;
+            reason: components["schemas"]["ReportReason"];
+            details: string | null;
+            reporterName: string;
+            status: components["schemas"]["ReportStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            resolutionNote: string | null;
+        };
+        ReportList: {
+            content: components["schemas"]["Report"][];
+        };
+        ReportResolveRequest: {
+            /** @enum {string} */
+            status: "DISMISSED" | "ACTION_TAKEN";
+            note: string;
+        };
+        /** @description Approved work moved to the creator balance (a Stripe Transfer to the connected account). */
+        Transfer: {
+            orderId: components["schemas"]["Ulid"];
+            orderTitle: string;
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: date-time */
+            at: string;
+        };
+        /** @description Balance paid to the creator's bank. */
+        Payout: {
+            /** @example po_mock123 */
+            id: string;
+            /** Format: int64 */
+            amountCents: number;
+            /** @enum {string} */
+            status: "IN_TRANSIT" | "PAID";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            arrivalDate: string;
+        };
+        PayoutOverview: {
+            currency: string;
+            /**
+             * Format: int64
+             * @description Balance waiting for the next payout.
+             */
+            availableCents: number;
+            /** Format: int64 */
+            inEscrowCents: number;
+            /** Format: int64 */
+            lifetimeEarnedCents: number;
+            /** Format: int64 */
+            paidOutCents: number;
+            /** Format: date-time */
+            nextPayoutAt: string;
+            /** @enum {string} */
+            schedule: "WEEKLY_MONDAY";
+            payoutStatus: components["schemas"]["PayoutStatus"];
+            /** @description Newest first. */
+            transfers: components["schemas"]["Transfer"][];
+            /** @description Newest first. */
+            payouts: components["schemas"]["Payout"][];
+        };
         /**
          * @description OPEN until the brand closes it. Creators can apply only while OPEN and before the deadline.
          * @enum {string}
@@ -1473,7 +1983,7 @@ export interface components {
             unreadTotal: number;
         };
         /** @enum {string} */
-        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED";
+        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT";
         Notification: {
             id: components["schemas"]["Ulid"];
             type: components["schemas"]["NotificationType"];
@@ -1660,6 +2170,8 @@ export interface components {
             title: string;
             platform: components["schemas"]["Platform"];
             counterparty: components["schemas"]["OrderParty"];
+            brand: components["schemas"]["OrderParty"];
+            creator: components["schemas"]["OrderParty"];
             money: components["schemas"]["OrderMoney"];
             nextDeadline: components["schemas"]["Deadline"] | null;
             /** @description IN_PROGRESS past its due date. */
@@ -3319,6 +3831,435 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandStats"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSummary"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listVetting: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["VettingStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VettingQueue"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    approveCreator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VettingItem"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    rejectCreator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequiredReason"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VettingItem"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listDisputes: {
+        parameters: {
+            query?: {
+                status?: "OPEN" | "RESOLVED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDisputeList"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    resolveDispute: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDispute"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: {
+                /** @description Name or email contains. */
+                q?: string;
+                role?: components["schemas"]["Role"];
+                status?: components["schemas"]["UserStatus"];
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserPage"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateUserStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserStatusChange"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    impersonateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSession"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeSettings"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateFees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeSettings"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getCurrentFees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeeRates"];
+                };
+            };
+        };
+    };
+    listAuditLogs: {
+        parameters: {
+            query?: {
+                action?: components["schemas"]["AuditAction"];
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportInput"];
+            };
+        };
+        responses: {
+            /** @description Reported. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Report"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listReports: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ReportStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportList"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    resolveReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Report"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getPayoutBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutOverview"];
                 };
             };
             403: components["responses"]["Forbidden"];

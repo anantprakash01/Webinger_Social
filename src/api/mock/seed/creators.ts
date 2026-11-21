@@ -220,10 +220,12 @@ function build(spec: Spec, r: Rand, now: Date, out: SeedResult, opts: { photo: s
     vettingStatus: spec.vetting,
     rejectionReason: spec.vetting === 'REJECTED' ? 'Please link at least one social account with public posts.' : null,
     approvedAt: spec.vetting === 'APPROVED' ? new Date(t - (spec.createdDaysAgo - 2) * DAY).toISOString() : null,
-    submittedAt: spec.vetting === 'DRAFT' ? null : new Date(t - (spec.createdDaysAgo - 1) * DAY).toISOString(),
+    // Profiles still in review were submitted recently; decided ones the day after sign-up.
+    submittedAt: spec.vetting === 'DRAFT' ? null : new Date(t - (spec.vetting === 'PENDING_REVIEW' ? Math.min(spec.createdDaysAgo - 1, 2) : spec.createdDaysAgo - 1) * DAY).toISOString(),
     profileViews: spec.vetting === 'APPROVED' ? between(r, 40, 2_400) : 0,
-    stripeAccountId: spec.vetting === 'APPROVED' ? `acct_demo${spec.username}` : null,
-    payoutStatus: spec.vetting === 'APPROVED' ? 'ENABLED' : 'NOT_STARTED',
+    // Payouts must be set up before a profile can be submitted (Week 3 rule).
+    stripeAccountId: spec.vetting === 'DRAFT' ? null : `acct_demo${spec.username}`,
+    payoutStatus: spec.vetting === 'DRAFT' ? 'NOT_STARTED' : 'ENABLED',
     createdAt: created,
   });
 

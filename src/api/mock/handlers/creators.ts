@@ -9,6 +9,8 @@ import { getDb, now, type CreatorProfileRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
 
 const CURRENCY = 'USD';
+/** Suspended or banned creators disappear from search and their profile (FR-82). */
+const isActive = (userId: string) => getDb().users.find((u) => u.id === userId)?.status === 'ACTIVE';
 
 interface Facts {
   profile: CreatorProfileRow & { username: string };
@@ -92,7 +94,7 @@ export const searchCreators: Handler = ({ req }) => {
 
   const scored: Array<Facts & { score: number }> = [];
   for (const p of getDb().creatorProfiles) {
-    if (p.vettingStatus !== 'APPROVED' || !p.username) continue;
+    if (p.vettingStatus !== 'APPROVED' || !p.username || !isActive(p.userId)) continue;
     const facts = cardFor(p as CreatorProfileRow & { username: string }, q.platform);
     if (!facts || !matches(facts, q, year)) continue;
     const score = keywordScore(facts.profile, words);
@@ -128,7 +130,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
   const isOwner = !!p && viewer?.id === p.userId;
   const canPreview = isOwner || viewer?.role === 'ADMIN';
   // Unapproved profiles answer 404 to the public, as if they did not exist.
-  if (!p || !p.username || (p.vettingStatus !== 'APPROVED' && !canPreview)) fail(404, 'No creator with that username.', 'CREATOR_NOT_FOUND');
+  if (!p || !p.username || ((p.vettingStatus !== 'APPROVED' || !isActive(p.userId)) && !canPreview)) fail(404, 'No creator with that username.', 'CREATOR_NOT_FOUND');
 
   const facts = cardFor(p as CreatorProfileRow & { username: string })!;
   if (!isOwner && p.vettingStatus === 'APPROVED') p.profileViews += 1;

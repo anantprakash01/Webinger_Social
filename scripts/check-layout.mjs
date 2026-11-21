@@ -34,6 +34,16 @@ const AS_CREATOR = [
   ['creator-dashboard', '/creator/dashboard'],
   ['creator-packages', '/creator/packages'],
   ['creator-onboarding-live', '/creator/onboarding?step=profile'],
+  ['creator-payouts', '/creator/payouts'],
+];
+const AS_ADMIN = [
+  ['admin-vetting', '/admin/vetting'],
+  ['admin-disputes', '/admin/disputes'],
+  ['admin-reports', '/admin/reports'],
+  ['admin-users', '/admin/users'],
+  ['admin-fees', '/admin/fees'],
+  ['admin-audit', '/admin/audit'],
+  ['admin-orders', '/admin/orders'],
 ];
 
 const problems = [];
@@ -42,6 +52,8 @@ const browser = await chromium.launch({ channel: 'msedge' });
 async function check(page, width, name, path) {
   if (path) await page.goto(base + path, { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
+  // Screens that chain requests may still be loading; wait (briefly) for skeletons to go.
+  await page.waitForFunction(() => !document.querySelector('.skeleton'), null, { timeout: 5000 }).catch(() => {});
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   if (overflow > 0) problems.push(`${width}px ${name}: scrolls sideways by ${overflow}px`);
   if (shots) await page.screenshot({ path: `${shots}/${name}-${width}.png`, fullPage: true });
@@ -85,7 +97,48 @@ for (const width of [360, 1280]) {
   await page.waitForURL(/\/messages\/[0-9A-Z]{26}$/);
   await check(page, width, 'brand-thread');
   await check(page, width, 'brand-notifications', '/notifications');
+  // Week 6: printable receipt for a completed order, and the report dialog on a profile.
+  // The inbox may still be updating its own URL; retry if that interrupts this navigation.
+  const completed = `${base}/brand/orders?status=completed`;
+  await page.goto(completed, { waitUntil: 'networkidle' }).catch(() => page.goto(completed, { waitUntil: 'networkidle' }));
+  await page.locator('.row-link').first().click();
+  await page.waitForURL((u) => /^\/brand\/orders\/[0-9A-Z]{26}$/.test(u.pathname));
+  await page.getByRole('link', { name: /Receipt/ }).click();
+  await page.waitForURL((u) => u.pathname.startsWith('/receipts/'));
+  await check(page, width, 'brand-receipt');
+  await page.goto(`${base}/u/leomakes`, { waitUntil: 'networkidle' });
+  await page.locator('.report-link').first().click();
+  await check(page, width, 'report-dialog');
   await ctx.close();
+
+  // Week 6: the admin console, including a dispute and the read-only "view as" banner.
+  const a = await browser.newContext({ viewport: { width, height: 800 } });
+  const ap = await a.newPage();
+  ap.on('pageerror', (e) => problems.push(`${width}px page error: ${e.message}`));
+  ap.on('console', (m) => m.type() === 'error' && problems.push(`${width}px console error: ${m.text()}`));
+  await ap.goto(`${base}/login`, { waitUntil: 'networkidle' });
+  await ap.getByLabel('Email').fill('admin@demo.test');
+  await ap.getByLabel('Password', { exact: true }).fill('demo1234');
+  await ap.getByRole('button', { name: 'Log in' }).click();
+  await ap.waitForURL((u) => u.pathname.startsWith('/admin/'));
+  for (const [name, path] of AS_ADMIN) await check(ap, width, name, path);
+  await ap.goto(`${base}/admin/disputes`, { waitUntil: 'networkidle' });
+  await ap.locator('.row-link').first().click();
+  await ap.waitForURL((u) => u.pathname.startsWith('/admin/disputes/'));
+  await check(ap, width, 'admin-dispute-detail');
+  await ap.goto(`${base}/admin/orders`, { waitUntil: 'networkidle' });
+  await ap.locator('.row-link').first().click();
+  await ap.waitForURL((u) => u.pathname.startsWith('/admin/orders/'));
+  await check(ap, width, 'admin-order-detail');
+  await ap.goto(`${base}/admin/users?q=brand%40demo.test`, { waitUntil: 'networkidle' });
+  await ap.getByRole('button', { name: /^Manage / }).first().click();
+  await check(ap, width, 'admin-user-drawer');
+  await ap.getByRole('button', { name: /View as/ }).click();
+  await ap.waitForURL((u) => u.pathname === '/brand/dashboard');
+  await check(ap, width, 'admin-viewing-as-brand');
+  await ap.getByRole('button', { name: 'Stop viewing' }).click();
+  await ap.waitForURL((u) => u.pathname === '/admin/users');
+  await a.close();
 
   for (const [email, pages] of [['newcreator@demo.test', AS_DRAFT_CREATOR], ['creator@demo.test', AS_CREATOR]]) {
     const c = await browser.newContext({ viewport: { width, height: 800 } });

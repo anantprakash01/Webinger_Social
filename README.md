@@ -16,11 +16,14 @@ npm run dev                  # http://localhost:5173
 | --- | --- |
 | `npm run dev` | Dev server. `/api` is proxied to `localhost:8080` for http mode. |
 | `npm run build` | Typecheck + production build (with PWA service worker). |
-| `npm test` | Vitest: fee calculator, ledger, order state machine, auth mock, routing. |
+| `npm test` | Vitest: fee calculator, ledger, order state machine, every mock API module, and page-level UI tests. |
+| `npm run test:e2e` | Playwright smoke test in Microsoft Edge (starts its own dev server): sign up → onboard → admin approves → brand buys → creator delivers → brand approves → creator balance updated. |
 | `npm run lint` | ESLint (TypeScript + React hooks). |
 | `npm run gen:api` | Regenerate `src/types/openapi.ts` from `docs/api/openapi.yaml`. |
+| `npm run check:contract` | Fails if `src/types/openapi.ts` no longer matches the frozen contract (v1.0.0). |
 | `npm run gen:art` | Regenerate the abstract demo images in `public/demo/`. |
 | `npm run check:layout` | With `npm run dev` running: checks key screens at 360 px and 1280 px in Microsoft Edge (no sideways scroll, no console errors). Pass a base URL and a folder to also save screenshots. |
+| `npm run check:a11y` | With `npm run dev` running: axe-core WCAG 2.1 A/AA check of public pages, auth screens and checkout at 360 px and 1280 px. |
 
 ## Environment
 
@@ -58,6 +61,14 @@ applicant (**Accept and pay**). As a creator, browse and apply at `/creator/camp
 (**Message** on the order page); emails and phone numbers are hidden until the order is completed. The bell
 and the badges show unread notifications and messages; they update live (polling in mock mode, STOMP later).
 
+Admin console (Week 6): log in as `admin@demo.test`. **Vetting** approves or rejects creators in review,
+**Disputes** opens the dispute console (order, deliveries, brief, chat) to release, fully refund or partly refund,
+**Reports** handles reports sent with the **Report** link on profiles and chat messages, **Users** suspends,
+bans or opens a read-only **View as** session, **Fees & plans** changes the fees for new orders, **Audit log**
+lists every admin action and money movement, and **Orders** browses every order with Simulate time and Reset.
+Creators see their balance, earnings and weekly bank payouts at `/creator/payouts`; every charged order has a
+printable **Receipt**.
+
 "Continue with Google" signs in as an invented Google identity. Emails (verification, password reset)
 appear in a **demo inbox** box on the relevant screens. The demo bar inside the app has **View as** and
 **Reset demo data**. Demo state lives in `sessionStorage`, so it survives a refresh but not a new tab.
@@ -65,21 +76,25 @@ appear in a **demo inbox** box on the relevant screens. The demo bar inside the 
 ## Layout
 
 ```
-docs/api/openapi.yaml     API contract (single source of truth)
-src/app/                  routes, auth context, guards, layouts (AppShell, PublicLayout), placeholder pages
+docs/api/openapi.yaml     API contract (single source of truth, frozen at v1.0.0)
+docs/backend-handover.md  what the Spring Boot API must do, module by module
+e2e/                      Playwright smoke test
+scripts/                  layout, accessibility and contract checks; demo art generator
+src/app/                  routes, auth context, guards, layouts (AppShell, PublicLayout), not-found page
 src/features/auth/        schemas (Zod), hooks (TanStack Query), components, pages
 src/features/landing/     landing page
 src/features/search/      search page, filters, creator card, URL <-> query mapping
 src/features/creators/    public creator profile, creator workspace (wizard, packages, dashboard)
 src/features/brands/      brand company profile
 src/features/files/       image uploads (presign) and the image picker
-src/features/payouts/     payout onboarding (Stripe Connect, mocked)
+src/features/payouts/     payout onboarding (Stripe Connect, mocked), balance and payout history
+src/features/admin/       admin console, report dialog
 src/api/client.ts         the only module that talks to a backend (mock | http), 401 → refresh → retry
 src/api/mock/             db, seed, fees, ledger, orderMachine, server (router) and handlers
 src/components/ui/        Webinger base components
 src/lib/                  money formatting, catalog (platforms, niches, locations), form error mapping
 src/styles/               Webinger tokens and styles; index.ts imports them in order
-src/features/orders/      checkout, order lists, order detail, reviews
+src/features/orders/      checkout, order lists, order detail, reviews, receipts
 src/features/campaigns/   campaigns, applications, application checkout
 src/features/chat/        messages, notifications, contact masking
 src/lib/realtime.ts       STOMP client (http) or poller (mock) behind one subscribe() API

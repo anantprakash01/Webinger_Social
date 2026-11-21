@@ -18,7 +18,6 @@ import { NotFound } from './pages/Placeholder';
 const area = <M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M & string) =>
   lazy(() => load().then((m) => ({ default: m[name] as React.ComponentType })));
 
-const creator = () => import('./pages/creator');
 const admin = () => import('./pages/admin');
 
 const LandingPage = area(() => import('@/features/landing/pages/LandingPage'), 'LandingPage');
@@ -42,10 +41,13 @@ const CreatorCampaigns = area(creatorCampaigns, 'CreatorCampaignsPage');
 const CreatorCampaignDetail = area(creatorCampaigns, 'CreatorCampaignDetailPage');
 const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
 const MockStripeConnectPage = area(() => import('@/features/payouts/pages/MockStripeConnectPage'), 'MockStripeConnectPage');
-const CreatorPayouts = area(creator, 'CreatorPayouts');
+const CreatorPayouts = area(() => import('@/features/payouts/pages/PayoutsPage'), 'PayoutsPage');
+const ReceiptPage = area(() => import('@/features/orders/pages/ReceiptPage'), 'ReceiptPage');
 
 const AdminVetting = area(admin, 'AdminVetting');
 const AdminDisputes = area(admin, 'AdminDisputes');
+const AdminDisputeDetail = area(admin, 'AdminDisputeDetail');
+const AdminReports = area(admin, 'AdminReports');
 const AdminUsers = area(admin, 'AdminUsers');
 const AdminFees = area(admin, 'AdminFees');
 const AdminAudit = area(admin, 'AdminAudit');
@@ -107,10 +109,13 @@ export function AppRoutes() {
             <Route index element={<Navigate to="vetting" replace />} />
             <Route path="vetting" element={<AdminVetting />} />
             <Route path="disputes" element={<AdminDisputes />} />
+            <Route path="disputes/:id" element={<AdminDisputeDetail />} />
+            <Route path="reports" element={<AdminReports />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="fees" element={<AdminFees />} />
             <Route path="audit" element={<AdminAudit />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
           </Route>
         </Route>
 
@@ -119,6 +124,11 @@ export function AppRoutes() {
           <Route path="messages/:conversationId" element={<MessagesPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
+      </Route>
+
+      {/* Printable receipts (FR-65) render without the app shell. */}
+      <Route element={<RequireRole />}>
+        <Route path="receipts/:id" element={<ReceiptPage />} />
       </Route>
 
       {/* Prototype only: stand-in for the Stripe-hosted onboarding page (FR-62). */}

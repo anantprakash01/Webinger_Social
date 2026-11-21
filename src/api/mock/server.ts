@@ -9,6 +9,7 @@ import { HttpError, type Handler, type MockRequest, type MockResponse } from './
 import { findUnbalancedTxns } from './ledger';
 import { TransitionError } from './orderMachine';
 import * as auth from './handlers/auth';
+import * as admin from './handlers/admin';
 import * as brands from './handlers/brands';
 import * as campaigns from './handlers/campaigns';
 import * as chat from './handlers/chat';
@@ -19,7 +20,7 @@ import * as orders from './handlers/orders';
 import * as payouts from './handlers/payouts';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
-import { authenticate } from './handlers/session';
+import { authenticate, impersonatorOf } from './handlers/session';
 
 interface Route {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -90,6 +91,24 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/notifications', auth: true, handler: chat.listNotifications },
   { method: 'POST', path: '/notifications/read', auth: true, handler: chat.markNotificationsRead },
   { method: 'GET', path: '/brands/me/stats', auth: true, handler: brands.getMyBrandStats },
+  // Admin (Week 6)
+  { method: 'GET', path: '/admin/summary', auth: true, handler: admin.getAdminSummary },
+  { method: 'GET', path: '/admin/vetting', auth: true, handler: admin.listVetting },
+  { method: 'POST', path: '/admin/creators/:id/approve', auth: true, handler: admin.approveCreator },
+  { method: 'POST', path: '/admin/creators/:id/reject', auth: true, handler: admin.rejectCreator },
+  { method: 'GET', path: '/admin/disputes', auth: true, handler: admin.listDisputes },
+  { method: 'POST', path: '/admin/disputes/:id/resolve', auth: true, handler: admin.resolveDispute, idempotent: true },
+  { method: 'GET', path: '/admin/users', auth: true, handler: admin.listUsers },
+  { method: 'PATCH', path: '/admin/users/:id', auth: true, handler: admin.updateUserStatus },
+  { method: 'POST', path: '/admin/users/:id/impersonate', auth: true, handler: admin.impersonateUser },
+  { method: 'GET', path: '/admin/fees', auth: true, handler: admin.getFees },
+  { method: 'PUT', path: '/admin/fees', auth: true, handler: admin.updateFees },
+  { method: 'GET', path: '/fees', auth: false, handler: admin.getCurrentFees },
+  { method: 'GET', path: '/admin/audit-logs', auth: true, handler: admin.listAuditLogs },
+  { method: 'POST', path: '/reports', auth: true, handler: admin.createReport },
+  { method: 'GET', path: '/admin/reports', auth: true, handler: admin.listReports },
+  { method: 'POST', path: '/admin/reports/:id/resolve', auth: true, handler: admin.resolveReport },
+  { method: 'GET', path: '/payouts/balance', auth: true, handler: payouts.getPayoutBalance },
   { method: 'GET', path: '/brands/me/profile', auth: true, handler: brands.getMyBrandProfile },
   { method: 'PUT', path: '/brands/me/profile', auth: true, handler: brands.updateMyBrandProfile },
   { method: 'POST', path: '/files/presign', auth: true, handler: files.presignUpload },
@@ -134,6 +153,11 @@ export function handle(req: MockRequest): MockResponse {
     try {
       const wantsUser = route.auth === true || (route.auth === 'optional' && !!req.headers.authorization);
       const user = wantsUser ? authenticate(req.headers.authorization) : (undefined as never);
+      const impersonatedBy = wantsUser ? impersonatorOf(req.headers.authorization) : null;
+      // FR-82: impersonation is read-only. Signing out is the one write it may do.
+      if (impersonatedBy && req.method !== 'GET' && path !== '/auth/logout') {
+        return problem(403, 'Forbidden', 'This is a read-only view. Stop viewing as this user to make changes.', 'READ_ONLY_IMPERSONATION');
+      }
       const key = route.idempotent && user ? req.headers['idempotency-key'] : undefined;
       if (key) {
         const seen = getDb().idempotency.find((r) => r.key === key && r.userId === user.id);
@@ -144,7 +168,7 @@ export function handle(req: MockRequest): MockResponse {
           return { status: seen.status, body: structuredClone(seen.body) };
         }
       }
-      const res = route.handler({ req, params, user });
+      const res = route.handler({ req, params, user, impersonatedBy });
       if (key && res.status >= 200 && res.status < 300) {
         getDb().idempotency.push({ key, userId: user.id, method: req.method, path, status: res.status, body: structuredClone(res.body), createdAt: new Date().toISOString() });
       }

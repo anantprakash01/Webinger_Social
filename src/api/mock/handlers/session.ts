@@ -8,9 +8,10 @@ import { fail, type MockResponse } from '../http';
 export const ACCESS_TTL_MS = 15 * 60_000;
 export const REFRESH_TTL_MS = 7 * 86_400_000;
 
-export function toMe(u: UserRow): Me {
+export function toMe(u: UserRow, impersonatorName: string | null = null): Me {
   const db = getDb();
   const me: Me = {
+    impersonatedBy: impersonatorName,
     id: u.id,
     email: u.email,
     name: u.name,
@@ -31,10 +32,16 @@ export function toMe(u: UserRow): Me {
 }
 
 /** Signs a user in: new access token, and a refresh token in the given family (new family on sign-in). */
-export function issueSession(user: UserRow, status = 200, familyId = randomToken(8)): MockResponse {
+export function issueSession(user: UserRow, status = 200, familyId = randomToken(8), opts: { impersonator?: UserRow } = {}): MockResponse {
   const db = getDb();
   const t = now().getTime();
   const accessToken = `mock-at-${randomToken()}`;
+  if (opts.impersonator) {
+    // FR-82: short-lived, read-only and not refreshable; the admin's own refresh cookie is left alone.
+    db.accessTokens.push({ token: accessToken, userId: user.id, expiresAt: new Date(t + ACCESS_TTL_MS).toISOString(), impersonatorId: opts.impersonator.id });
+    const body: AuthSession = { accessToken, expiresIn: ACCESS_TTL_MS / 1000, user: toMe(user, opts.impersonator.name) };
+    return { status, body };
+  }
   const refreshToken = `mock-rt-${randomToken()}`;
   db.accessTokens.push({ token: accessToken, userId: user.id, expiresAt: new Date(t + ACCESS_TTL_MS).toISOString() });
   db.refreshTokens.push({
@@ -61,6 +68,14 @@ export function assertActive(user: UserRow) {
     revokeAllSessions(user.id);
     fail(401, user.status === 'BANNED' ? 'This account has been closed.' : 'This account is suspended. Contact support.', 'ACCOUNT_SUSPENDED');
   }
+}
+
+/** The impersonating admin's name for this token, if it is a read-only impersonation session. */
+export function impersonatorOf(authorization: string | undefined): string | null {
+  const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+  const row = token ? getDb().accessTokens.find((a) => a.token === token) : undefined;
+  if (!row?.impersonatorId) return null;
+  return getDb().users.find((u) => u.id === row.impersonatorId)?.name ?? 'Admin';
 }
 
 /** Resolves the bearer token to a user, like the backend's JWT filter. */

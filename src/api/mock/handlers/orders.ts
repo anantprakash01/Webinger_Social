@@ -15,6 +15,8 @@ import {
 } from '@/features/orders/schemas';
 import type { OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
 import { orderEventNotifications } from '../notify';
+import { auditLedger } from '../audit';
+import { runPayouts } from '../payoutsCore';
 import { calculateFees } from '../fees';
 import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type ReviewRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
@@ -58,7 +60,11 @@ function approvedCreator(username: string): CreatorProfileRow {
   return p;
 }
 
-const feeConfig = () => getDb().feeConfigs[0];
+/** The newest fee config applies to new orders (FR-83); it is copied onto the order. */
+const feeConfig = () => {
+  const rows = getDb().feeConfigs;
+  return rows[rows.length - 1];
+};
 
 /** Runs one transition and stores everything it produced. */
 export function applyTransition(order: MockOrder, e: OrderEventInput, actor: Actor): MockOrder {
@@ -67,6 +73,7 @@ export function applyTransition(order: MockOrder, e: OrderEventInput, actor: Act
   db.orders[db.orders.indexOf(order)] = res.order;
   db.orderEvents.push(res.event);
   db.ledgerEntries.push(...res.ledger);
+  auditLedger(res.ledger, actor.kind === 'USER' ? (db.users.find((u) => u.id === actor.userId) ?? null) : null);
   if (e.type === 'DISPUTE' && actor.kind === 'USER') {
     db.disputes.push({ id: ulid(now().getTime()), orderId: order.id, openedBy: actor.userId, reason: e.note ?? '', status: 'OPEN', resolution: null, refundCents: null, resolvedBy: null, createdAt: now().toISOString(), resolvedAt: null });
   }
@@ -102,6 +109,7 @@ export function runScheduledJobs(): { expired: number; autoApproved: number } {
     if (due === 'EXPIRE') counts.expired += 1;
     else counts.autoApproved += 1;
   }
+  runPayouts();
   return counts;
 }
 
@@ -146,6 +154,8 @@ function toSummary(o: MockOrder, user: UserRow): OrderSummary {
     title: info.title,
     platform: info.platform,
     counterparty: user.role === 'CREATOR' ? brandParty(o.brandUserId) : creatorParty(o.creatorUserId),
+    brand: brandParty(o.brandUserId),
+    creator: creatorParty(o.creatorUserId),
     money: {
       currency: o.currency,
       priceCents: o.priceCents,
