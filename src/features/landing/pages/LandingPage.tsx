@@ -3,7 +3,7 @@
  */
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LuArrowRight, LuSearch, LuShieldCheck } from 'react-icons/lu';
+import { LuArrowRight, LuBadgeCheck, LuMessageSquare, LuRotateCcw, LuSearch, LuShieldCheck } from 'react-icons/lu';
 import { PlatformIcon } from '@/components/creator';
 import { Button } from '@/components/ui';
 import { NICHES, PLATFORMS } from '@/lib/catalog';
@@ -25,7 +25,10 @@ export function LandingPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   // "relevance" without a keyword ranks by rating weighted by review count, so one 5★ review doesn't top the list.
-  const featured = useCreatorSearch({ sort: 'relevance', size: 8, page: 0 });
+  // 11 = 3 for the hero cards + 8 different ones for the featured grid (no repeats; UX pass, item 18).
+  const featured = useCreatorSearch({ sort: 'relevance', size: 11, page: 0 });
+  const heroPicks = pickHero(featured.data?.content);
+  const gridCreators = (featured.data?.content ?? []).filter((c) => !heroPicks.includes(c)).slice(0, 8);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -57,7 +60,7 @@ export function LandingPage() {
             ))}
           </div>
         </div>
-        {!featured.isError && <HeroVisual creators={featured.data?.content} />}
+        {!featured.isError && <HeroVisual picks={featured.data ? heroPicks : undefined} />}
       </section>
 
       <section className="section" aria-labelledby="platforms-h">
@@ -90,7 +93,7 @@ export function LandingPage() {
           <CreatorGrid featured busy={featured.isPending}>
             {featured.isPending
               ? Array.from({ length: 4 }, (_, i) => <CreatorCardSkeleton key={i} />)
-              : featured.data.content.map((c) => <CreatorCard key={c.username} creator={c} />)}
+              : gridCreators.map((c) => <CreatorCard key={c.username} creator={c} />)}
           </CreatorGrid>
         )}
       </section>
@@ -121,6 +124,8 @@ export function LandingPage() {
         </div>
       </section>
 
+      <Trust />
+
       <section className="cta-band" aria-labelledby="cta-h">
         <div>
           <h2 id="cta-h">Are you a creator?</h2>
@@ -139,9 +144,13 @@ export function LandingPage() {
  * the product's main promise. Uses the same query as the featured section, so no extra request.
  * The cards are real links to the profiles; only the shapes and the badge are decorative.
  */
-function HeroVisual({ creators }: { creators: CreatorCardType[] | undefined }) {
-  // Prefer creators with a photo; they make a better first impression.
-  const picks = creators ? [...creators.filter((c) => c.photoUrl), ...creators.filter((c) => !c.photoUrl)].slice(0, 3) : [];
+/** Three creators for the hero; prefer ones with a photo, they make a better first impression. */
+function pickHero(creators: CreatorCardType[] | undefined): CreatorCardType[] {
+  return creators ? [...creators.filter((c) => c.photoUrl), ...creators.filter((c) => !c.photoUrl)].slice(0, 3) : [];
+}
+
+function HeroVisual({ picks: given }: { picks: CreatorCardType[] | undefined }) {
+  const picks = given ?? [];
   const front = picks[1] ?? picks[0];
   return (
     <aside className="hero__visual" aria-label="Creators you can book">
@@ -188,5 +197,55 @@ function HowColumn({ title, steps, cta }: { title: string; steps: Array<[string,
         {cta.label}
       </Link>
     </div>
+  );
+}
+
+const FAQ: Array<[string, string]> = [
+  ['When is my card charged?', 'Your card is authorised when you order and charged only when the creator accepts, within 72 hours. If they decline or don’t answer, the hold is released and you pay nothing.'],
+  ['What if I’m not happy with the work?', 'You can ask for up to 2 revisions. If it still isn’t right, open a dispute within 72 hours of delivery: the money stays in escrow while our team reviews the brief, the chat and the delivery, and can refund you in full or in part.'],
+  ['What do I pay on top of the price?', 'A service fee shown at checkout before you pay. There are no subscriptions or hidden costs.'],
+  ['How are creators vetted?', 'Our team checks every profile and its linked social accounts before it appears in search. Verified accounts carry a badge.'],
+  ['Can I talk to the creator first?', 'Each order has its own chat. Contact details stay hidden until the order is completed, so payments stay protected on the platform.'],
+];
+
+/** Trust and FAQ (UX pass, item 18): how escrow protects the brand, in plain words. */
+function Trust() {
+  return (
+    <section className="section" aria-labelledby="trust-h">
+      <h2 id="trust-h" className="section__title">
+        Your money is protected
+      </h2>
+      <div className="trust">
+        <div className="trust__item">
+          <LuShieldCheck aria-hidden />
+          <h3>Held in escrow</h3>
+          <p className="small muted">We hold the payment until you approve the delivery. The creator knows the money is there; you know it isn’t released early.</p>
+        </div>
+        <div className="trust__item">
+          <LuBadgeCheck aria-hidden />
+          <h3>Vetted creators</h3>
+          <p className="small muted">Every profile and social account is checked by our team before brands can book it.</p>
+        </div>
+        <div className="trust__item">
+          <LuRotateCcw aria-hidden />
+          <h3>Revisions and refunds</h3>
+          <p className="small muted">Up to 2 revisions per order, and a dispute process with full or partial refunds if something goes wrong.</p>
+        </div>
+        <div className="trust__item">
+          <LuMessageSquare aria-hidden />
+          <h3>Everything in one place</h3>
+          <p className="small muted">Brief, chat, deliveries and receipts live with the order, so nothing gets lost in email.</p>
+        </div>
+      </div>
+      <div className="faq">
+        <h3 className="faq__title">Questions brands ask</h3>
+        {FAQ.map(([q, a]) => (
+          <details key={q} className="faq__item">
+            <summary>{q}</summary>
+            <p className="small">{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }

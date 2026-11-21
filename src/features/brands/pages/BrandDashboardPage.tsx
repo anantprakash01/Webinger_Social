@@ -1,11 +1,14 @@
 /** /brand/dashboard (FR-71): spend, orders by status, delivered post links, campaigns. */
 import { Link } from 'react-router-dom';
-import { LuExternalLink, LuSearch } from 'react-icons/lu';
+import { LuArrowRight, LuExternalLink, LuSearch } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
 import { orderStatusLabel } from '@/components/status';
 import { Badge, Card, EmptyState, ErrorState, PageHeader, PageSkeleton, Stat } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import type { OrderStatus } from '@/api/mock/orderMachine';
+import { ActionQueue } from '@/features/orders/components/ActionQueue';
+import { formatWhen } from '@/lib/dates';
+import { SpendChart } from '../components/SpendChart';
 import { useBrandStats } from '../hooks';
 
 const ROWS: Array<{ status: OrderStatus; filter: string }> = [
@@ -55,6 +58,8 @@ export function BrandDashboardPage() {
         </div>
       )}
 
+      <ActionQueue role="BRAND" base="/brand/orders" />
+
       <div className="grid grid--stats">
         <Stat label="Spent" value={formatMoney(s.spentCents, s.currency)} hint="Charged, minus refunds" accent />
         <Stat label="In escrow" value={formatMoney(s.inEscrowCents, s.currency)} hint="Released when you approve" />
@@ -71,6 +76,9 @@ export function BrandDashboardPage() {
       </div>
 
       <div className="grid grid--2">
+        <Card title="Spend per month">
+          <SpendChart months={s.spendByMonth} currency={s.currency} />
+        </Card>
         <Card title="Orders by status" action={<Link to="/brand/orders" className="link small">All orders</Link>}>
           {total === 0 ? (
             <EmptyState title="No orders yet">
@@ -95,7 +103,9 @@ export function BrandDashboardPage() {
             </ul>
           )}
         </Card>
+      </div>
 
+      <div className="grid">
         <Card title="Delivered posts">
           {s.deliveredPosts.length === 0 ? (
             <EmptyState title="No posts yet">Links to live posts appear here as creators deliver.</EmptyState>
@@ -109,11 +119,12 @@ export function BrandDashboardPage() {
                       <span className="sr-only"> (opens in a new tab)</span>
                     </a>
                     <div className="list__meta">
-                      {p.creatorName} · {new Date(p.deliveredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {p.creatorName} · {formatWhen(p.deliveredAt)}
                     </div>
                   </div>
-                  <Link to={`/brand/orders/${p.orderId}`} className="btn btn--ghost btn--sm">
-                    Order
+                  <Link to={`/brand/orders/${p.orderId}`} className="link small">
+                    View order <LuArrowRight aria-hidden style={{ verticalAlign: 'middle' }} />
+                    <span className="sr-only"> {p.orderTitle}</span>
                   </Link>
                 </li>
               ))}

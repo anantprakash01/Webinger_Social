@@ -1,4 +1,5 @@
 /** Admin queues: vetting (FR-80), disputes (FR-81), reports (FR-85). */
+import { TabRow } from '@/components/feedback';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { LuArrowLeft, LuExternalLink } from 'react-icons/lu';
@@ -16,13 +17,13 @@ import { useDisputes, useReports, useResolveDispute, useResolveReport, useVettin
 
 function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
   return (
-    <div className="platform-tabs" role="group" aria-label={label}>
+    <TabRow label={label}>
       {options.map((o) => (
         <button key={o.value} type="button" className={cx('platform-tab', value === o.value && 'is-on')} aria-pressed={value === o.value} onClick={() => onChange(o.value)}>
           {o.label}
         </button>
       ))}
-    </div>
+    </TabRow>
   );
 }
 
@@ -70,7 +71,16 @@ function VettingCard({ c }: { c: VettingItem }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const pending = c.vettingStatus === 'PENDING_REVIEW';
+  // After a decision the card leaves the queue; move focus to the next one so reviewers can keep going.
+  const focusNext = () => {
+    const next = document.getElementById(`vet-${c.creatorId}`)?.nextElementSibling as HTMLElement | null;
+    if (next) setTimeout(() => {
+      next.focus();
+      next.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    }, 50);
+  };
   return (
+    <div className="vet-card" id={`vet-${c.creatorId}`} tabIndex={-1} aria-label={`${c.displayName}, ${c.vettingStatus === 'PENDING_REVIEW' ? 'waiting for review' : c.vettingStatus.toLowerCase()}`}>
     <Card>
       <div className="vet">
         <div className="vet__head">
@@ -122,7 +132,10 @@ function VettingCard({ c }: { c: VettingItem }) {
           )}
           {pending && (
             <>
-              <Button size="sm" loading={decide.isPending && decide.variables?.decision === 'APPROVE'} onClick={() => decide.mutate({ id: c.creatorId, decision: 'APPROVE' })}>
+              <Button size="sm" loading={decide.isPending && decide.variables?.decision === 'APPROVE'} onClick={() => {
+                  focusNext();
+                  decide.mutate({ id: c.creatorId, decision: 'APPROVE' });
+                }}>
                 Approve
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setRejecting(true)}>
@@ -148,13 +161,24 @@ function VettingCard({ c }: { c: VettingItem }) {
           <Button
             disabled={reason.trim().length < 10}
             loading={decide.isPending}
-            onClick={() => decide.mutate({ id: c.creatorId, decision: 'REJECT', reason: reason.trim() }, { onSuccess: () => setRejecting(false) })}
+            onClick={() =>
+              decide.mutate(
+                { id: c.creatorId, decision: 'REJECT', reason: reason.trim() },
+                {
+                  onSuccess: () => {
+                    setRejecting(false);
+                    focusNext();
+                  },
+                },
+              )
+            }
           >
             Reject with this note
           </Button>
         </div>
       </Drawer>
     </Card>
+    </div>
   );
 }
 

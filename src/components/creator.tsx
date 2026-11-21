@@ -22,6 +22,14 @@ export function PlatformLabel({ platform }: { platform: Platform }) {
 }
 
 /** Deterministic hue from a string, for photo fallbacks. */
+const initialsOf = (name: string) =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join('');
+
 function hueOf(s: string) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -29,9 +37,28 @@ function hueOf(s: string) {
 }
 
 /** Profile photo, or initials on a colour derived from the username when there is none. */
-export function CreatorPhoto({ name, url, seed, size, className }: { name: string; url: string | null; seed: string; size?: number; className?: string }) {
+export function CreatorPhoto({ name, url, seed, size, className, pattern }: { name: string; url: string | null; seed: string; size?: number; className?: string; pattern?: boolean }) {
   const style = size ? { width: size, height: size } : undefined;
   if (url) return <img src={url} alt="" className={cx('creator-photo', className)} style={style} loading="lazy" decoding="async" />;
+  // Large placeholders (search cards) get a soft generated pattern in the style of the demo art,
+  // with small initials, instead of big letters (UX pass, item 10).
+  if (pattern) {
+    const h = hueOf(seed);
+    const x = 20 + (h % 50);
+    const y = 25 + ((h >> 3) % 45);
+    return (
+      <span
+        className={cx('creator-photo creator-photo--pattern', className)}
+        style={{
+          ...style,
+          background: `radial-gradient(circle at ${x}% ${y}%, hsl(${(h + 30) % 360} 55% 72%) 0 18%, transparent 18.5%), radial-gradient(circle at ${100 - y}% ${100 - x / 2}%, hsl(${(h + 200) % 360} 30% 55% / 0.55) 0 26%, transparent 26.5%), linear-gradient(160deg, hsl(${h} 40% 90%), hsl(${(h + 25) % 360} 45% 78%))`,
+        }}
+        aria-hidden
+      >
+        <span className="creator-photo__initials">{initialsOf(name)}</span>
+      </span>
+    );
+  }
   const initials = name
     .split(' ')
     .filter(Boolean)

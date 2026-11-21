@@ -1,20 +1,24 @@
 /**
  * /u/:username — public creator profile (FR-15). Works logged out; buying asks to log in as a brand.
  */
+import { formatWhen } from '@/lib/dates';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LuCalendar, LuCheck, LuClock, LuExternalLink, LuEye, LuLanguages, LuMapPin, LuPlay, LuSend, LuShieldCheck } from 'react-icons/lu';
+import { StickyBar } from '@/components/StickyBar';
+import { TabRow } from '@/components/feedback';
+import { LuBadgeCheck, LuCalendar, LuCheck, LuClock, LuExternalLink, LuEye, LuLanguages, LuMapPin, LuPlay, LuSend, LuShieldCheck, LuTimer } from 'react-icons/lu';
 import { CreatorPhoto, PlatformIcon, PlatformLabel, Rating, Stars, VerifiedBadge, placeLabel } from '@/components/creator';
 import { VettingBadge } from '@/components/status';
 import { useAuth } from '@/app/AuthContext';
 import { ReportButton } from '@/features/admin/components/ReportButton';
-import { Badge, Button, Card, EmptyState, ErrorState } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, ErrorState, cx } from '@/components/ui';
 import { formatCompact, LANGUAGE_LABEL, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { ApiError, type CreatorProfile, type Package, type PortfolioItem, type Review } from '@/types';
 import { useCreatorProfile, usePurchaseActions } from '../hooks';
 
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const REVIEWS_SHOWN = 5;
 
 export function CreatorProfilePage() {
   const { username = '' } = useParams();
@@ -52,6 +56,11 @@ function Profile({ p }: { p: CreatorProfile }) {
   // FR-85: any signed-in brand or other creator can report a profile.
   const canReport = !!user && user.role !== 'ADMIN' && user.creator?.username !== p.username;
   const place = placeLabel(p.city, p.country);
+  const packagesRef = useRef<HTMLElement>(null);
+  const platforms = [...new Set(p.packages.map((k) => k.platform))];
+  const [platform, setPlatform] = useState<string>('ALL');
+  const shownPackages = platform === 'ALL' ? p.packages : p.packages.filter((k) => k.platform === platform);
+  const cheapest = p.packages[0];
 
   return (
     <div className="profile">
@@ -90,6 +99,16 @@ function Profile({ p }: { p: CreatorProfile }) {
               <span>
                 <LuCalendar aria-hidden /> Member since {monthYear(p.memberSince)}
               </span>
+              {p.completedOrders > 0 && (
+                <span>
+                  <LuBadgeCheck aria-hidden /> {p.completedOrders} order{p.completedOrders === 1 ? '' : 's'} completed
+                </span>
+              )}
+              {p.typicalAcceptHours !== null && (
+                <span>
+                  <LuTimer aria-hidden /> Usually accepts within {p.typicalAcceptHours <= 24 ? `${p.typicalAcceptHours} h` : `${Math.ceil(p.typicalAcceptHours / 24)} days`}
+                </span>
+              )}
             </div>
             <div className="row" style={{ flexWrap: 'wrap', marginTop: 8 }}>
               {p.niches.map((n) => (
@@ -100,17 +119,11 @@ function Profile({ p }: { p: CreatorProfile }) {
               <Rating avg={p.ratingAvg} count={p.ratingCount} />
             </div>
           </div>
-          <div className="profile__cta">
-            <Button
-              variant="secondary"
-              disabled={!actions.canBuy}
-              title={actions.reason ?? undefined}
-              onClick={actions.startOffer}
-            >
-              <LuSend aria-hidden /> Send custom offer
-            </Button>
-            {canReport && <ReportButton targetType="CREATOR" targetId={p.username} what="this profile" />}
-          </div>
+          {canReport && (
+            <div className="profile__cta">
+              <ReportButton targetType="CREATOR" targetId={p.username} what="this profile" />
+            </div>
+          )}
         </header>
 
         <div className="profile__grid">
@@ -121,21 +134,37 @@ function Profile({ p }: { p: CreatorProfile }) {
               </Card>
             )}
 
-            <section aria-labelledby="packages-h" className="profile__section">
+            <section aria-labelledby="packages-h" className="profile__section" ref={packagesRef}>
               <div className="section-head">
                 <h2 id="packages-h">Packages</h2>
-                <span className="small muted">
-                  <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Paid into escrow, released when you approve
-                </span>
+                <Button variant="secondary" size="sm" disabled={!actions.canBuy} onClick={actions.startOffer}>
+                  <LuSend aria-hidden /> Send custom offer
+                </Button>
               </div>
-              {actions.reason && <p className="small muted">{actions.reason}</p>}
+              <p className="small muted" style={{ margin: 0 }}>
+                <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Paid into escrow, released when you approve. Need something else? Send a custom offer with your own deliverables and price.
+              </p>
+              {actions.reason && (
+                <div className="note note--info small" role="note">
+                  {actions.reason} Buying and custom offers are turned off for this account.
+                </div>
+              )}
+              {platforms.length > 1 && p.packages.length >= 4 && (
+                <TabRow label="Filter packages by platform">
+                  {['ALL', ...platforms].map((pl) => (
+                    <button key={pl} type="button" className={cx('platform-tab', platform === pl && 'is-on')} aria-pressed={platform === pl} onClick={() => setPlatform(pl)}>
+                      {pl === 'ALL' ? `All (${p.packages.length})` : PLATFORM_LABEL[pl as keyof typeof PLATFORM_LABEL]}
+                    </button>
+                  ))}
+                </TabRow>
+              )}
               {p.packages.length === 0 ? (
                 <Card>
                   <EmptyState title="No packages yet">Send a custom offer to work with {p.displayName.split(' ')[0]}.</EmptyState>
                 </Card>
               ) : (
                 <div className="packages">
-                  {p.packages.map((k) => (
+                  {shownPackages.map((k) => (
                     <PackageCard key={k.id} pkg={k} canBuy={actions.canBuy} onBuy={() => actions.buy(k.id)} />
                   ))}
                 </div>
@@ -198,6 +227,17 @@ function Profile({ p }: { p: CreatorProfile }) {
         </div>
       </div>
 
+      {actions.canBuy && cheapest && (
+        <StickyBar label="Book this creator" watch={packagesRef} inShell={false}>
+          <div className="sticky-bar__text">
+            <span className="small muted">Packages from</span>
+            <strong>{formatMoney(cheapest.priceCents, cheapest.currency)}</strong>
+          </div>
+          <Button size="sm" onClick={() => packagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+            See packages
+          </Button>
+        </StickyBar>
+      )}
     </div>
   );
 }
@@ -256,7 +296,16 @@ function PortfolioGrid({ items, name }: { items: PortfolioItem[]; name: string }
   );
 }
 
+const REVIEW_FILTERS = [
+  { key: 'all', label: 'All', test: () => true },
+  { key: '5', label: '5 ★', test: (r: Review) => r.rating === 5 },
+  { key: '4', label: '4 ★', test: (r: Review) => r.rating === 4 },
+  { key: 'low', label: '3 ★ and below', test: (r: Review) => r.rating <= 3 },
+] as const;
+
 function Reviews({ reviews, avg, count }: { reviews: Review[]; avg: number | null; count: number }) {
+  const [filter, setFilter] = useState<(typeof REVIEW_FILTERS)[number]['key']>('all');
+  const [all, setAll] = useState(false);
   if (count === 0 || avg === null) {
     return (
       <Card>
@@ -264,6 +313,7 @@ function Reviews({ reviews, avg, count }: { reviews: Review[]; avg: number | nul
       </Card>
     );
   }
+  const visible = reviews.filter(REVIEW_FILTERS.find((x) => x.key === filter)!.test);
   return (
     <Card>
       <div className="reviews__summary">
@@ -275,14 +325,26 @@ function Reviews({ reviews, avg, count }: { reviews: Review[]; avg: number | nul
           </div>
         </div>
       </div>
+      {reviews.length > REVIEWS_SHOWN && (
+        <TabRow label="Filter reviews by rating">
+          {REVIEW_FILTERS.map((fl) => {
+            const n = reviews.filter(fl.test).length;
+            return (
+              <button key={fl.key} type="button" className={cx('platform-tab', filter === fl.key && 'is-on')} aria-pressed={filter === fl.key} disabled={n === 0} onClick={() => setFilter(fl.key)}>
+                {fl.label} <span className="tab-count">{n}</span>
+              </button>
+            );
+          })}
+        </TabRow>
+      )}
       <ul className="list reviews">
-        {reviews.map((r) => (
+        {visible.slice(0, all ? undefined : REVIEWS_SHOWN).map((r) => (
           <li key={r.id} className="list__item review">
             <div className="list__main">
               <div className="row" style={{ flexWrap: 'wrap' }}>
                 <Stars value={r.rating} />
                 <strong className="small">{r.brandName}</strong>
-                <span className="list__meta">{shortDate(r.createdAt)}</span>
+                <span className="list__meta">{formatWhen(r.createdAt)}</span>
               </div>
               {r.comment && <p className="review__text">{r.comment}</p>}
               {r.creatorReply && (
@@ -294,6 +356,11 @@ function Reviews({ reviews, avg, count }: { reviews: Review[]; avg: number | nul
           </li>
         ))}
       </ul>
+      {!all && visible.length > REVIEWS_SHOWN && (
+        <Button variant="secondary" size="sm" onClick={() => setAll(true)}>
+          Show all {visible.length} reviews
+        </Button>
+      )}
     </Card>
   );
 }

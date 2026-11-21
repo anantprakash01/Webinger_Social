@@ -77,10 +77,10 @@ function ConversationRow({ c, active }: { c: Conversation; active: boolean }) {
         <CreatorPhoto name={c.counterparty.name} url={c.counterparty.photoUrl} seed={c.counterparty.username ?? c.counterparty.name} size={40} className="order__photo" />
         <span className="conv__main">
           <span className="conv__top">
-            <span className="conv__name">{c.counterparty.name}</span>
+            <span className="conv__name">{c.orderTitle}</span>
             {c.lastMessage && <span className="conv__time">{timeLabel(c.lastMessage.createdAt)}</span>}
           </span>
-          <span className="conv__order">{c.orderTitle}</span>
+          <span className="conv__order">{c.counterparty.name}</span>
           <span className="conv__last">{c.lastMessage ? `${c.lastMessage.mine ? 'You: ' : ''}${c.lastMessage.body}` : 'No messages yet'}</span>
         </span>
         {c.unreadCount > 0 && (
@@ -161,14 +161,16 @@ function Thread({ c }: { c: Conversation }) {
           <p className="small muted thread__empty">No messages yet. Say hello and agree the details here.</p>
         ) : (
           <ol className="bubbles">
-            {msgs.data.messages.map((m) => (
+            {msgs.data.messages.map((m, i, all) => (
               <li key={m.id} className={cx('bubble', m.mine ? 'bubble--mine' : 'bubble--theirs')}>
                 {!m.mine && <span className="sr-only">{m.senderName}: </span>}
                 <span className="bubble__body">{m.body}</span>
                 <span className="bubble__meta">
                   {m.masked && <Badge>Contact hidden</Badge>}
                   <time dateTime={m.createdAt}>{timeLabel(m.createdAt)}</time>
-                  {!m.mine && <ReportButton targetType="MESSAGE" targetId={m.id} what={`message from ${m.senderName}`} />}
+                  {/* Read receipt on the last message you sent (contract v1.1 readAt). */}
+                  {m.mine && m.readAt && !all.slice(i + 1).some((x) => x.mine) && <span className="bubble__seen">Seen</span>}
+                  {!m.mine && <ReportButton targetType="MESSAGE" targetId={m.id} what={`message from ${m.senderName}`} iconOnly className="bubble__report" />}
                 </span>
               </li>
             ))}

@@ -351,13 +351,13 @@ export function Pagination({ page, totalPages, totalItems, size, onPage }: { pag
       </span>
       <span className="spacer" />
       <Button variant="secondary" size="sm" disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="Previous page">
-        <LuChevronLeft aria-hidden /> Previous
+        <LuChevronLeft aria-hidden /> <span className="pager__text">Previous</span>
       </Button>
-      <span className="small">
+      <span className="small pager__page">
         Page {page + 1} of {totalPages}
       </span>
       <Button variant="secondary" size="sm" disabled={page >= totalPages - 1} onClick={() => onPage(page + 1)} aria-label="Next page">
-        Next <LuChevronRight aria-hidden />
+        <span className="pager__text">Next</span> <LuChevronRight aria-hidden />
       </Button>
     </nav>
   );

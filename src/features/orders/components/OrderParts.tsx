@@ -1,4 +1,5 @@
 /** Read-mostly sections of the order detail page. */
+import { formatWhen } from '@/lib/dates';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -105,7 +106,7 @@ export function Deliveries({ o }: { o: OrderDetail }) {
             <div className="row" style={{ flexWrap: 'wrap' }}>
               <strong className="small">{d.revisionNo === 0 ? 'First delivery' : `Revision ${d.revisionNo}`}</strong>
               {i === 0 && <Badge tone="info">Latest</Badge>}
-              <span className="list__meta">{formatDateTime(d.submittedAt)}</span>
+              <span className="list__meta">{formatWhen(d.submittedAt)}</span>
             </div>
             {d.note && <p className="small delivery__note">{d.note}</p>}
             <ul className="delivery__items">
@@ -253,7 +254,7 @@ export function ReviewCard({ o, role }: { o: OrderDetail; role: Role }) {
           <div className="row" style={{ flexWrap: 'wrap' }}>
             <Stars value={o.review.rating} />
             <span className="list__meta">
-              {o.review.brandName} · {formatDateTime(o.review.createdAt)}
+              {o.review.brandName} · {formatWhen(o.review.createdAt)}
             </span>
           </div>
           {o.review.comment && <p className="small">{o.review.comment}</p>}

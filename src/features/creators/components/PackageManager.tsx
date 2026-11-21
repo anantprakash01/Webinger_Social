@@ -2,6 +2,7 @@
  * Create, edit, switch on/off and delete packages (FR-12, FR-13).
  * Used by the onboarding wizard and by /creator/packages.
  */
+import { toast, useConfirm } from '@/components/feedback';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,6 +22,7 @@ export function PackageManager({ me }: { me: CreatorMe }) {
   const [editing, setEditing] = useState<OwnPackage | 'new' | null>(null);
   const update = useUpdatePackage();
   const del = useDeletePackage();
+  const confirm = useConfirm();
   const [rowError, setRowError] = useState<string | null>(null);
   const active = me.packages.filter((k) => k.active).length;
   const full = active >= MAX_ACTIVE_PACKAGES;
@@ -35,10 +37,11 @@ export function PackageManager({ me }: { me: CreatorMe }) {
     }
   };
   const remove = async (k: OwnPackage) => {
-    if (!window.confirm(`Delete “${k.title}”? This cannot be undone.`)) return;
+    if (!(await confirm.ask({ title: `Delete “${k.title}”?`, body: 'It disappears from your profile. This cannot be undone. To hide it for a while, switch it off instead.', confirmLabel: 'Delete package' }))) return;
     setRowError(null);
     try {
       await del.mutateAsync(k.id);
+      toast('Package deleted');
     } catch (e) {
       setRowError(e instanceof Error ? e.message : 'Could not delete the package.');
     }
@@ -104,6 +107,7 @@ export function PackageManager({ me }: { me: CreatorMe }) {
           />
         )}
       </Drawer>
+      {confirm.dialog}
     </div>
   );
 }

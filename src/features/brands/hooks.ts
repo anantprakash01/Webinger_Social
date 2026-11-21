@@ -1,3 +1,4 @@
+import { toast } from '@/components/feedback';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import type { BrandProfileInput } from '@/types';
@@ -14,6 +15,7 @@ export function useSaveBrandProfile() {
     onSuccess: async (saved) => {
       qc.setQueryData(brandKeys.profile, saved);
       await api.me.get();
+      toast('Company profile saved');
     },
   });
 }

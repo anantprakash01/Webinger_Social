@@ -13,10 +13,13 @@ import { useSaveCreatorProfile } from '../../workspaceHooks';
 
 const FIELDS = ['username', 'displayName', 'bio', 'city', 'country', 'gender', 'birthYear', 'languages', 'niches', 'photoUrl', 'coverUrls'] as const;
 
-export function ProfileStep({ me, onSaved }: { me: CreatorMe; onSaved: () => void }) {
+/**
+ * `showOptional`: the search-only fields (gender, birth year). During setup they are asked on the last
+ * step instead, so step 1 stays short (UX pass, item 11).
+ */
+export function ProfileStep({ me, onSaved, showOptional = false }: { me: CreatorMe; onSaved: () => void; showOptional?: boolean }) {
   const save = useSaveCreatorProfile();
   const [formError, setFormError] = useState<string | null>(null);
-  const [savedOnly, setSavedOnly] = useState(false);
   const { register, control, handleSubmit, setError, formState } = useForm<ProfileForm, unknown, CreatorProfileInput>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -41,11 +44,9 @@ export function ProfileStep({ me, onSaved }: { me: CreatorMe; onSaved: () => voi
   const submit = (stay: boolean) =>
     handleSubmit(async (v) => {
       setFormError(null);
-      setSavedOnly(false);
       try {
         await save.mutateAsync(v);
-        if (stay) setSavedOnly(true);
-        else onSaved();
+        if (!stay) onSaved();
       } catch (e) {
         setFormError(applyServerErrors(e, setError, FIELDS));
       }
@@ -147,6 +148,7 @@ export function ProfileStep({ me, onSaved }: { me: CreatorMe; onSaved: () => voi
         )}
       />
 
+      {showOptional && (
       <fieldset className="form-optional">
         <legend className="field__label">Optional</legend>
         <p className="small muted">Only used so brands can filter search results. Never shown on your profile.</p>
@@ -167,17 +169,13 @@ export function ProfileStep({ me, onSaved }: { me: CreatorMe; onSaved: () => voi
           <Input label="Birth year" inputMode="numeric" placeholder="e.g. 1996" maxLength={4} error={errors.birthYear?.message} {...register('birthYear')} />
         </div>
       </fieldset>
+      )}
 
       <div className="stepnav">
         <Button variant="ghost" type="button" onClick={() => void submit(true)()} disabled={save.isPending}>
           Save
         </Button>
         <div className="stepnav__next">
-          {savedOnly && (
-            <span className="small" role="status">
-              Saved.
-            </span>
-          )}
           <Button type="submit" loading={save.isPending}>
             Save and continue
           </Button>

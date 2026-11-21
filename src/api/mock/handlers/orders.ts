@@ -326,9 +326,14 @@ export const listOrders: Handler = ({ req, user }) => {
   if (bad) fail(422, `Unknown status ${bad}.`, 'VALIDATION_FAILED', [{ field: 'status', message: 'Unknown status.' }]);
   const page = Math.max(0, Number(req.query.get('page') ?? 0) || 0);
   const size = Math.min(50, Math.max(1, Number(req.query.get('size') ?? 20) || 20));
-  const filtered = mine.filter((o) => wanted.length === 0 || wanted.includes(o.status)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  // v1.1 urgency order: waiting on the caller, then open orders by nearest deadline, then newest activity.
+  const rows = mine.filter((o) => wanted.length === 0 || wanted.includes(o.status)).map((o) => toSummary(o, user));
+  const rank = (s: OrderSummary) => (s.needsAction ? 0 : s.nextDeadline ? 1 : 2);
+  const filtered = rows.sort(
+    (a, b) => rank(a) - rank(b) || (a.nextDeadline && b.nextDeadline ? a.nextDeadline.at.localeCompare(b.nextDeadline.at) : 0) || b.updatedAt.localeCompare(a.updatedAt),
+  );
   const body: OrderPage = {
-    content: filtered.slice(page * size, (page + 1) * size).map((o) => toSummary(o, user)),
+    content: filtered.slice(page * size, (page + 1) * size),
     page,
     size,
     totalElements: filtered.length,

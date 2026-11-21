@@ -1,4 +1,5 @@
 /** /brand/orders and /creator/orders — the viewer's orders with status filters. */
+import { TabRow } from '@/components/feedback';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/app/AuthContext';
 import { CreatorPhoto } from '@/components/creator';
@@ -40,7 +41,7 @@ export function OrdersListPage() {
         }
       />
 
-      <div className="platform-tabs" role="group" aria-label="Filter by status">
+      <TabRow label="Filter by status">
         {STATUS_FILTERS.map((f) => {
           const n = countFor(f.statuses);
           return (
@@ -56,7 +57,7 @@ export function OrdersListPage() {
             </button>
           );
         })}
-      </div>
+      </TabRow>
 
       <Card flush>
         {isError ? (

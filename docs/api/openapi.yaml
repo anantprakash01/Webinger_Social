@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 1.0.0
+  version: 1.1.0
   description: |
-    **Contract v1.0 — frozen at the end of Phase 0 (21 Nov 2026).** The Spring Boot API (Phase 1) implements
+    **Contract v1.1 — frozen at the end of Phase 0 (21 Nov 2026); v1.1 adds fields only (UX pass).** The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
     additive changes, major for breaking ones) and regenerates the frontend types; CI runs `npm run check:contract`.
 
@@ -484,7 +484,7 @@ paths:
     get:
       tags: [Orders]
       summary: The signed-in brand's or creator's orders
-      description: Brands see their own orders, creators the orders addressed to them. Newest activity first.
+      description: 'Brands see their own orders, creators the orders addressed to them. Sorted by urgency (v1.1): orders waiting on the caller first, then open orders by nearest deadline, then everything else by newest activity.'
       operationId: listOrders
       security: [{ bearerAuth: [] }]
       parameters:
@@ -1376,9 +1376,11 @@ components:
       allOf:
         - $ref: '#/components/schemas/CreatorCard'
         - type: object
-          required: [bio, languages, coverUrls, socials, packages, portfolio, reviews, memberSince, vettingStatus]
+          required: [bio, languages, coverUrls, socials, packages, portfolio, reviews, memberSince, vettingStatus, completedOrders, typicalAcceptHours]
           properties:
             bio: { type: [string, 'null'] }
+            completedOrders: { type: integer, description: 'Orders completed on the platform (v1.1).' }
+            typicalAcceptHours: { type: [integer, 'null'], description: 'Median hours from order to acceptance over the last 20 accepted orders, rounded up; null with fewer than 3 (v1.1).' }
             languages:
               type: array
               items: { type: string, description: ISO 639-1. }
@@ -1664,7 +1666,7 @@ components:
 
     AdminUser:
       type: object
-      required: [id, name, email, role, status, emailVerified, createdAt, orderCount, label]
+      required: [id, name, email, role, status, emailVerified, createdAt, lastActiveAt, orderCount, label]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         name: { type: string }
@@ -1673,6 +1675,7 @@ components:
         status: { $ref: '#/components/schemas/UserStatus' }
         emailVerified: { type: boolean }
         createdAt: { type: string, format: date-time }
+        lastActiveAt: { type: [string, 'null'], format: date-time, description: 'Last sign-in or token refresh (v1.1).' }
         orderCount: { type: integer }
         label: { type: [string, 'null'], description: Company name or creator username. }
 
@@ -1930,7 +1933,7 @@ components:
     # ---------- Chat (Week 5) ----------
     ChatMessage:
       type: object
-      required: [id, conversationId, mine, senderName, body, masked, createdAt]
+      required: [id, conversationId, mine, senderName, body, masked, createdAt, readAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         conversationId: { $ref: '#/components/schemas/Ulid' }
@@ -1939,6 +1942,7 @@ components:
         body: { type: string }
         masked: { type: boolean, description: Contact details were hidden (FR-51). }
         createdAt: { type: string, format: date-time }
+        readAt: { type: [string, 'null'], format: date-time, description: 'When the other participant read it (v1.1).' }
 
     MessageList:
       type: object
@@ -2021,7 +2025,7 @@ components:
 
     BrandStats:
       type: object
-      required: [currency, spentCents, inEscrowCents, authorisedCents, ordersByStatus, deliveredPosts, openCampaigns, pendingApplications]
+      required: [currency, spentCents, inEscrowCents, authorisedCents, ordersByStatus, deliveredPosts, openCampaigns, pendingApplications, spendByMonth]
       properties:
         currency: { type: string }
         spentCents: { type: integer, format: int64, description: "Charged to the brand's card, minus refunds." }
@@ -2031,6 +2035,15 @@ components:
         deliveredPosts: { type: array, description: 'Live post links from deliveries, newest first (FR-71).', items: { $ref: '#/components/schemas/DeliveredPost' } }
         openCampaigns: { type: integer }
         pendingApplications: { type: integer }
+        spendByMonth:
+          type: array
+          description: 'Card charges minus refunds per calendar month (UTC), last 6 months, oldest first, including empty months (v1.1).'
+          items:
+            type: object
+            required: [month, cents]
+            properties:
+              month: { type: string, pattern: '^d{4}-d{2}$', examples: ['2026-11'] }
+              cents: { type: integer, format: int64 }
 
     # ---------- Orders (Week 4) ----------
     OrderStatus:

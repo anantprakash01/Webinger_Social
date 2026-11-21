@@ -90,7 +90,7 @@ describe('creator profile', () => {
     renderAt('/u/leomakes');
     const buttons = await screen.findAllByRole('button', { name: /^Buy / });
     for (const b of buttons) expect(b).toBeDisabled();
-    expect(screen.getByText('Only brand accounts can buy packages.')).toBeInTheDocument();
+    expect(screen.getByText(/Only brand accounts can buy packages./)).toBeInTheDocument();
   });
 
   it('shows not found for unknown or unapproved creators', async () => {

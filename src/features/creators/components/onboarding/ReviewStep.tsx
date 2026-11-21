@@ -1,9 +1,12 @@
 /** Wizard step 6 — checklist, preview and submit for review (FR-16). */
+import { formatWhen } from '@/lib/dates';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { GENDERS } from '@/lib/catalog';
 import { LuCheck, LuCircle, LuExternalLink, LuSend } from 'react-icons/lu';
-import { Button, FormError, cx } from '@/components/ui';
+import { Button, FormError, Input, cx } from '@/components/ui';
 import { ApiError, type CreatorMe } from '@/types';
-import { useSubmitForReview } from '../../workspaceHooks';
+import { useSaveCreatorProfile, useSubmitForReview } from '../../workspaceHooks';
 import type { StepKey } from '../../pages/OnboardingPage';
 import { StepNav } from './StepNav';
 
@@ -69,7 +72,7 @@ export function ReviewStep({ me, back, go }: { me: CreatorMe; back?: () => void;
 
       {me.vettingStatus === 'PENDING_REVIEW' && (
         <p className="small" role="status">
-          Sent for review{me.submittedAt && ` on ${new Date(me.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}. We'll email you when it's done.
+          Sent for review{me.submittedAt && ` ${formatWhen(me.submittedAt)}`}. We'll email you when it's done.
         </p>
       )}
       {me.vettingStatus === 'APPROVED' && (
@@ -77,6 +80,8 @@ export function ReviewStep({ me, back, go }: { me: CreatorMe; back?: () => void;
           Your profile is live. Changes you save appear on it right away.
         </p>
       )}
+
+      {me.checklist.profile && me.username && me.vettingStatus !== 'APPROVED' && <SearchDetails me={me} />}
 
       <StepNav back={back} />
       {canSubmit && (
@@ -88,5 +93,65 @@ export function ReviewStep({ me, back, go }: { me: CreatorMe; back?: () => void;
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Optional search-only details (gender, birth year), asked here rather than on step 1 (UX pass,
+ * item 11). Saves the whole profile with these two fields changed.
+ */
+function SearchDetails({ me }: { me: CreatorMe }) {
+  const save = useSaveCreatorProfile();
+  const [gender, setGender] = useState(me.gender ?? '');
+  const [year, setYear] = useState(me.birthYear ? String(me.birthYear) : '');
+  const yearError = save.error instanceof ApiError ? save.error.fieldErrors.find((f) => f.field === 'birthYear')?.message : undefined;
+  const changed = gender !== (me.gender ?? '') || year !== (me.birthYear ? String(me.birthYear) : '');
+  return (
+    <fieldset className="form-optional">
+      <legend className="field__label">Optional: help brands find you</legend>
+      <p className="small muted">Only used as search filters. Never shown on your profile.</p>
+      <div className="form-row">
+        <div className="field">
+          <label className="field__label" htmlFor="rv-gender">
+            Gender
+          </label>
+          <select id="rv-gender" className="field__input" value={gender} onChange={(e) => setGender(e.target.value)}>
+            <option value="">Prefer not to say</option>
+            {GENDERS.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Input label="Birth year" inputMode="numeric" placeholder="e.g. 1996" maxLength={4} value={year} onChange={(e) => setYear(e.target.value.replace(/D/g, ''))} error={yearError} />
+      </div>
+      {save.error && !yearError && <FormError>{save.error.message}</FormError>}
+      <div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!changed}
+          loading={save.isPending}
+          onClick={() =>
+            save.mutate({
+              username: me.username!,
+              displayName: me.displayName,
+              bio: me.bio ?? '',
+              city: me.city ?? '',
+              country: me.country ?? '',
+              gender: (gender || null) as CreatorMe['gender'],
+              birthYear: year ? Number(year) : null,
+              languages: me.languages,
+              niches: me.niches,
+              photoUrl: me.photoUrl,
+              coverUrls: me.coverUrls,
+            })
+          }
+        >
+          Save these details
+        </Button>
+      </div>
+    </fieldset>
   );
 }

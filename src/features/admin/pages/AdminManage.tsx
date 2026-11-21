@@ -1,5 +1,8 @@
 /** Admin management: users (FR-82), fees (FR-83), audit log (FR-84), order browser + demo controls. */
-import { useState } from 'react';
+import { TabRow, toast, useConfirm } from '@/components/feedback';
+
+import { useEffect, useState } from 'react';
+import { formatDate, formatDateTime, formatWhen } from '@/lib/dates';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LuEye } from 'react-icons/lu';
 import { api, isMock } from '@/api/client';
@@ -17,6 +20,7 @@ import { MAX_FEE_BPS } from '../schemas';
 import { useAdminUsers, useAuditLog, useFees, useImpersonate, useUpdateFees, useUpdateUserStatus } from '../hooks';
 
 const STATUS_TONE: Record<UserStatus, Tone> = { ACTIVE: 'ok', SUSPENDED: 'warn', BANNED: 'danger' };
+const STATUS_LABEL: Record<UserStatus, string> = { ACTIVE: 'Active', SUSPENDED: 'Suspended', BANNED: 'Banned' };
 
 /* ---------- Users (FR-82) ---------- */
 
@@ -38,6 +42,14 @@ export function AdminUsersPage() {
     next.delete('page');
     setParams(next);
   };
+  // Search as you type, like the filters next to it (debounced; the URL keeps the query).
+  useEffect(() => {
+    const next = text.trim();
+    if (next === q) return undefined;
+    const t = setTimeout(() => set({ q: next || undefined }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the typed text restarts the timer
+  }, [text]);
 
   return (
     <div className="page">
@@ -63,9 +75,6 @@ export function AdminUsersPage() {
           ]}
           allLabel="Any status"
         />
-        <Button type="submit" variant="secondary" size="sm">
-          Search
-        </Button>
       </form>
       {isError ? (
         <ErrorState message={error.message} onRetry={() => void refetch()} />
@@ -84,6 +93,8 @@ export function AdminUsersPage() {
                   <th scope="col">User</th>
                   <th scope="col">Role</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Joined</th>
+                  <th scope="col">Last active</th>
                   <th scope="col">Orders</th>
                   <th scope="col">
                     <span className="sr-only">Actions</span>
@@ -102,8 +113,10 @@ export function AdminUsersPage() {
                     </td>
                     <td data-label="Role">{ROLE_LABEL[u.role]}</td>
                     <td data-label="Status">
-                      <Badge tone={STATUS_TONE[u.status]}>{u.status.toLowerCase()}</Badge>
+                      <Badge tone={STATUS_TONE[u.status]}>{STATUS_LABEL[u.status]}</Badge>
                     </td>
+                    <td data-label="Joined">{formatWhen(u.createdAt)}</td>
+                    <td data-label="Last active">{u.lastActiveAt ? formatWhen(u.lastActiveAt) : <span className="muted">Never</span>}</td>
                     <td data-label="Orders">{u.orderCount}</td>
                     <td data-label="Actions">
                       <Button variant="secondary" size="sm" onClick={() => setOpen(u)} aria-label={`Manage ${u.name}`}>
@@ -140,10 +153,12 @@ function ManageUser({ u, onDone }: { u: AdminUser; onDone: () => void }) {
         <dd>{ROLE_LABEL[u.role]}</dd>
         <dt>Status</dt>
         <dd>
-          <Badge tone={STATUS_TONE[u.status]}>{u.status.toLowerCase()}</Badge>
+          <Badge tone={STATUS_TONE[u.status]}>{STATUS_LABEL[u.status]}</Badge>
         </dd>
         <dt>Joined</dt>
         <dd>{timeAgo(u.createdAt)}</dd>
+        <dt>Last active</dt>
+        <dd>{u.lastActiveAt ? timeAgo(u.lastActiveAt) : 'Never'}</dd>
       </dl>
       {u.role !== 'ADMIN' && (
         <Card title="See what they see">
@@ -200,7 +215,7 @@ export function AdminFeesPage() {
                     Brand {h.brandFeeBps / 100}% · Creator {h.creatorFeeBps / 100}%
                   </div>
                   <div className="list__meta">
-                    From {new Date(h.effectiveFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    From {formatDate(h.effectiveFrom)}
                     {h.changedBy && ` · ${h.changedBy}`}
                   </div>
                 </div>
@@ -215,6 +230,7 @@ export function AdminFeesPage() {
 
 function FeeForm({ brand, creator }: { brand: number; creator: number }) {
   const update = useUpdateFees();
+  const confirm = useConfirm();
   const [b, setB] = useState(String(brand));
   const [c, setC] = useState(String(creator));
   const parse = (s: string) => (/^\d+$/.test(s.trim()) ? Number(s) : NaN);
@@ -226,9 +242,11 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
   return (
     <form
       className="form-stack"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (valid && window.confirm('Apply these fees to all new orders? Existing orders keep their fees.')) update.mutate({ brandFeeBps: bn, creatorFeeBps: cn });
+        if (!valid) return;
+        const ok = await confirm.ask({ title: 'Apply the new fees?', body: `Brand ${bn / 100}% and creator ${cn / 100}% apply to every new order from now on. Existing orders keep the fees they were placed with.`, confirmLabel: 'Apply fees' });
+        if (ok) update.mutate({ brandFeeBps: bn, creatorFeeBps: cn }, { onSuccess: () => toast('Fees updated for new orders') });
       }}
     >
       <div className="form-row">
@@ -246,9 +264,9 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
         <Button type="submit" disabled={!valid || (bn === brand && cn === creator)} loading={update.isPending}>
           Save fees
         </Button>
-        {update.isSuccess && <span className="small" role="status">Saved. New orders use these fees.</span>}
       </div>
       <p className="small muted">Fees are copied onto each order at checkout, so changes never alter existing orders.</p>
+      {confirm.dialog}
     </form>
   );
 }
@@ -284,7 +302,7 @@ export function AdminAuditPage() {
                   <div className="row" style={{ flexWrap: 'wrap' }}>
                     <Badge tone={a.action === 'MONEY_MOVEMENT' || a.action === 'PAYOUT_SENT' ? 'info' : 'neutral'}>{a.action.replace(/_/g, ' ').toLowerCase()}</Badge>
                     <span className="list__meta">
-                      {new Date(a.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {a.actorName}
+                      {formatDateTime(a.at)} · {a.actorName}
                       {a.ip && ` · ${a.ip}`}
                     </span>
                   </div>
@@ -317,6 +335,7 @@ export function AdminOrdersPage() {
   const sim = useSimulateTime();
   const navigate = useNavigate();
   const [resetting, setResetting] = useState(false);
+  const confirm = useConfirm();
 
   return (
     <div className="page">
@@ -334,7 +353,7 @@ export function AdminOrdersPage() {
                 size="sm"
                 loading={resetting}
                 onClick={async () => {
-                  if (!window.confirm('Reset all demo data?')) return;
+                  if (!(await confirm.ask({ title: 'Reset all demo data?', body: 'Every change made in this tab is lost.', confirmLabel: 'Reset demo data' }))) return;
                   setResetting(true);
                   await api.dev.reset();
                   navigate('/login', { replace: true, state: { notice: 'Demo data was reset.' } });
@@ -346,18 +365,19 @@ export function AdminOrdersPage() {
           ) : undefined
         }
       />
+      {confirm.dialog}
       {sim.data && (
         <p className="small" role="status">
           Clock moved to +{sim.data.offsetHours} h: {sim.data.expired} expired, {sim.data.autoApproved} auto-approved.
         </p>
       )}
-      <div className="platform-tabs" role="group" aria-label="Filter by status">
+      <TabRow label="Filter by status">
         {STATUS_FILTERS.map((f) => (
           <button key={f.key} type="button" className={cx('platform-tab', f.key === filterKey && 'is-on')} aria-pressed={f.key === filterKey} onClick={() => setParams(f.key === 'all' ? {} : { status: f.key })}>
             {f.label}
           </button>
         ))}
-      </div>
+      </TabRow>
       {isError ? (
         <ErrorState message={error.message} onRetry={() => void refetch()} />
       ) : isPending ? (

@@ -173,6 +173,17 @@ export const resolveDispute: Handler = ({ req, params, user }) => {
 
 /* ---------- Users (FR-82) ---------- */
 
+/** Latest of: sign-in or refresh, an order action, a chat message (seeded users have only the last two). */
+function lastActive(u: UserRow): string | null {
+  const db = getDb();
+  const times = [
+    u.lastActiveAt ?? null,
+    ...db.orderEvents.filter((e) => e.actorId === u.id).map((e) => e.at),
+    ...db.messages.filter((m) => m.senderUserId === u.id).map((m) => m.createdAt),
+  ].filter((x): x is string => !!x);
+  return times.length ? times.reduce((a, b) => (a > b ? a : b)) : null;
+}
+
 function toAdminUser(u: UserRow): AdminUser {
   const db = getDb();
   return {
@@ -183,6 +194,7 @@ function toAdminUser(u: UserRow): AdminUser {
     status: u.status,
     emailVerified: !!u.emailVerifiedAt,
     createdAt: u.createdAt,
+    lastActiveAt: lastActive(u),
     orderCount: db.orders.filter((o) => o.brandUserId === u.id || o.creatorUserId === u.id).length,
     label: u.role === 'BRAND' ? (db.brandProfiles.find((b) => b.userId === u.id)?.companyName ?? null) : u.role === 'CREATOR' ? (db.creatorProfiles.find((p) => p.userId === u.id)?.username ?? null) : null,
   };
@@ -198,7 +210,7 @@ export const listUsers: Handler = ({ req, user }) => {
   const rows = getDb()
     .users.map(toAdminUser)
     .filter((u) => (!q || `${u.name} ${u.email} ${u.label ?? ''}`.toLowerCase().includes(q)) && (!role || u.role === role) && (!status || u.status === status))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.name.localeCompare(b.name));
   const body: AdminUserPage = { content: rows.slice(page * size, (page + 1) * size), page, size, totalElements: rows.length, totalPages: Math.ceil(rows.length / size) };
   return ok(body);
 };
