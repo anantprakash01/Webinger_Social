@@ -656,3 +656,46 @@ Decisions to confirm:
 **UI polish (22 Nov 2026, branch `drop-generic-eyebrows`).** Generic "Creator workspace" / "Brand workspace" / "Admin" labels above page titles removed (kept only labels that add information). Account menu behind the avatar (`app/layouts/AccountMenu.tsx`): real picture, Change photo/logo, profile and money links per role, Sign out. Contract **v2.1.0**: `Me.avatarUrl`, `PUT /me/avatar` (creators cannot remove their photo). Page titles stay (orientation on phones, one h1 per page for accessibility).
 
 **Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.
+
+## 18. Launch-readiness backlog (agreed 22 Nov 2026, branch `launch-readiness`)
+
+Built in this order; tick when done.
+
+**Phase A — launch blockers**
+- [x] Legal pages: Terms, Privacy (DPDP consent), Refund & cancellation policy (templates for a lawyer to review); linked from footer, sign-up and checkout.
+- [x] Account settings: change password, change email (re-verify), sign out other devices, download my data (JSON), delete my account (30-day grace, DPDP / FR-06).
+- [x] Browser tab title per page (WCAG 2.4.2).
+- [x] FR-37: admin cancels an accepted order (full refund to the original method).
+
+**Phase B — Indian taxes (standard rates in force, confirm with a CA)**
+- GST 18% on platform fees (brand service fee and creator commission): CGST 9% + SGST 9% when the brand's state is the platform's state, else IGST 18%. Platform state/GSTIN are placeholders.
+- GST-registered creators (optional GSTIN on the payout account) charge 18% GST on their price; the brand pays it and it is passed to the creator.
+- TDS u/s 194-O: 0.1% of the creator's price (5% without PAN; PAN is mandatory here), withheld at release.
+- TCS u/s 52 CGST Act: 0.5% of the creator's price for GST-registered creators, withheld at release.
+- [ ] Brand GSTIN + state on the company profile; creator GSTIN on the payout account.
+- [ ] Checkout, order and receipts show the tax lines; receipts become tax invoices; payout statements show TDS/TCS.
+- [ ] Ledger: GST_PAYABLE and TAX_WITHHELD accounts; every transaction still sums to zero.
+
+**Phase C — collaboration flow**
+- [ ] Package add-ons: paid ad-usage rights, rush delivery, extra revision.
+- [ ] Draft approval before posting (share draft → brand approves or asks for changes → final delivery).
+- [ ] Product shipping: courier + tracking from the brand, "received" from the creator.
+- [ ] Deadline extension request (creator asks, brand accepts or declines).
+- [ ] Manual post metrics on delivery (views, likes, comments, reach) shown on the brand dashboard.
+
+**Phase D — retention and trust**
+- [ ] Saved lists (FR-25) and campaign invites (FR-43).
+- [ ] Creator availability (vacation mode).
+- [ ] Notification preferences (FR-53) with email / SMS / WhatsApp channels (mocked).
+- [ ] Chat attachments.
+- [ ] Creators review brands.
+- [ ] India-first demo data (Indian cities and names).
+
+**Phase E — UI**
+- [ ] Smaller page titles on workspace screens and phones.
+- [ ] Rupee shorthand (₹1.2L, ₹2.5Cr) on cards and stat tiles.
+- [ ] Order progress stepper.
+- [ ] Search suggestions, recent searches, "accepts within 24 h" filter.
+- [ ] Notifications grouped by order, mark one as read.
+- [ ] Dashboard setup checklist for new users.
+- [ ] Hindi language option (i18n framework; shell, landing, auth and checkout translated first).

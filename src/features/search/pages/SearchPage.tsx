@@ -2,6 +2,7 @@
  * /search (FR-20 – FR-24). All filters live in the URL so a search can be shared or bookmarked.
  * Desktop: filter sidebar. Under 900 px: a "Filters" button opens the same panel in a drawer.
  */
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { TabRow } from '@/components/feedback';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -16,6 +17,7 @@ import { activeFilterCount, PAGE_SIZE, parseSearchUrl, toApiQuery, toSearchUrl, 
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams();
+  useDocumentTitle('Find creators');
   const state = useMemo(() => parseSearchUrl(params), [params]);
   const query = useMemo(() => toApiQuery(state), [state]);
   const { data, isPending, isError, error, refetch, isPlaceholderData } = useCreatorSearch(query);

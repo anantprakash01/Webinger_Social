@@ -3,6 +3,7 @@
  * for the card charge; a creator gets an earnings statement once money has been released to them.
  * Admins see the brand's receipt. Printing hides everything but the receipt (see admin.css).
  */
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { Link, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuPrinter } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
@@ -32,6 +33,7 @@ export function receiptKind(o: OrderDetail, role: string): 'BRAND' | 'CREATOR' |
 export function ReceiptPage() {
   const { id = '' } = useParams();
   const { user } = useAuth();
+  useDocumentTitle('Receipt');
   const role = user?.role ?? 'BRAND';
   const { data: o, isPending, isError, error, refetch } = useOrder(id);
   const back = `/${role === 'ADMIN' ? 'admin' : role.toLowerCase()}/orders/${id}`;

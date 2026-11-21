@@ -21,6 +21,7 @@ export function toMe(u: UserRow, impersonatorName: string | null = null): Me {
     createdAt: u.createdAt,
   };
   me.avatarUrl = u.avatarUrl ?? null;
+  me.deletionScheduledFor = u.deletionScheduledFor ?? null;
   if (u.role === 'CREATOR') {
     const p = db.creatorProfiles.find((c) => c.userId === u.id);
     if (p) me.creator = { username: p.username, vettingStatus: p.vettingStatus, rejectionReason: p.rejectionReason };

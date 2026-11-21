@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo, PRODUCT_NAME } from '@/components/Logo';
+import { useDocumentTitle } from '@/lib/documentTitle';
 import '@/app/layouts/shell.css';
 
 /** Split screen used by every signed-out auth page (same as the Webinger login). */
-export function AuthLayout({ title, tagline, children }: { title?: string; tagline?: string; children: ReactNode }) {
+export function AuthLayout({ title, tagline, children, pageTitle }: { title?: string; tagline?: string; children: ReactNode; pageTitle?: string }) {
+  useDocumentTitle(pageTitle ?? title ?? null);
   return (
     <div className="auth">
       <section className="auth__panel">

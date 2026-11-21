@@ -5,7 +5,7 @@
  */
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LuCamera, LuCreditCard, LuExternalLink, LuLogOut, LuUserRound, LuWallet, LuBuilding2 } from 'react-icons/lu';
+import { LuCamera, LuCreditCard, LuExternalLink, LuLogOut, LuSettings, LuUserRound, LuWallet, LuBuilding2 } from 'react-icons/lu';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { toast } from '@/components/feedback';
@@ -121,6 +121,11 @@ export function AccountMenu({ user, onSignOut, placement, showName }: { user: Me
                 </li>
               </>
             )}
+            <li>
+              <Link to="/settings">
+                <LuSettings aria-hidden /> Account settings
+              </Link>
+            </li>
             <li className="account__sep">
               <button type="button" onClick={onSignOut}>
                 <LuLogOut aria-hidden /> Sign out

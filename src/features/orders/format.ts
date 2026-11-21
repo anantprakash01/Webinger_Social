@@ -60,6 +60,8 @@ export function eventLabel(e: OrderEventView, o: Pick<OrderDetail, 'money' | 'co
       return 'Dispute opened — money stays in escrow';
     case 'ADMIN_RELEASE':
       return 'Dispute resolved — payment released to the creator';
+    case 'ADMIN_CANCEL':
+      return `Cancelled by our team — ${formatMoney(o.payment.refundedCents, m.currency)} refunded to the brand`;
     case 'ADMIN_REFUND':
       return `Dispute resolved — ${formatMoney(o.payment.refundedCents, m.currency)} refunded to the brand`;
   }

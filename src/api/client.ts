@@ -389,6 +389,25 @@ export const api = {
       setUser(user);
       return user;
     },
+    /** v2.2 account settings. */
+    changePassword: (currentPassword: string, newPassword: string) => request<void>('POST', '/me/password', { body: { currentPassword, newPassword } }),
+    async changeEmail(newEmail: string, currentPassword: string): Promise<Me> {
+      const user = await request<Me>('POST', '/me/email', { body: { newEmail, currentPassword } });
+      setUser(user);
+      return user;
+    },
+    signOutOtherDevices: () => request<{ signedOut: number }>('POST', '/me/sessions/revoke-others'),
+    exportData: () => request<Record<string, unknown>>('GET', '/me/export'),
+    async requestDeletion(currentPassword: string, reason: string | null): Promise<Me> {
+      const user = await request<Me>('POST', '/me/deletion', { body: { currentPassword, reason } });
+      setUser(user);
+      return user;
+    },
+    async cancelDeletion(): Promise<Me> {
+      const user = await request<Me>('DELETE', '/me/deletion');
+      setUser(user);
+      return user;
+    },
     /** v2.1: creator photo, brand logo or admin avatar. */
     async updateAvatar(url: string | null): Promise<Me> {
       const user = await request<Me>('PUT', '/me/avatar', { body: { url } });
@@ -506,6 +525,9 @@ export const api = {
     approveCreator: (id: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/approve`),
     rejectCreator: (id: string, reason: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/reject`, { body: { reason } }),
     disputes: (status?: string) => request<{ content: AdminDispute[] }>('GET', '/admin/disputes', { query: { status } }),
+    /** FR-37: cancel an accepted order with a full refund. */
+    cancelOrder: (id: string, reason: string, idempotencyKey: string) =>
+      request<{ orderId: string; status: string; refundedCents: number }>('POST', `/admin/orders/${enc(id)}/cancel`, { body: { reason }, headers: { 'idempotency-key': idempotencyKey } }),
     resolveDispute: (id: string, body: ResolveDisputeRequest, idempotencyKey: string) =>
       request<AdminDispute>('POST', `/admin/disputes/${enc(id)}/resolve`, { body, headers: { 'idempotency-key': idempotencyKey } }),
     users: (q: { q?: string; role?: string; status?: string; page?: number } = {}) => request<AdminUserPage>('GET', '/admin/users', { query: q }),

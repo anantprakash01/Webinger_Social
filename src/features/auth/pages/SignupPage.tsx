@@ -61,6 +61,7 @@ export function SignupPage() {
 
   return (
     <AuthLayout
+      pageTitle="Sign up"
       title={creator ? 'Turn your audience into paid work.' : undefined}
       tagline={creator ? 'List your packages, accept orders, and get paid as soon as the brand approves.' : undefined}
     >
@@ -104,8 +105,15 @@ export function SignupPage() {
           <label className="check small">
             <input type="checkbox" {...register('acceptTerms')} aria-invalid={errors.acceptTerms ? true : undefined} aria-describedby={errors.acceptTerms ? 'terms-err' : undefined} />
             <span>
-              I agree to the <a href="#terms" className="link">Terms</a> and <a href="#privacy" className="link">Privacy Policy</a>, including that payments go
-              through the platform.
+              I agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener" className="link">
+                Terms of use
+              </a>{' '}
+              and consent to the processing of my data as described in the{' '}
+              <a href="/privacy" target="_blank" rel="noopener" className="link">
+                Privacy notice
+              </a>
+              , including that payments go through the platform.
             </span>
           </label>
           {errors.acceptTerms && (

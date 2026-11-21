@@ -64,5 +64,9 @@ export function orderEventNotifications(e: OrderEvent, o: MockOrder, n: OrderNam
       const refund = formatMoney(o.payment.refundedCents, o.currency);
       return [toBrand('Dispute resolved — refund', `${refund} was refunded for “${n.title}”.`), toCreator('Dispute resolved', `${refund} was refunded to the brand for “${n.title}”.`)];
     }
+    case 'ADMIN_CANCEL': {
+      const refund = formatMoney(o.payment.refundedCents, o.currency);
+      return [toBrand('Order cancelled by our team', `“${n.title}” was cancelled and ${refund} refunded to your payment method.`), toCreator('Order cancelled by our team', `“${n.title}” was cancelled by our team and the brand was refunded.`)];
+    }
   }
 }

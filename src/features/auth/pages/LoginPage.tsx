@@ -66,7 +66,7 @@ export function LoginPage() {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout pageTitle="Log in">
       <form className="auth__form" onSubmit={onSubmit} noValidate>
         <div>
           <h2>Log in</h2>

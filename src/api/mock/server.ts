@@ -19,6 +19,7 @@ import * as files from './handlers/files';
 import * as orders from './handlers/orders';
 import * as payouts from './handlers/payouts';
 import * as payments from './handlers/payments';
+import * as account from './handlers/account';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
 import { authenticate, impersonatorOf } from './handlers/session';
@@ -61,6 +62,12 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
   { method: 'PUT', path: '/me/avatar', auth: true, handler: me.updateMyAvatar },
+  { method: 'POST', path: '/me/password', auth: true, handler: account.changePassword },
+  { method: 'POST', path: '/me/email', auth: true, handler: account.changeEmail },
+  { method: 'POST', path: '/me/sessions/revoke-others', auth: true, handler: account.signOutOtherDevices },
+  { method: 'GET', path: '/me/export', auth: true, handler: account.exportMyData },
+  { method: 'POST', path: '/me/deletion', auth: true, handler: account.requestDeletion },
+  { method: 'DELETE', path: '/me/deletion', auth: true, handler: account.cancelDeletion },
   // Orders (Week 4). /orders/quote before /orders/:id, which would otherwise match "quote".
   { method: 'GET', path: '/orders/quote', auth: true, handler: orders.quoteOrder },
   { method: 'POST', path: '/orders', auth: true, handler: orders.createOrder, idempotent: true },
@@ -100,6 +107,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/admin/creators/:id/reject', auth: true, handler: admin.rejectCreator },
   { method: 'GET', path: '/admin/disputes', auth: true, handler: admin.listDisputes },
   { method: 'POST', path: '/admin/disputes/:id/resolve', auth: true, handler: admin.resolveDispute, idempotent: true },
+  { method: 'POST', path: '/admin/orders/:id/cancel', auth: true, handler: admin.cancelOrderAsAdmin, idempotent: true },
   { method: 'GET', path: '/admin/users', auth: true, handler: admin.listUsers },
   { method: 'PATCH', path: '/admin/users/:id', auth: true, handler: admin.updateUserStatus },
   { method: 'POST', path: '/admin/users/:id/impersonate', auth: true, handler: admin.impersonateUser },

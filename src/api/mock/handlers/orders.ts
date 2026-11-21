@@ -18,6 +18,7 @@ import { orderEventNotifications } from '../notify';
 import { auditLedger } from '../audit';
 import { runPayouts } from '../payoutsCore';
 import { resolveOrderPayment } from './payments';
+import { runAccountDeletions } from './account';
 import { calculateFees } from '../fees';
 import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type ReviewRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
@@ -111,6 +112,7 @@ export function runScheduledJobs(): { expired: number; autoApproved: number } {
     else counts.autoApproved += 1;
   }
   runPayouts();
+  runAccountDeletions();
   return counts;
 }
 
@@ -130,7 +132,7 @@ const toReview = (r: ReviewRow): Review => ({ id: r.id, rating: r.rating, commen
 /** Machine events the viewer may fire, plus non-transition actions (brief, review, reply). */
 function actionsFor(o: MockOrder, user: UserRow): OrderAction[] {
   const machine: Partial<Record<OrderEventType, OrderAction>> = {
-    ACCEPT: 'ACCEPT', DECLINE: 'DECLINE', CANCEL: 'CANCEL', DELIVER: 'DELIVER', APPROVE: 'APPROVE', REQUEST_REVISION: 'REQUEST_REVISION', DISPUTE: 'DISPUTE',
+    ACCEPT: 'ACCEPT', DECLINE: 'DECLINE', CANCEL: 'CANCEL', DELIVER: 'DELIVER', APPROVE: 'APPROVE', REQUEST_REVISION: 'REQUEST_REVISION', DISPUTE: 'DISPUTE', ADMIN_CANCEL: 'ADMIN_CANCEL',
   };
   const out = allowedEvents(o, actorOf(user), now()).map((e) => machine[e]).filter((a): a is OrderAction => !!a);
   const review = reviewOf(o.id);

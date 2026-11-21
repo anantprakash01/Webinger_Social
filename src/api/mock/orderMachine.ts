@@ -89,7 +89,9 @@ export type OrderEventInput =
   | { type: 'AUTO_APPROVE' }
   | { type: 'DISPUTE'; note?: string }
   | { type: 'ADMIN_RELEASE'; note?: string }
-  | { type: 'ADMIN_REFUND'; refundCents: number; note?: string };
+  | { type: 'ADMIN_REFUND'; refundCents: number; note?: string }
+  /** FR-37: an admin cancels an accepted order; the brand gets a full refund. */
+  | { type: 'ADMIN_CANCEL'; note?: string };
 
 export type OrderEventType = OrderEventInput['type'];
 
@@ -136,7 +138,7 @@ export const MAX_DELIVERY_DAYS = 60;
 
 type ActorRole = 'BRAND' | 'CREATOR' | 'ADMIN' | 'SYSTEM';
 
-const RULES: Record<OrderEventType, { from: OrderStatus; to: OrderStatus; by: ActorRole[] }> = {
+const RULES: Record<OrderEventType, { from: OrderStatus | OrderStatus[]; to: OrderStatus; by: ActorRole[] }> = {
   ACCEPT: { from: 'PENDING_ACCEPTANCE', to: 'IN_PROGRESS', by: ['CREATOR'] },
   DECLINE: { from: 'PENDING_ACCEPTANCE', to: 'CLOSED', by: ['CREATOR'] },
   CANCEL: { from: 'PENDING_ACCEPTANCE', to: 'CLOSED', by: ['BRAND', 'CREATOR'] },
@@ -148,7 +150,10 @@ const RULES: Record<OrderEventType, { from: OrderStatus; to: OrderStatus; by: Ac
   DISPUTE: { from: 'DELIVERED', to: 'DISPUTED', by: ['BRAND'] },
   ADMIN_RELEASE: { from: 'DISPUTED', to: 'COMPLETED', by: ['ADMIN'] },
   ADMIN_REFUND: { from: 'DISPUTED', to: 'REFUNDED', by: ['ADMIN'] },
+  ADMIN_CANCEL: { from: ['IN_PROGRESS', 'DELIVERED'], to: 'REFUNDED', by: ['ADMIN'] },
 };
+
+const fromOk = (rule: (typeof RULES)[OrderEventType], s: OrderStatus) => (Array.isArray(rule.from) ? rule.from.includes(s) : rule.from === s);
 
 export const ORDER_EVENT_TYPES = Object.keys(RULES) as OrderEventType[];
 
@@ -226,7 +231,7 @@ function guard(order: MockOrder, e: OrderEventInput, actor: Actor, now: Date): T
 export function allowedEvents(order: MockOrder, actor: Actor, now: Date): OrderEventType[] {
   return ORDER_EVENT_TYPES.filter((type) => {
     const rule = RULES[type];
-    if (rule.from !== order.status) return false;
+    if (!fromOk(rule, order.status)) return false;
     try {
       checkActor(order, rule, actor);
     } catch {
@@ -241,7 +246,7 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
   const rule = RULES[e.type];
   if (!rule) throw new TransitionError(422, 'UNKNOWN_EVENT', `Unknown order action ${(e as { type: string }).type}.`);
   checkActor(order, rule, actor);
-  if (order.status !== rule.from) {
+  if (!fromOk(rule, order.status)) {
     throw new TransitionError(
       409,
       'INVALID_TRANSITION',
@@ -317,6 +322,15 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
         ];
         memo = 'Dispute resolved: partial refund';
       }
+      break;
+    }
+    case 'ADMIN_CANCEL': {
+      const total = brandTotalCents(order);
+      next.payment.status = 'REFUNDED';
+      next.payment.refundedCents = total;
+      paymentAction = 'REFUND';
+      lines = refundLines(total);
+      memo = 'Cancelled by admin: full refund';
       break;
     }
   }

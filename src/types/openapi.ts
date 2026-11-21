@@ -217,6 +217,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change password (v2.2); other devices are signed out */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change the sign-in email (v2.2); the new address must be verified again */
+        post: operations["changeEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign out every other device (v2.2) */
+        post: operations["signOutOtherDevices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download my data (DPDP right of access, v2.2)
+         * @description Everything held about the user as JSON. Card numbers are never held; bank account numbers are masked.
+         */
+        get: operations["exportMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete my account (DPDP right to erasure, FR-06, v2.2)
+         * @description Schedules erasure in 30 days. Refused while orders are open (409 OPEN_ORDERS) or a creator has an available balance (409 BALANCE_REMAINING). Invoices and payment records are kept as tax law requires; the person is anonymised.
+         */
+        post: operations["requestAccountDeletion"];
+        /** Cancel a scheduled account deletion (v2.2) */
+        delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators": {
         parameters: {
             query?: never;
@@ -1068,6 +1160,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an accepted order and refund the brand in full (FR-37, v2.2)
+         * @description For IN_PROGRESS or DELIVERED orders (e.g. the creator stopped responding). Refunds the full amount to the original payment method; the creator receives nothing. Audited as ORDER_CANCELLED.
+         */
+        post: operations["cancelOrderAsAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/disputes/{id}/resolve": {
         parameters: {
             query?: never;
@@ -1502,8 +1614,27 @@ export interface components {
             impersonatedBy?: string | null;
             /** @description Picture for the account menu (v2.1): creator photo, brand logo or admin avatar; null shows initials. */
             avatarUrl?: string | null;
+            /**
+             * Format: date-time
+             * @description Account deletion requested (v2.2); erased after this date unless cancelled.
+             */
+            deletionScheduledFor?: string | null;
             creator?: components["schemas"]["CreatorSummary"];
             brand?: components["schemas"]["BrandSummary"];
+        };
+        ChangePasswordRequest: {
+            /** @description Not needed for Google-only accounts. */
+            currentPassword?: string;
+            newPassword: string;
+        };
+        ChangeEmailRequest: {
+            /** Format: email */
+            newEmail: string;
+            currentPassword?: string;
+        };
+        DeletionRequest: {
+            currentPassword?: string;
+            reason?: string | null;
         };
         AvatarUpdate: {
             /** @description Uploaded image URL; null removes it (not allowed for creators). */
@@ -1885,7 +2016,13 @@ export interface components {
             creatorFeeBps: number;
         };
         /** @enum {string} */
-        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT";
+        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT" | "ORDER_CANCELLED" | "ACCOUNT_DELETION_REQUESTED";
+        AdminCancelResult: {
+            orderId: components["schemas"]["Ulid"];
+            status: components["schemas"]["OrderStatus"];
+            /** Format: int64 */
+            refundedCents: number;
+        };
         AuditEntry: {
             id: components["schemas"]["Ulid"];
             /** @description SYSTEM for scheduled jobs. */
@@ -2316,7 +2453,7 @@ export interface components {
          * @description What the viewer may do now. The UI offers only these; the server checks again.
          * @enum {string}
          */
-        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY";
+        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY" | "ADMIN_CANCEL";
         /** @enum {string} */
         OrderKind: "PACKAGE" | "CUSTOM_OFFER" | "CAMPAIGN";
         ShippingAddress: {
@@ -2488,7 +2625,7 @@ export interface components {
         };
         OrderEventView: {
             /** @enum {string} */
-            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND";
+            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND" | "ADMIN_CANCEL";
             fromStatus: components["schemas"]["OrderStatus"] | null;
             toStatus: components["schemas"]["OrderStatus"];
             /** @enum {string} */
@@ -2935,6 +3072,145 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    changeEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated user (emailVerified false). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    signOutOtherDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Number of other sessions ended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        signedOut: number;
+                    };
+                };
+            };
+        };
+    };
+    exportMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Scheduled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    cancelAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
         };
     };
     searchCreators: {
@@ -4232,6 +4508,39 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    cancelOrderAsAdmin: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequiredReason"];
+            };
+        };
+        responses: {
+            /** @description Cancelled and refunded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCancelResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
         };
     };
     resolveDispute: {

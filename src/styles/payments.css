@@ -55,3 +55,15 @@
 .account__list svg { flex: none; color: var(--ink-3); }
 .account__sep { border-top: 1px solid var(--border); margin-top: var(--s-1); padding-top: var(--s-1); }
 @media (max-width: 400px) { .account--down .account__menu { width: min(264px, calc(100vw - 24px)); } }
+
+/* ---------- Legal pages ---------- */
+.legal { max-width: 760px; gap: var(--s-4); }
+.legal h2 { font-size: var(--fs-lg); margin: var(--s-3) 0 var(--s-2); }
+.legal p, .legal li { line-height: 1.6; color: var(--ink-2); }
+.legal ul { padding-left: 1.2em; margin: 0; display: grid; gap: var(--s-1); }
+.legal__draft { align-items: flex-start; }
+.legal__nav { display: flex; flex-wrap: wrap; gap: var(--s-4); border-top: 1px solid var(--border); padding-top: var(--s-4); }
+
+/* ---------- Account settings ---------- */
+.settings .card__body { display: grid; gap: var(--s-3); }
+.settings__danger { border-color: var(--danger-soft); }

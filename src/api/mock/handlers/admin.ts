@@ -373,3 +373,24 @@ export const resolveReport: Handler = ({ req, params, user }) => {
   audit(user, { action: 'REPORT_RESOLVED', entityType: 'REPORT', entityId: r.id, summary: `Report ${body.status === 'DISMISSED' ? 'dismissed' : 'actioned'}: ${body.note}`, before: { status: 'OPEN' }, after: { status: body.status } });
   return ok(toReport(r));
 };
+
+/* ---------- FR-37: cancel an accepted order ---------- */
+
+export const cancelOrderAsAdmin: Handler = ({ req, params, user }) => {
+  requireAdmin(user);
+  const { reason } = parseBody(requiredReasonSchema, req.body);
+  const db = getDb();
+  const order = db.orders.find((o) => o.id === params.id);
+  if (!order) fail(404, 'No such order.', 'ORDER_NOT_FOUND');
+  const before = order.status;
+  const next = applyTransition(order, { type: 'ADMIN_CANCEL', note: reason }, actor(user));
+  audit(user, {
+    action: 'ORDER_CANCELLED',
+    entityType: 'ORDER',
+    entityId: order.id,
+    summary: `Order cancelled after acceptance, ${formatMoney(next.payment.refundedCents)} refunded`,
+    before: { status: before },
+    after: { status: next.status, refundedCents: next.payment.refundedCents, reason },
+  });
+  return ok({ orderId: next.id, status: next.status, refundedCents: next.payment.refundedCents });
+};

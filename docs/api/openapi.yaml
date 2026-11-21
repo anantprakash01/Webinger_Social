@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.1.0
+  version: 2.2.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -237,6 +237,68 @@ paths:
         '200': { description: The updated user., content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /me/password:
+    post:
+      tags: [Users]
+      summary: Change password (v2.2); other devices are signed out
+      operationId: changePassword
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } } } }
+      responses:
+        '204': { description: Changed. }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /me/email:
+    post:
+      tags: [Users]
+      summary: Change the sign-in email (v2.2); the new address must be verified again
+      operationId: changeEmail
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChangeEmailRequest' } } } }
+      responses:
+        '200': { description: The updated user (emailVerified false)., content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /me/sessions/revoke-others:
+    post:
+      tags: [Users]
+      summary: Sign out every other device (v2.2)
+      operationId: signOutOtherDevices
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Number of other sessions ended., content: { application/json: { schema: { type: object, required: [signedOut], properties: { signedOut: { type: integer } } } } } }
+
+  /me/export:
+    get:
+      tags: [Users]
+      summary: Download my data (DPDP right of access, v2.2)
+      description: Everything held about the user as JSON. Card numbers are never held; bank account numbers are masked.
+      operationId: exportMyData
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: The export., content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+
+  /me/deletion:
+    post:
+      tags: [Users]
+      summary: Delete my account (DPDP right to erasure, FR-06, v2.2)
+      description: Schedules erasure in 30 days. Refused while orders are open (409 OPEN_ORDERS) or a creator has an available balance (409 BALANCE_REMAINING). Invoices and payment records are kept as tax law requires; the person is anonymised.
+      operationId: requestAccountDeletion
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeletionRequest' } } } }
+      responses:
+        '200': { description: Scheduled., content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    delete:
+      tags: [Users]
+      summary: Cancel a scheduled account deletion (v2.2)
+      operationId: cancelAccountDeletion
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Cancelled., content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
 
   /creators:
     get:
@@ -933,6 +995,24 @@ paths:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminDisputeList' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /admin/orders/{id}/cancel:
+    post:
+      tags: [Admin]
+      summary: Cancel an accepted order and refund the brand in full (FR-37, v2.2)
+      description: For IN_PROGRESS or DELIVERED orders (e.g. the creator stopped responding). Refunds the full amount to the original payment method; the creator receives nothing. Audited as ORDER_CANCELLED.
+      operationId: cancelOrderAsAdmin
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RequiredReason' } } } }
+      responses:
+        '200': { description: Cancelled and refunded., content: { application/json: { schema: { $ref: '#/components/schemas/AdminCancelResult' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
   /admin/disputes/{id}/resolve:
     post:
       tags: [Admin]
@@ -1347,8 +1427,29 @@ components:
         createdAt: { type: string, format: date-time }
         impersonatedBy: { type: [string, 'null'], description: 'Set in a read-only admin impersonation session (FR-82): the admin''s name.' }
         avatarUrl: { type: [string, 'null'], description: 'Picture for the account menu (v2.1): creator photo, brand logo or admin avatar; null shows initials.' }
+        deletionScheduledFor: { type: [string, 'null'], format: date-time, description: 'Account deletion requested (v2.2); erased after this date unless cancelled.' }
         creator: { $ref: '#/components/schemas/CreatorSummary' }
         brand: { $ref: '#/components/schemas/BrandSummary' }
+
+    ChangePasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        currentPassword: { type: string, description: Not needed for Google-only accounts. }
+        newPassword: { type: string, minLength: 8 }
+
+    ChangeEmailRequest:
+      type: object
+      required: [newEmail]
+      properties:
+        newEmail: { type: string, format: email }
+        currentPassword: { type: string }
+
+    DeletionRequest:
+      type: object
+      properties:
+        currentPassword: { type: string }
+        reason: { type: [string, 'null'], maxLength: 500 }
 
     AvatarUpdate:
       type: object
@@ -1818,7 +1919,15 @@ components:
 
     AuditAction:
       type: string
-      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT]
+      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT, ORDER_CANCELLED, ACCOUNT_DELETION_REQUESTED]
+
+    AdminCancelResult:
+      type: object
+      required: [orderId, status, refundedCents]
+      properties:
+        orderId: { $ref: '#/components/schemas/Ulid' }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        refundedCents: { type: integer, format: int64 }
 
     AuditEntry:
       type: object
@@ -2252,7 +2361,7 @@ components:
     OrderAction:
       type: string
       description: What the viewer may do now. The UI offers only these; the server checks again.
-      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY]
+      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY, ADMIN_CANCEL]
 
     OrderKind:
       type: string
@@ -2420,7 +2529,7 @@ components:
       type: object
       required: [type, fromStatus, toStatus, actor, note, at]
       properties:
-        type: { type: string, enum: [CREATE, ACCEPT, DECLINE, CANCEL, EXPIRE, DELIVER, REQUEST_REVISION, APPROVE, AUTO_APPROVE, DISPUTE, ADMIN_RELEASE, ADMIN_REFUND] }
+        type: { type: string, enum: [CREATE, ACCEPT, DECLINE, CANCEL, EXPIRE, DELIVER, REQUEST_REVISION, APPROVE, AUTO_APPROVE, DISPUTE, ADMIN_RELEASE, ADMIN_REFUND, ADMIN_CANCEL] }
         fromStatus: { oneOf: [{ $ref: '#/components/schemas/OrderStatus' }, { type: 'null' }] }
         toStatus: { $ref: '#/components/schemas/OrderStatus' }
         actor: { type: string, enum: [BRAND, CREATOR, ADMIN, SYSTEM] }

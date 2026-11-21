@@ -4,6 +4,7 @@
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { StickyBar } from '@/components/StickyBar';
+import { AdminCancel } from './AdminCancel';
 import { LuCircleCheck, LuCircleX, LuClock, LuFlag, LuHourglass, LuPlus, LuRotateCcw, LuThumbsUp, LuTrash2, LuUpload } from 'react-icons/lu';
 import { Badge, Button, Card, Drawer, FormError, Input, TextArea, cx } from '@/components/ui';
 import { ImagePicker } from '@/features/files/components/ImagePicker';
@@ -157,6 +158,7 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
             <LuFlag aria-hidden /> Open a dispute
           </Button>
         )}
+        {can('ADMIN_CANCEL') && <AdminCancel o={o} />}
         {can('CANCEL') && role === 'BRAND' && (
           <Button variant="ghost" onClick={() => setDialog('cancel')}>
             Cancel order

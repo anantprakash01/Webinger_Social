@@ -75,8 +75,9 @@ export function PublicLayout() {
           <div>
             <h2>Company</h2>
             <ul>
-              <li><a href="#terms">Terms</a></li>
-              <li><a href="#privacy">Privacy</a></li>
+              <li><Link to="/terms">Terms of use</Link></li>
+              <li><Link to="/privacy">Privacy notice</Link></li>
+              <li><Link to="/refunds">Refunds &amp; cancellations</Link></li>
             </ul>
           </div>
         </div>

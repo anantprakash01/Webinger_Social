@@ -175,7 +175,10 @@ function Checkout() {
           </div>
           <p className="small muted checkout__fine">
             <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Your payment is held now and <strong>charged only when {q.creator.name.split(' ')[0]} accepts</strong>. If they
-            decline or don't respond within {q.acceptWindowHours} hours, the hold is released. Money stays in escrow until you approve the work.
+            decline or don't respond within {q.acceptWindowHours} hours, the hold is released. Money stays in escrow until you approve the work.{' '}
+            <Link to="/refunds" className="link" target="_blank" rel="noopener">
+              Refund policy
+            </Link>
           </p>
         </aside>
       </form>

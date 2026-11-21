@@ -4,7 +4,7 @@
  */
 import { useConfirm } from '@/components/feedback';
 import { Suspense, useState } from 'react';
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LuBell, LuChevronDown, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-icons/lu';
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
@@ -85,6 +85,18 @@ export function AppShell() {
           <AccountMenu user={user} onSignOut={() => void signOut()} placement="down" />
         </header>
         {user.impersonatedBy && <ImpersonationBanner name={user.name} admin={user.impersonatedBy} />}
+        {user.deletionScheduledFor && !location.pathname.startsWith('/settings') && (
+          <div className="shell-banner">
+            <div className="vetting vetting--warn" role="status">
+              <div>
+                <strong>Your account will be deleted on {new Date(user.deletionScheduledFor).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}.</strong>{' '}
+                <Link to="/settings" className="link">
+                  Keep my account
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         <VerifyEmailBanner />
         {user.role === 'CREATOR' && user.creator && !location.pathname.startsWith('/creator/onboarding') && !location.pathname.startsWith('/creator/dashboard') && (
           <div className="shell-banner">

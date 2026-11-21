@@ -1,6 +1,7 @@
 /**
  * /u/:username — public creator profile (FR-15). Works logged out; buying asks to log in as a brand.
  */
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { formatWhen } from '@/lib/dates';
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -51,6 +52,7 @@ export function CreatorProfilePage() {
 }
 
 function Profile({ p }: { p: CreatorProfile }) {
+  useDocumentTitle(`${p.displayName} (@${p.username})`);
   const actions = usePurchaseActions(p.username);
   const { user } = useAuth();
   // FR-85: any signed-in brand or other creator can report a profile.

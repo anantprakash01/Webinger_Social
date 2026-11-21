@@ -1,4 +1,5 @@
 /** /brand/orders/:id, /creator/orders/:id and /admin/orders/:id — one order, as the viewer sees it. */
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuCircleCheck, LuMessageSquare, LuReceipt } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
@@ -18,6 +19,7 @@ export function OrderDetailPage() {
   const location = useLocation();
   const placed = (location.state as { placed?: boolean } | null)?.placed;
   const { data: o, isPending, isError, error, refetch, dataUpdatedAt } = useOrder(id);
+  useDocumentTitle(o ? `Order: ${o.title}` : 'Order');
   const role = user?.role ?? 'BRAND';
   const listPath = role === 'CREATOR' ? '/creator/orders' : role === 'ADMIN' ? '/admin/orders' : '/brand/orders';
 

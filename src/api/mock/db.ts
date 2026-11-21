@@ -35,6 +35,9 @@ export interface UserRow {
   lastActiveAt?: string | null;
   /** Admin avatar (v2.1); creators and brands use their photo / logo. */
   avatarUrl?: string | null;
+  /** Account deletion requested (v2.2): erased after this date unless cancelled. */
+  deletionScheduledFor?: string | null;
+  deletedAt?: string | null;
 }
 
 export interface CreatorProfileRow {
@@ -242,7 +245,7 @@ export interface AuditRow {
   id: string;
   actorId: string | null;
   actorName: string;
-  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT';
+  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT' | 'ORDER_CANCELLED' | 'ACCOUNT_DELETION_REQUESTED';
   entityType: string;
   entityId: string;
   summary: string;
