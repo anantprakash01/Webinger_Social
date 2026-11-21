@@ -69,7 +69,7 @@ import {
   type MarkReadRequest,
   type MessageList,
   type NotificationPage,
-  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest, type PostMetricsInput } from '@/types';
+  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest, type PostMetricsInput, type CampaignInvite, type MessageAttachment, type SavedList, type SavedListDetail, type NotificationPreferences, type BrandReview, type CreatorAvailability } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -273,7 +273,17 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
 const enc = encodeURIComponent;
 
 /** Longest side per upload purpose, so demo images stay small enough for sessionStorage. */
-const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600 };
+const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600, MESSAGE_ATTACHMENT: 1600 };
+
+/** Mock mode only: the file as a data URL (PDF chat attachments). */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new ApiError({ type: 'about:blank', status: 422, title: 'Validation failed', detail: 'That file could not be read.' }));
+    r.readAsDataURL(file);
+  });
+}
 
 /** Mock mode only: a JPEG data URL of the image, downscaled when the browser can. */
 async function toDemoDataUrl(file: File, purpose: PresignRequest['purpose']): Promise<string> {
@@ -319,6 +329,8 @@ export const newIdempotencyKey = () => crypto.randomUUID();
 
 export interface OutboxEmail {
   id: string;
+  /** Email address, or the phone number for SMS / WhatsApp (phase D, mocked). */
+  channel?: 'EMAIL' | 'SMS' | 'WHATSAPP';
   to: string;
   subject: string;
   body: string;
@@ -427,6 +439,8 @@ export const api = {
     updateProfile: (body: CreatorProfileInput) => request<CreatorMe>('PUT', '/creators/me/profile', { body }),
     addSocial: (body: SocialAccountInput) => request<SocialAccount>('POST', '/creators/me/social-accounts', { body }),
     removeSocial: (id: string) => request<void>('DELETE', `/creators/me/social-accounts/${enc(id)}`),
+    /** Vacation mode (v2.5). */
+    saveAvailability: (body: CreatorAvailability) => request<CreatorAvailability>('PUT', '/creators/me/availability', { body }),
     createPackage: (body: PackageInput) => request<OwnPackage>('POST', '/creators/me/packages', { body }),
     updatePackage: (id: string, body: PackagePatch) => request<OwnPackage>('PATCH', `/creators/me/packages/${enc(id)}`, { body }),
     deletePackage: (id: string) => request<void>('DELETE', `/creators/me/packages/${enc(id)}`),
@@ -464,12 +478,12 @@ export const api = {
      * mock: presign (so validation matches) → a downscaled data URL kept in the demo data.
      */
     async upload(file: File, purpose: PresignRequest['purpose']): Promise<string> {
-      const problem = uploadProblem(file);
+      const problem = uploadProblem(file, purpose);
       if (problem) throw new ApiError({ type: 'about:blank', status: 422, title: 'Validation failed', detail: problem, errors: [{ field: 'file', message: problem }] });
       const target = await request<PresignResponse>('POST', '/files/presign', {
         body: { purpose, fileName: file.name.slice(0, 200), contentType: file.type as PresignRequest['contentType'], sizeBytes: file.size } satisfies PresignRequest,
       });
-      if (isMock) return toDemoDataUrl(file, purpose);
+      if (isMock) return file.type === 'application/pdf' ? readAsDataUrl(file) : toDemoDataUrl(file, purpose);
       const res = await fetch(target.uploadUrl, { method: target.method, headers: target.headers, body: file });
       if (!res.ok) throw new ApiError({ type: 'about:blank', status: res.status, title: 'Upload failed', detail: 'The image could not be uploaded. Try again.' });
       return target.fileUrl;
@@ -501,11 +515,16 @@ export const api = {
     saveMetrics: (id: string, deliveryId: string, body: PostMetricsInput) =>
       request<OrderDetail>('PUT', `/orders/${enc(id)}/deliveries/${enc(deliveryId)}/metrics`, { body }),
     review: (id: string, body: ReviewRequest) => request<Review>('POST', `/orders/${enc(id)}/review`, { body }),
+    /** v2.5: the creator rates the brand. */
+    reviewBrand: (id: string, body: ReviewRequest) => request<BrandReview>('POST', `/orders/${enc(id)}/brand-review`, { body }),
     reply: (reviewId: string, reply: string) => request<Review>('POST', `/reviews/${enc(reviewId)}/reply`, { body: { reply } }),
   },
   /** Campaigns (Week 5, FR-40 – FR-42). */
   campaigns: {
-    list: (q: { platform?: string; niche?: string; applied?: boolean; page?: number; size?: number } = {}) => request<CampaignPage>('GET', '/campaigns', { query: q }),
+    list: (q: { platform?: string; niche?: string; applied?: boolean; invited?: boolean; page?: number; size?: number } = {}) => request<CampaignPage>('GET', '/campaigns', { query: q }),
+    /** FR-43 (v2.5). */
+    invite: (id: string, username: string, message: string | null) => request<CampaignInvite>('POST', `/campaigns/${enc(id)}/invites`, { body: { username, message } }),
+    declineInvite: (id: string) => request<CampaignInvite>('POST', `/invites/${enc(id)}/decline`),
     create: (body: CampaignInput) => request<CampaignDetail>('POST', '/campaigns', { body }),
     get: (id: string) => request<CampaignDetail>('GET', `/campaigns/${enc(id)}`),
     close: (id: string) => request<CampaignDetail>('POST', `/campaigns/${enc(id)}/close`),
@@ -520,11 +539,24 @@ export const api = {
   chat: {
     conversations: () => request<ConversationList>('GET', '/conversations'),
     messages: (id: string, after?: string) => request<MessageList>('GET', `/conversations/${enc(id)}/messages`, { query: { after } }),
-    send: (id: string, body: string) => request<ChatMessage>('POST', `/conversations/${enc(id)}/messages`, { body: { body } }),
+    send: (id: string, body: string, attachment: MessageAttachment | null = null) => request<ChatMessage>('POST', `/conversations/${enc(id)}/messages`, { body: { body, attachment } }),
     markRead: (id: string) => request<void>('POST', `/conversations/${enc(id)}/read`),
+  },
+  /** Saved lists of creators (FR-25, v2.5). Brands only. */
+  lists: {
+    all: () => request<SavedList[]>('GET', '/lists'),
+    get: (id: string) => request<SavedListDetail>('GET', `/lists/${enc(id)}`),
+    create: (name: string) => request<SavedList>('POST', '/lists', { body: { name } }),
+    rename: (id: string, name: string) => request<SavedList>('PATCH', `/lists/${enc(id)}`, { body: { name } }),
+    remove: (id: string) => request<void>('DELETE', `/lists/${enc(id)}`),
+    add: (id: string, username: string) => request<SavedList>('PUT', `/lists/${enc(id)}/creators/${enc(username)}`),
+    drop: (id: string, username: string) => request<SavedList>('DELETE', `/lists/${enc(id)}/creators/${enc(username)}`),
   },
   /** Notifications (FR-52). */
   notifications: {
+    /** FR-53 (v2.5). */
+    preferences: () => request<NotificationPreferences>('GET', '/me/notification-preferences'),
+    savePreferences: (body: NotificationPreferences) => request<NotificationPreferences>('PUT', '/me/notification-preferences', { body }),
     list: (q: { unreadOnly?: boolean; page?: number; size?: number } = {}) => request<NotificationPage>('GET', '/notifications', { query: q }),
     markRead: (body: MarkReadRequest) => request<void>('POST', '/notifications/read', { body }),
   },

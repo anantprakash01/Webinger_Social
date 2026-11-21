@@ -3,6 +3,8 @@
  * Every status change goes through orderMachine.ts (rule 9.5.2), so states, guards, error codes,
  * payment states and ledger entries match the backend's OrderStateMachine.
  */
+import { deliver } from '../deliver';
+import { assertAvailable, brandRatingOf, brandReviewOf } from './retention';
 import { calculateTaxes, NO_TAXES, PLATFORM_GSTIN, PLATFORM_STATE } from '../tax';
 import {
   briefSchema,
@@ -96,9 +98,7 @@ export function notifyOrderEvent(o: MockOrder, e: OrderEvent) {
   const drafts = orderEventNotifications(e, o, { title: info.title, brandName: brandParty(o.brandUserId).name, creatorName: creatorParty(o.creatorUserId).name });
   for (const n of drafts) {
     if (n.userId === e.actorId) continue;
-    db.notifications.unshift({ id: ulid(now().getTime()), ...n, readAt: null, createdAt: now().toISOString() });
-    const to = db.users.find((u) => u.id === n.userId)?.email;
-    if (to) db.outbox.unshift({ id: ulid(now().getTime()), to, subject: n.title, body: n.body, link: n.link, createdAt: now().toISOString() });
+    deliver(n.userId, { type: n.type, title: n.title, body: n.body, link: n.link }, 'ORDERS');
   }
 }
 
@@ -220,6 +220,8 @@ export function toDetail(o: MockOrder, user: UserRow): OrderDetail {
     allowedActions: actionsFor(o, user),
     serverTime: now().toISOString(),
     taxParties: taxPartiesOf(o),
+    brandReview: brandReviewOf(o.id),
+    brandRating: brandRatingOf(o.brandUserId),
     addons: info.addons ?? [],
     usageRights: info.usageRights ?? null,
     drafts: db.drafts
@@ -368,6 +370,7 @@ export interface OrderLine {
  * FR-30: authorise, don't capture. The machine checks role, verified email (FR-02), price and days.
  */
 export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: OrderLine, brief: Omit<OrderBriefRow, 'orderId' | 'updatedAt'>, payment: unknown): OrderCreated {
+  assertAvailable(creator);
   if (creator.payoutStatus !== 'ENABLED') fail(409, 'This creator cannot take paid orders yet.', 'CREATOR_PAYOUTS_DISABLED');
   if (!user.emailVerifiedAt) fail(403, 'Verify your email before placing orders.', 'EMAIL_NOT_VERIFIED');
   const db = getDb();

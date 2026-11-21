@@ -1,4 +1,6 @@
 /** Creator side of campaigns (FR-41): /creator/campaigns (open + mine) and /creator/campaigns/:id (apply). */
+import { useDeclineInvite } from '@/features/retention/hooks';
+import { LuMailOpen } from 'react-icons/lu';
 import { TabRow } from '@/components/feedback';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -6,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { LuArrowLeft } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
-import { CreatorPhoto } from '@/components/creator';
+import { CreatorPhoto, Rating } from '@/components/creator';
 import { Button, Card, EmptyState, ErrorState, FormError, Input, PageHeader, PageSkeleton, Select, TextArea, cx } from '@/components/ui';
 import { NICHE_LABEL, NICHES, PLATFORM_LABEL, PLATFORMS } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
@@ -18,12 +20,12 @@ import { applicationFormSchema, type ApplicationFormValues } from '../schemas';
 
 export function CreatorCampaignsPage() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'mine' ? 'mine' : 'open';
+  const tab = params.get('tab') === 'mine' ? 'mine' : params.get('tab') === 'invited' ? 'invited' : 'open';
   const platform = params.get('platform') ?? undefined;
   const niche = params.get('niche') ?? undefined;
   const { user } = useAuth();
   const approved = user?.creator?.vettingStatus === 'APPROVED';
-  const query = tab === 'mine' ? { applied: true } : { platform, niche };
+  const query = tab === 'mine' ? { applied: true } : tab === 'invited' ? { invited: true } : { platform, niche };
   const { data, isPending, isError, error, refetch } = useCampaigns(query);
   const set = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(params);
@@ -52,6 +54,9 @@ export function CreatorCampaignsPage() {
           <button type="button" className={cx('platform-tab', tab === 'mine' && 'is-on')} aria-pressed={tab === 'mine'} onClick={() => set({ tab: 'mine', platform: undefined, niche: undefined })}>
             My applications
           </button>
+          <button type="button" className={cx('platform-tab', tab === 'invited' && 'is-on')} aria-pressed={tab === 'invited'} onClick={() => set({ tab: 'invited', platform: undefined, niche: undefined })}>
+            Invitations
+          </button>
         </TabRow>
         {tab === 'open' && (
           <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -66,8 +71,8 @@ export function CreatorCampaignsPage() {
         <PageSkeleton />
       ) : data.content.length === 0 ? (
         <Card>
-          <EmptyState title={tab === 'mine' ? 'No applications yet' : 'No open campaigns match'}>
-            {tab === 'mine' ? 'Applications you send appear here with their status.' : 'Try another platform or niche, or check back soon.'}
+          <EmptyState title={tab === 'mine' ? 'No applications yet' : tab === 'invited' ? 'No invitations right now' : 'No open campaigns match'}>
+            {tab === 'mine' ? 'Applications you send appear here with their status.' : tab === 'invited' ? 'When a brand invites you to apply, it shows up here.' : 'Try another platform or niche, or check back soon.'}
           </EmptyState>
         </Card>
       ) : (
@@ -119,9 +124,11 @@ export function CreatorCampaignDetailPage() {
           <div>
             <div className="list__meta">Brand</div>
             <div className="list__title">{c.brand.name}</div>
+            <Rating avg={c.brandRating.ratingAvg} count={c.brandRating.ratingCount} />
           </div>
         </div>
       </div>
+      {c.myInvite?.status === 'INVITED' && !c.myApplication && <InviteNotice c={c} />}
       <div className="order__layout">
         <div className="order__main">
           <Card title="Brief">
@@ -151,6 +158,22 @@ export function CreatorCampaignDetailPage() {
           <ApplyCard c={c} />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function InviteNotice({ c }: { c: CampaignDetail }) {
+  const decline = useDeclineInvite();
+  const i = c.myInvite!;
+  return (
+    <div className="vetting vetting--info" role="status">
+      <LuMailOpen aria-hidden />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <strong>{c.brand.name} invited you to apply.</strong> {i.message ? `“${i.message}”` : 'Send your pitch and price below.'}
+      </div>
+      <Button size="sm" variant="ghost" loading={decline.isPending} onClick={() => decline.mutate(i.id)}>
+        Not interested
+      </Button>
     </div>
   );
 }

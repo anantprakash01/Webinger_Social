@@ -57,7 +57,7 @@ export function seedAdmin(
     auditLogs.push({
       id: id(),
       actorId: ids.adminId,
-      actorName: 'Sam Ortega',
+      actorName: 'Sam Mehta',
       action: 'DISPUTE_RESOLVED',
       entityType: 'ORDER',
       entityId: d.orderId,

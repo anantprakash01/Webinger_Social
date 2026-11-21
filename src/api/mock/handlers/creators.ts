@@ -2,6 +2,7 @@
  * Mock for the public Creators module: GET /creators (search, FR-20 – FR-24) and
  * GET /creators/{username} (profile, FR-15). Only APPROVED creators are visible (FR-16, rule 9.5.1).
  */
+import { availabilityOf, isAway } from './retention';
 import { toAddon } from './orders';
 import { creatorSearchQuerySchema, type ValidSearchQuery } from '@/features/search/schemas';
 import { NICHE_LABEL } from '@/lib/catalog';
@@ -28,7 +29,7 @@ function ratingOf(creatorId: string) {
 }
 
 /** Builds the card for one creator, as seen through an optional platform filter. Null = not on that platform. */
-function cardFor(p: CreatorProfileRow & { username: string }, platform?: Platform): Facts | null {
+export function cardFor(p: CreatorProfileRow & { username: string }, platform?: Platform): Facts | null {
   const db = getDb();
   const socials = db.socialAccounts.filter((s) => s.creatorId === p.userId);
   const packages = db.packages.filter((k) => k.creatorId === p.userId && k.active && (!platform || k.platform === platform));
@@ -47,6 +48,7 @@ function cardFor(p: CreatorProfileRow & { username: string }, platform?: Platfor
     currency: CURRENCY,
     ...ratingOf(p.userId),
     verified: socials.some((s) => s.verifiedAt),
+    away: isAway(p),
   };
   return { profile: p, card, topFollowers: top?.followers ?? 0, createdAt: p.approvedAt ?? p.createdAt };
 }
@@ -164,6 +166,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
   const body: CreatorProfile = {
     ...facts.card,
     ...trackRecord(p.userId),
+    availability: availabilityOf(p),
     bio: p.bio,
     languages: p.languages,
     coverUrls: p.coverUrls.slice(0, 3),

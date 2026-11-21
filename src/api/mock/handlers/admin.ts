@@ -2,6 +2,7 @@
  * Mock for the admin console (FR-80 – FR-85) and the public report endpoint. Admin role only, except
  * POST /reports. Every admin action writes an audit entry (FR-84).
  */
+import { deliver } from '../deliver';
 import { feeUpdateSchema, reportInputSchema, reportResolveSchema, requiredReasonSchema, resolveDisputeSchema, userStatusChangeSchema } from '@/features/admin/schemas';
 import { formatMoney } from '@/lib/money';
 import type { AdminDispute, AdminSummary, AdminUser, AdminUserPage, AuditPage, FeeSettings, Report, VettingItem } from '@/types';
@@ -28,10 +29,7 @@ function party(userId: string) {
 }
 
 function notify(userId: string, type: 'PROFILE_APPROVED' | 'PROFILE_REJECTED', title: string, body: string, link: string) {
-  const db = getDb();
-  db.notifications.unshift({ id: ulid(now().getTime()), userId, type, title, body, link, readAt: null, createdAt: now().toISOString() });
-  const to = db.users.find((u) => u.id === userId)?.email;
-  if (to) db.outbox.unshift({ id: ulid(now().getTime()), to, subject: title, body, link, createdAt: now().toISOString() });
+  deliver(userId, { type, title, body, link }, 'ACCOUNT');
 }
 
 /* ---------- Summary ---------- */

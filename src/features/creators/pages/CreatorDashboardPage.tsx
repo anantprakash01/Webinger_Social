@@ -1,4 +1,5 @@
 /** /creator/dashboard (FR-70): earnings, orders by status, profile views, setup state. */
+import { AvailabilityCard } from '@/features/retention/components/Panels';
 import { Link } from 'react-router-dom';
 import { LuArrowRight, LuEye, LuPackage, LuWallet } from 'react-icons/lu';
 import { orderStatusLabel } from '@/components/status';
@@ -75,6 +76,7 @@ export function CreatorDashboardPage() {
           )}
         </Card>
 
+        {p.vettingStatus === 'APPROVED' && <AvailabilityCard value={p.availability} />}
         <Card title="Your setup">
           <ul className="list">
             <li className="list__item">

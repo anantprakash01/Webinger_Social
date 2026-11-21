@@ -2,6 +2,8 @@
  * Mock for Campaigns (FR-40 – FR-42). Brands post campaigns; approved creators apply with a pitch and a
  * price; accepting an application places an order through the same checkout core as packages (FR-42).
  */
+import { deliver } from '../deliver';
+import { brandRatingOf, toInvite } from './retention';
 import { applicationAcceptSchema, applicationInputSchema, campaignInputSchema } from '@/features/campaigns/schemas';
 import { reasonRequestSchema } from '@/features/orders/schemas';
 import type { Application, CampaignDetail, CampaignPage, CampaignSummary } from '@/types';
@@ -45,6 +47,7 @@ function toApplication(a: ApplicationRow): Application {
 function toSummary(c: CampaignRow, viewer: UserRow): CampaignSummary {
   const apps = getDb().applications.filter((a) => a.campaignId === c.id);
   const mine = viewer.role === 'CREATOR' ? apps.find((a) => a.creatorUserId === viewer.id) : undefined;
+  const invite = viewer.role === 'CREATOR' ? getDb().invites.find((i) => i.campaignId === c.id && i.creatorUserId === viewer.id) : undefined;
   return {
     id: c.id,
     brand: brandParty(c.brandUserId),
@@ -58,6 +61,8 @@ function toSummary(c: CampaignRow, viewer: UserRow): CampaignSummary {
     open: isOpen(c),
     applicationCount: viewer.id === c.brandUserId ? apps.filter((a) => a.status !== 'WITHDRAWN').length : 0,
     myApplication: mine ? toApplication(mine) : null,
+    myInvite: invite ? toInvite(invite) : null,
+    brandRating: brandRatingOf(c.brandUserId),
     createdAt: c.createdAt,
   };
 }
@@ -73,6 +78,12 @@ function toDetail(c: CampaignRow, viewer: UserRow): CampaignDetail {
           .applications.filter((a) => a.campaignId === c.id && a.status !== 'WITHDRAWN')
           .sort((a, b) => Number(a.status !== 'PENDING') - Number(b.status !== 'PENDING') || b.createdAt.localeCompare(a.createdAt))
           .map(toApplication)
+      : [],
+    invites: owner
+      ? getDb()
+          .invites.filter((i) => i.campaignId === c.id)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .map(toInvite)
       : [],
   };
 }
@@ -91,7 +102,7 @@ function visibleCampaign(user: UserRow, id: string): CampaignRow {
 }
 
 function notify(userId: string, type: 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED', title: string, body: string, link: string) {
-  getDb().notifications.unshift({ id: ulid(now().getTime()), userId, type, title, body, link, readAt: null, createdAt: now().toISOString() });
+  deliver(userId, { type, title, body, link }, 'CAMPAIGNS');
 }
 
 /* ---------- Campaigns ---------- */
@@ -107,6 +118,9 @@ export const listCampaigns: Handler = ({ req, user }) => {
   else if (user.role === 'CREATOR' && req.query.get('applied') === 'true') {
     const mine = new Set(db.applications.filter((a) => a.creatorUserId === user.id && a.status !== 'WITHDRAWN').map((a) => a.campaignId));
     rows = db.campaigns.filter((c) => mine.has(c.id));
+  } else if (user.role === 'CREATOR' && req.query.get('invited') === 'true') {
+    const invited = new Set(db.invites.filter((i) => i.creatorUserId === user.id && i.status === 'INVITED').map((i) => i.campaignId));
+    rows = db.campaigns.filter((c) => invited.has(c.id) && isOpen(c));
   } else if (user.role === 'CREATOR') rows = db.campaigns.filter((c) => isOpen(c));
   else rows = [...db.campaigns];
   rows = rows

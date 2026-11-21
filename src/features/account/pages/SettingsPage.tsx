@@ -2,6 +2,7 @@
  * /settings — account settings (launch-readiness phase A): name, email, password, other devices,
  * download my data, delete my account (DPDP Act: access and erasure; FR-06).
  */
+import { NotificationPrefsCard } from '@/features/retention/components/Panels';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -24,6 +25,7 @@ export function SettingsPage() {
       <PageHeader title="Account settings" />
       <NameCard name={user.name} />
       <EmailCard email={user.email} verified={user.emailVerified} />
+      <NotificationPrefsCard role={user.role} />
       <PasswordCard />
       <DevicesCard />
       <DataCard />

@@ -49,7 +49,7 @@ export function LandingPage() {
               Search creators
             </label>
             <LuSearch aria-hidden className="hero-search__icon" />
-            <input id="hero-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Try “skincare”, “fitness” or “Austin”" />
+            <input id="hero-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Try “skincare”, “fitness” or “Mumbai”" />
             <Button type="submit">Search</Button>
           </form>
           <div className="hero__tags" aria-label="Popular niches">

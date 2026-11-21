@@ -34,6 +34,9 @@ const brandCampaigns = () => import('@/features/campaigns/pages/BrandCampaignsPa
 const BrandCampaigns = area(brandCampaigns, 'BrandCampaignsPage');
 const BrandCampaignDetail = area(brandCampaigns, 'BrandCampaignDetailPage');
 const ApplicationCheckoutPage = area(() => import('@/features/campaigns/pages/ApplicationCheckoutPage'), 'ApplicationCheckoutPage');
+const savedLists = () => import('@/features/retention/pages/SavedListsPages');
+const SavedListsPage = area(savedLists, 'SavedListsPage');
+const SavedListPage = area(savedLists, 'SavedListPage');
 const BrandProfile = area(() => import('@/features/brands/pages/BrandProfilePage'), 'BrandProfilePage');
 const CheckoutPage = area(() => import('@/features/orders/pages/CheckoutPage'), 'CheckoutPage');
 
@@ -94,6 +97,8 @@ export function AppRoutes() {
             <Route path="campaigns" element={<BrandCampaigns />} />
             <Route path="campaigns/:id" element={<BrandCampaignDetail />} />
             <Route path="profile" element={<BrandProfile />} />
+            <Route path="lists" element={<SavedListsPage />} />
+            <Route path="lists/:id" element={<SavedListPage />} />
             <Route path="payment-methods" element={<BrandPaymentMethods />} />
           </Route>
         </Route>

@@ -10,7 +10,7 @@ export const campaignKeys = {
   detail: (id: string) => ['campaigns', 'detail', id] as const,
 };
 
-export const useCampaigns = (q: { platform?: string; niche?: string; applied?: boolean } = {}) =>
+export const useCampaigns = (q: { platform?: string; niche?: string; applied?: boolean; invited?: boolean } = {}) =>
   useQuery({ queryKey: campaignKeys.list(q), queryFn: () => api.campaigns.list({ ...q, size: 50 }) });
 
 export const useCampaign = (id: string) => useQuery({ queryKey: campaignKeys.detail(id), queryFn: () => api.campaigns.get(id) });

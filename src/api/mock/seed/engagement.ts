@@ -25,9 +25,9 @@ export interface EngagementSeed {
 }
 
 const EXTRA_BRANDS = [
-  { key: 'copperleaf', name: 'Copperleaf Candles', person: 'Nora Vance', industry: 'HOME', country: 'US' },
-  { key: 'tidewell', name: 'Tidewell Swim', person: 'Felipe Andrade', industry: 'FASHION', country: 'AU' },
-  { key: 'orbitfit', name: 'Orbitfit Gear', person: 'Hana Brooks', industry: 'HEALTH', country: 'GB' },
+  { key: 'copperleaf', name: 'Copperleaf Candles', person: 'Nisha Rao', industry: 'HOME', country: 'IN', state: 'MH' },
+  { key: 'tidewell', name: 'Tidewell Swim', person: 'Farhan Qureshi', industry: 'FASHION', country: 'IN', state: 'GA' },
+  { key: 'orbitfit', name: 'Orbitfit Gear', person: 'Harpreet Sandhu', industry: 'HEALTH', country: 'IN', state: 'DL' },
 ] as const;
 
 export function seedEngagement(now: Date, ids: { brandId: string; leoId: string; passwordHash: string }, creators: SeedResult, orders: OrderSeedResult): EngagementSeed {
@@ -64,7 +64,7 @@ export function seedEngagement(now: Date, ids: { brandId: string; leoId: string;
       createdAt: ago(2000),
       updatedAt: ago(2000),
     });
-    out.brandProfiles.push({ userId, companyName: b.name, website: `https://${b.key}.example.com`, logoUrl: null, industry: b.industry, country: b.country, plan: 'FREE', stripeCustomerId: `cus_demo${b.key}` });
+    out.brandProfiles.push({ userId, companyName: b.name, website: `https://${b.key}.example.com`, logoUrl: null, industry: b.industry, country: b.country, state: b.state, plan: 'FREE', stripeCustomerId: `cus_demo${b.key}` });
   }
 
   // Creators who can apply: approved, with a social account. Leo first.
@@ -182,7 +182,7 @@ export function seedEngagement(now: Date, ids: { brandId: string; leoId: string;
   });
 
   // One conversation per order; a few messages on the active ones.
-  const userName = (uid: string) => creators.creatorProfiles.find((p) => p.userId === uid)?.displayName ?? 'Maya Okafor';
+  const userName = (uid: string) => creators.creatorProfiles.find((p) => p.userId === uid)?.displayName ?? 'Maya Iyer';
   for (const o of orders.orders) {
     const conv: ConversationRow = { id: id(1000), orderId: o.id, createdAt: o.createdAt };
     out.conversations.push(conv);

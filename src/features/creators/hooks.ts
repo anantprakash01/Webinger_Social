@@ -18,12 +18,18 @@ export const useCreatorProfile = (username: string) =>
  * What a visitor can do with a package or a custom offer on a profile.
  * Guests are sent to log in first and come back to the checkout (FR-15: "buying asks to log in as a brand").
  */
-export function usePurchaseActions(username: string) {
+export function usePurchaseActions(username: string, availability?: { away: boolean; until?: string | null }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const canBuy = !user || user.role === 'BRAND';
-  const reason =
-    user?.role === 'CREATOR' ? 'Only brand accounts can buy packages.' : user?.role === 'ADMIN' ? 'Admins cannot buy packages.' : null;
+  const away = !!availability?.away;
+  const canBuy = (!user || user.role === 'BRAND') && !away;
+  const reason = away
+    ? 'This creator is away and not taking new orders.'
+    : user?.role === 'CREATOR'
+      ? 'Only brand accounts can buy packages.'
+      : user?.role === 'ADMIN'
+        ? 'Admins cannot buy packages.'
+        : null;
 
   const buy = (packageId: string) => {
     const checkout = `/checkout/${packageId}`;

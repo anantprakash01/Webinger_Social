@@ -3,6 +3,7 @@
  * into problem+json exactly like the Spring Boot API. The API client calls `handle()` instead of
  * `fetch()` when VITE_API_MODE=mock.
  */
+import * as retention from './handlers/retention';
 import * as collab from './handlers/collab';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
@@ -79,6 +80,19 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/orders/:id/deliver', auth: true, handler: orders.deliverOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/brief', auth: true, handler: orders.updateOrderBrief },
   { method: 'POST', path: '/orders/:id/drafts', auth: true, handler: collab.shareDraft },
+  { method: 'POST', path: '/orders/:id/brand-review', auth: true, handler: retention.reviewBrand },
+  { method: 'GET', path: '/lists', auth: true, handler: retention.listSavedLists },
+  { method: 'POST', path: '/lists', auth: true, handler: retention.createSavedList },
+  { method: 'GET', path: '/lists/:listId', auth: true, handler: retention.getSavedList },
+  { method: 'PATCH', path: '/lists/:listId', auth: true, handler: retention.renameSavedList },
+  { method: 'DELETE', path: '/lists/:listId', auth: true, handler: retention.deleteSavedList },
+  { method: 'PUT', path: '/lists/:listId/creators/:username', auth: true, handler: retention.addToSavedList },
+  { method: 'DELETE', path: '/lists/:listId/creators/:username', auth: true, handler: retention.removeFromSavedList },
+  { method: 'PUT', path: '/creators/me/availability', auth: true, handler: retention.saveAvailability },
+  { method: 'GET', path: '/me/notification-preferences', auth: true, handler: retention.getNotificationPreferences },
+  { method: 'PUT', path: '/me/notification-preferences', auth: true, handler: retention.saveNotificationPreferences },
+  { method: 'POST', path: '/campaigns/:id/invites', auth: true, handler: retention.inviteToCampaign },
+  { method: 'POST', path: '/invites/:id/decline', auth: true, handler: retention.declineInvite },
   { method: 'POST', path: '/orders/:id/drafts/:draftId/review', auth: true, handler: collab.reviewDraft },
   { method: 'PUT', path: '/orders/:id/shipment', auth: true, handler: collab.saveShipment },
   { method: 'POST', path: '/orders/:id/shipment/received', auth: true, handler: collab.markReceived },

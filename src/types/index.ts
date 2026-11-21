@@ -152,3 +152,14 @@ export class ApiError extends Error {
     this.problem = problem;
   }
 }
+
+/* Phase D (v2.5) */
+export type SavedList = S['SavedList'];
+export type SavedListDetail = S['SavedListDetail'];
+export type CreatorAvailability = S['CreatorAvailability'];
+export type CampaignInvite = S['CampaignInvite'];
+export type BrandRating = S['BrandRating'];
+export type BrandReview = S['BrandReview'];
+export type NotificationCategory = S['NotificationCategory'];
+export type NotificationPreferences = S['NotificationPreferences'];
+export type MessageAttachment = S['MessageAttachment'];

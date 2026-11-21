@@ -4,7 +4,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { LuCalendar, LuUsers } from 'react-icons/lu';
-import { CreatorPhoto, PlatformIcon } from '@/components/creator';
+import { CreatorPhoto, PlatformIcon, Rating } from '@/components/creator';
 import { Badge, Button, ChipGroup, FormError, Input, TextArea, type Tone } from '@/components/ui';
 import { NICHE_LABEL, NICHES, PLATFORM_LABEL, PLATFORMS } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
@@ -38,11 +38,13 @@ export function CampaignCard({ c, href, role }: { c: CampaignSummary; href: stri
             <span className="row">
               <CreatorPhoto name={c.brand.name} url={c.brand.photoUrl} seed={c.brand.name} size={28} className="order__photo" />
               <span className="small">{c.brand.name}</span>
+              <Rating avg={c.brandRating.ratingAvg} count={c.brandRating.ratingCount} />
             </span>
           ) : (
             <CampaignStatusBadge c={c} />
           )}
           {role === 'CREATOR' && c.myApplication && <ApplicationBadge status={c.myApplication.status} />}
+          {role === 'CREATOR' && !c.myApplication && c.myInvite?.status === 'INVITED' && <Badge tone="info">Invited</Badge>}
         </div>
         <h3 className="campaign-card__title">{c.title}</h3>
         <div className="campaign-card__platforms">

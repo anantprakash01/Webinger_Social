@@ -93,3 +93,81 @@
   font-weight: 800;
   line-height: 1.1;
 }
+
+/* ---------- Phase D: saved lists, invites, away, attachments, preferences ---------- */
+
+.ccard { position: relative; }
+.ccard__save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.ccard__save .save-btn {
+  background: var(--surface);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.ccard__away {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.list-picker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.lists-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: var(--s-3);
+}
+.lists-grid__name { display: block; font-size: var(--fs-lg); }
+.saved-grid { list-style: none; margin: 0; padding: 0; }
+.saved-grid__item { display: grid; gap: 6px; min-width: 0; }
+.saved-grid__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.profile__cta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.prefs-table { width: 100%; border-collapse: collapse; }
+.prefs-table th,
+.prefs-table td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--border); }
+.prefs-table th:first-child,
+.prefs-table td:first-child { text-align: left; }
+.prefs-table td:first-child .muted { display: block; }
+
+.msg-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 6px;
+}
+.msg-attach img {
+  display: block;
+  max-width: min(240px, 100%);
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.composer__pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+.composer__pending span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

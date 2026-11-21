@@ -91,7 +91,7 @@ describe('disputes (FR-81, FR-64)', () => {
 describe('users (FR-82)', () => {
   it('suspends a creator: sessions end, profile and search hide them; reactivating restores', async () => {
     await asAdmin();
-    const leo = (await api.admin.users({ q: 'leo marin' })).content[0];
+    const leo = (await api.admin.users({ q: 'leo fernandes' })).content[0];
     expect(leo).toMatchObject({ role: 'CREATOR', status: 'ACTIVE', label: 'leomakes' });
     await expectError(api.admin.updateUser(leo.id, { status: 'SUSPENDED', reason: 'short' }), 422);
     await api.admin.updateUser(leo.id, { status: 'SUSPENDED', reason: 'Investigating a fraud report.' });
@@ -111,8 +111,8 @@ describe('users (FR-82)', () => {
     await asAdmin();
     const brand = (await api.admin.users({ q: 'brand@demo.test' })).content[0];
     const viewed = await api.admin.impersonate(brand.id);
-    expect(viewed).toMatchObject({ email: 'brand@demo.test', impersonatedBy: 'Sam Ortega' });
-    expect((await api.me.get()).impersonatedBy).toBe('Sam Ortega');
+    expect(viewed).toMatchObject({ email: 'brand@demo.test', impersonatedBy: 'Sam Mehta' });
+    expect((await api.me.get()).impersonatedBy).toBe('Sam Mehta');
     expect((await api.orders.list()).totalElements).toBeGreaterThan(0);
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;
     await expectError(api.orders.create({ packageId: pkg.id, brief, payment: UNPAID }, key()), 403, 'READ_ONLY_IMPERSONATION');
@@ -128,7 +128,7 @@ describe('fees (FR-83)', () => {
     await asAdmin();
     await expectError(api.admin.updateFees({ brandFeeBps: 5000, creatorFeeBps: 1500 }), 422);
     const s = await api.admin.updateFees({ brandFeeBps: 800, creatorFeeBps: 1200 });
-    expect(s.current).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1200, changedBy: 'Sam Ortega' });
+    expect(s.current).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1200, changedBy: 'Sam Mehta' });
     expect(s.history).toHaveLength(2);
     expect(await api.fees.current()).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1200 });
     await asBrand();
@@ -152,7 +152,7 @@ describe('audit log (FR-84)', () => {
     await asAdmin();
     const after = await api.admin.audit({ action: 'MONEY_MOVEMENT' });
     expect(after.totalElements).toBe(before + 1);
-    expect(after.content[0]).toMatchObject({ entityId: orderId, actorName: 'Leo Marin' });
+    expect(after.content[0]).toMatchObject({ entityId: orderId, actorName: 'Leo Fernandes' });
   });
 });
 
@@ -161,7 +161,7 @@ describe('reports (FR-85)', () => {
     await asBrand();
     await expectError(api.reports.create({ targetType: 'CREATOR', targetId: 'nobody-at-all', reason: 'SPAM' }), 404);
     const r = await api.reports.create({ targetType: 'CREATOR', targetId: 'leomakes', reason: 'SCAM', details: 'Asked for a deposit by email.' });
-    expect(r).toMatchObject({ status: 'OPEN', targetLabel: 'Creator Leo Marin (@leomakes)', targetLink: '/u/leomakes' });
+    expect(r).toMatchObject({ status: 'OPEN', targetLabel: 'Creator Leo Fernandes (@leomakes)', targetLink: '/u/leomakes' });
     await expectError(api.reports.create({ targetType: 'CREATOR', targetId: 'leomakes', reason: 'SCAM' }), 409, 'ALREADY_REPORTED');
     await asAdmin();
     const open = (await api.admin.reports('OPEN')).content;

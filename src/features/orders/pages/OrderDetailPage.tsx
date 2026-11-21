@@ -1,4 +1,5 @@
 /** /brand/orders/:id, /creator/orders/:id and /admin/orders/:id — one order, as the viewer sees it. */
+import { BrandReviewCard } from '@/features/retention/components/Panels';
 import { useDocumentTitle } from '@/lib/documentTitle';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuCircleCheck, LuMessageSquare, LuReceipt } from 'react-icons/lu';
@@ -102,6 +103,7 @@ export function OrderDetailPage() {
         <div className="order__main">
           <ActionPanel o={o} role={role} fetchedAt={dataUpdatedAt} />
           <ReviewCard o={o} role={role} />
+          <BrandReviewCard o={o} role={role} />
           <ExtensionCard o={o} role={role} />
           <ShippingCard o={o} role={role} />
           <DraftsCard o={o} role={role} />

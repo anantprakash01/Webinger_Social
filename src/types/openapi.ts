@@ -288,6 +288,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notification channels per category (FR-53, v2.5) */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Save notification channels (FR-53, v2.5)
+         * @description In-app notifications are always on. SMS and WhatsApp need a verified Indian mobile number; security emails (verification, password reset) are always sent.
+         */
+        put: operations["saveNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/deletion": {
         parameters: {
             query?: never;
@@ -916,6 +937,137 @@ export interface paths {
          */
         put: operations["savePostMetrics"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My saved lists of creators (FR-25, v2.5) */
+        get: operations["listSavedLists"];
+        put?: never;
+        /** Create a list (max 20) */
+        post: operations["createSavedList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        /** A list with its creators as search cards */
+        get: operations["getSavedList"];
+        put?: never;
+        post?: never;
+        /** Delete a list */
+        delete: operations["deleteSavedList"];
+        options?: never;
+        head?: never;
+        /** Rename a list */
+        patch: operations["renameSavedList"];
+        trace?: never;
+    };
+    "/lists/{listId}/creators/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Save a creator to a list (max 200 per list; idempotent) */
+        put: operations["addToSavedList"];
+        post?: never;
+        /** Remove a creator from a list */
+        delete: operations["removeFromSavedList"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Vacation mode (v2.5)
+         * @description While away, the profile shows a notice, new orders and invites are refused (409 CREATOR_AWAY) and search cards show "Away". It switches off by itself after `until`.
+         */
+        put: operations["saveAvailability"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite a creator to apply (FR-43, v2.5) */
+        post: operations["inviteToCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invites/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline an invitation (creator) */
+        post: operations["declineInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/brand-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The creator rates the brand once the order is completed (v2.5) */
+        post: operations["reviewBrand"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1813,6 +1965,82 @@ export interface components {
             ratingCount: number;
             /** @description At least one social account was verified by our team (badge). */
             verified: boolean;
+            /** @description Vacation mode is on: not taking new orders (v2.5). */
+            away: boolean;
+        };
+        SavedListInput: {
+            name: string;
+        };
+        SavedList: {
+            id: string;
+            name: string;
+            usernames: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SavedListDetail: components["schemas"]["SavedList"] & {
+            /** @description Creators still visible to brands; hidden or suspended ones are left out. */
+            creators: components["schemas"]["CreatorCard"][];
+        };
+        CreatorAvailability: {
+            away: boolean;
+            /**
+             * Format: date
+             * @description Last day away (inclusive); null = until switched off.
+             */
+            until?: string | null;
+            message?: string | null;
+        };
+        CampaignInviteInput: {
+            username: string;
+            message?: string | null;
+        };
+        CampaignInvite: {
+            id: string;
+            campaignId: string;
+            campaignTitle: string;
+            creator: components["schemas"]["OrderParty"];
+            message: string | null;
+            /** @enum {string} */
+            status: "INVITED" | "APPLIED" | "DECLINED";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Creators' ratings of a brand (v2.5). */
+        BrandRating: {
+            ratingAvg: number | null;
+            ratingCount: number;
+        };
+        BrandReview: {
+            id: string;
+            rating: number;
+            comment: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @enum {string} */
+        NotificationCategory: "ORDERS" | "CAMPAIGNS" | "PAYOUTS" | "ACCOUNT" | "PRODUCT_NEWS";
+        NotificationPreferences: {
+            /**
+             * @description Indian mobile number, +91 followed by 10 digits starting 6–9. Needed for SMS and WhatsApp.
+             * @example +919876543210
+             */
+            phone: string | null;
+            categories: {
+                category: components["schemas"]["NotificationCategory"];
+                email: boolean;
+                sms: boolean;
+                whatsapp: boolean;
+            }[];
+        };
+        MessageAttachment: {
+            url: string;
+            name: string;
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+            sizeBytes: number;
         };
         CreatorSearchPage: components["schemas"]["PageMeta"] & {
             content: components["schemas"]["CreatorCard"][];
@@ -1972,6 +2200,7 @@ export interface components {
             reviews: components["schemas"]["Review"][];
             /** Format: date-time */
             memberSince: string;
+            availability: components["schemas"]["CreatorAvailability"];
             /** @description Always APPROVED for the public; other values only in an owner or admin preview. */
             vettingStatus: components["schemas"]["VettingStatus"];
         };
@@ -2047,6 +2276,7 @@ export interface components {
             payouts: boolean;
         };
         CreatorMe: {
+            availability: components["schemas"]["CreatorAvailability"];
             username: string | null;
             displayName: string;
             bio: string | null;
@@ -2124,10 +2354,13 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE";
+            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE" | "MESSAGE_ATTACHMENT";
             fileName: string;
-            /** @enum {string} */
-            contentType: "image/jpeg" | "image/png" | "image/webp";
+            /**
+             * @description PDF only for MESSAGE_ATTACHMENT (v2.5).
+             * @enum {string}
+             */
+            contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
             sizeBytes: number;
         };
         PresignResponse: {
@@ -2548,6 +2781,9 @@ export interface components {
             applicationCount: number;
             /** @description The creator's own application, if any. */
             myApplication: components["schemas"]["Application"] | null;
+            /** @description Creators: the invitation to this campaign, if any (v2.5). */
+            myInvite: components["schemas"]["CampaignInvite"] | null;
+            brandRating: components["schemas"]["BrandRating"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -2556,6 +2792,8 @@ export interface components {
             deliverables: string[];
             /** @description Owning brand only; empty for creators. */
             applications: components["schemas"]["Application"][];
+            /** @description Owning brand only (v2.5). */
+            invites: components["schemas"]["CampaignInvite"][];
         };
         CampaignPage: components["schemas"]["PageMeta"] & {
             content: components["schemas"]["CampaignSummary"][];
@@ -2600,6 +2838,8 @@ export interface components {
             body: string;
             /** @description Contact details were hidden (FR-51). */
             masked: boolean;
+            /** @description One image or PDF (v2.5). */
+            attachment: components["schemas"]["MessageAttachment"] | null;
             /** Format: date-time */
             createdAt: string;
             /**
@@ -2615,8 +2855,10 @@ export interface components {
             /** Format: date-time */
             serverTime: string;
         };
+        /** @description Text, an attachment, or both. */
         MessageInput: {
             body: string;
+            attachment?: components["schemas"]["MessageAttachment"] | null;
         };
         Conversation: {
             id: components["schemas"]["Ulid"];
@@ -2635,7 +2877,7 @@ export interface components {
             unreadTotal: number;
         };
         /** @enum {string} */
-        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT";
+        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT" | "CAMPAIGN_INVITE";
         Notification: {
             id: components["schemas"]["Ulid"];
             type: components["schemas"]["NotificationType"];
@@ -2971,6 +3213,9 @@ export interface components {
             allowedActions: components["schemas"]["OrderAction"][];
             /** Format: date-time */
             serverTime: string;
+            /** @description The creator's rating of the brand (v2.5). */
+            brandReview: components["schemas"]["BrandReview"] | null;
+            brandRating: components["schemas"]["BrandRating"];
             /** @description Add-ons bought with the package (v2.4). */
             addons: components["schemas"]["PackageAddon"][];
             /** @description Paid ad usage included, e.g. "Paid ads for 30 days" (v2.4). */
@@ -3481,6 +3726,51 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+        };
+    };
+    saveNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
         };
     };
     requestAccountDeletion: {
@@ -4470,6 +4760,286 @@ export interface operations {
             422: components["responses"]["ValidationFailed"];
         };
     };
+    listSavedLists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedListInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedListDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renameSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedListInput"];
+            };
+        };
+        responses: {
+            /** @description Renamed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    addToSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeFromSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatorAvailability"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorAvailability"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    inviteToCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignInviteInput"];
+            };
+        };
+        responses: {
+            /** @description Invited. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignInvite"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    declineInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declined. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignInvite"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reviewBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Posted. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandReview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
     reviewOrder: {
         parameters: {
             query?: never;
@@ -4535,6 +5105,8 @@ export interface operations {
                 niche?: components["schemas"]["Niche"];
                 /** @description Creators only: campaigns they applied to, in any status. */
                 applied?: boolean;
+                /** @description Creators only: open campaigns they were invited to (v2.5). */
+                invited?: boolean;
                 page?: number;
                 size?: number;
             };

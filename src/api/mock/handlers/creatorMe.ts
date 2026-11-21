@@ -2,6 +2,7 @@
  * Mock for the creator workspace (FR-10 – FR-16, FR-70): the signed-in creator's own profile,
  * socials, packages, portfolio, submit-for-review and dashboard stats. Creator role only.
  */
+import { availabilityOf } from './retention';
 import { toAddon } from './orders';
 import type { PackageAddon } from '@/types';
 import {
@@ -70,6 +71,7 @@ export function checklistOf(p: CreatorProfileRow): CreatorChecklist {
 export function toCreatorMe(p: CreatorProfileRow): CreatorMe {
   const db = getDb();
   return {
+    availability: availabilityOf(p),
     username: p.username,
     displayName: p.displayName,
     bio: p.bio,

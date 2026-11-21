@@ -18,4 +18,4 @@ export async function payFor(q: { packageId?: string; creatorUsername?: string; 
   return payTotal((await api.orders.quote(q)).totalCents);
 }
 
-export const VALID_PAYOUT_ACCOUNT: PayoutAccountInput = { pan: 'ABCDE1234F', holderName: 'Ivy Sandoval', method: 'BANK_ACCOUNT', accountNumber: '50100123456789', ifsc: 'HDFC0001234' };
+export const VALID_PAYOUT_ACCOUNT: PayoutAccountInput = { pan: 'ABCDE1234F', holderName: 'Ivy Mathew', method: 'BANK_ACCOUNT', accountNumber: '50100123456789', ifsc: 'HDFC0001234' };

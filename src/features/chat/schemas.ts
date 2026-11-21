@@ -6,9 +6,21 @@ import { z } from 'zod';
 
 export const MAX_MESSAGE_LENGTH = 2000;
 
-export const messageInputSchema = z.object({
-  body: z.string().trim().min(1, { error: 'Write a message.' }).max(MAX_MESSAGE_LENGTH, { error: `Use at most ${MAX_MESSAGE_LENGTH} characters.` }),
+export const ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const;
+export const attachmentSchema = z.object({
+  url: z.string().min(1).max(15_000_000),
+  name: z.string().trim().min(1).max(200),
+  contentType: z.enum(ATTACHMENT_TYPES, { error: 'Send an image or a PDF.' }),
+  sizeBytes: z.number().int().min(1).max(10 * 1024 * 1024, { error: 'Files can be at most 10 MB.' }),
 });
+
+/** Text, an attachment (phase D), or both. */
+export const messageInputSchema = z
+  .object({
+    body: z.string().trim().max(MAX_MESSAGE_LENGTH, { error: `Use at most ${MAX_MESSAGE_LENGTH} characters.` }).default(''),
+    attachment: attachmentSchema.nullable().optional(),
+  })
+  .refine((v) => v.body.length > 0 || !!v.attachment, { error: 'Write a message.', path: ['body'] });
 
 export const markReadSchema = z
   .object({ ids: z.array(z.string().min(1)).max(100).optional(), all: z.boolean().optional() })

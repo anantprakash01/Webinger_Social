@@ -8,7 +8,7 @@ import { DEMO_PASSWORD } from '../demo';
 
 const validProfile = {
   username: 'ivycooks',
-  displayName: 'Ivy Sandoval',
+  displayName: 'Ivy Mathew',
   bio: 'Weeknight recipes and honest kitchen gadget reviews from a tiny flat.',
   city: 'Toronto',
   country: 'CA',

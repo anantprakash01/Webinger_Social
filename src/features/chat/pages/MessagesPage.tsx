@@ -4,13 +4,14 @@
  */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuEyeOff, LuSend } from 'react-icons/lu';
+import { LuArrowLeft, LuEyeOff, LuFileText, LuImage, LuPaperclip, LuSend, LuX } from 'react-icons/lu';
+import { api } from '@/api/client';
 import { useAuth } from '@/app/AuthContext';
 import { CreatorPhoto } from '@/components/creator';
 import { OrderStatusBadge } from '@/components/status';
 import { ReportButton } from '@/features/admin/components/ReportButton';
 import { Badge, Button, Card, EmptyState, ErrorState, FormError, PageHeader, cx } from '@/components/ui';
-import type { Conversation } from '@/types';
+import type { Conversation, MessageAttachment } from '@/types';
 import { MAX_MESSAGE_LENGTH } from '../schemas';
 import { useConversations, useMarkConversationRead, useMessages, useSendMessage } from '../hooks';
 
@@ -99,6 +100,11 @@ function Thread({ c }: { c: Conversation }) {
   const send = useSendMessage(c.id);
   const markRead = useMarkConversationRead();
   const [text, setText] = useState('');
+  // Phase D: one image or PDF per message, uploaded as soon as it is picked.
+  const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const count = msgs.data?.messages.length ?? 0;
   const orderPath = `/${user?.role === 'CREATOR' ? 'creator' : 'brand'}/orders/${c.orderId}`;
@@ -112,12 +118,28 @@ function Thread({ c }: { c: Conversation }) {
     endRef.current?.scrollIntoView?.({ block: 'end' });
   }, [count, c.id]);
 
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setAttachError(null);
+    setUploading(true);
+    try {
+      const url = await api.files.upload(file, 'MESSAGE_ATTACHMENT');
+      setAttachment({ url, name: file.name.slice(0, 200), contentType: file.type as MessageAttachment['contentType'], sizeBytes: file.size });
+    } catch (e) {
+      setAttachError(e instanceof Error ? e.message : 'Could not attach the file.');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
   const submit = async () => {
     const body = text.trim();
-    if (!body) return;
+    if (!body && !attachment) return;
     try {
-      await send.mutateAsync(body);
+      await send.mutateAsync({ body, attachment });
       setText('');
+      setAttachment(null);
     } catch {
       /* shown below */
     }
@@ -164,7 +186,8 @@ function Thread({ c }: { c: Conversation }) {
             {msgs.data.messages.map((m, i, all) => (
               <li key={m.id} className={cx('bubble', m.mine ? 'bubble--mine' : 'bubble--theirs')}>
                 {!m.mine && <span className="sr-only">{m.senderName}: </span>}
-                <span className="bubble__body">{m.body}</span>
+                {m.body && <span className="bubble__body">{m.body}</span>}
+                {m.attachment && <Attachment a={m.attachment} />}
                 <span className="bubble__meta">
                   {m.masked && <Badge>Contact hidden</Badge>}
                   <time dateTime={m.createdAt}>{timeLabel(m.createdAt)}</time>
@@ -199,11 +222,38 @@ function Thread({ c }: { c: Conversation }) {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
         />
-        <Button type="submit" loading={send.isPending} disabled={!text.trim()} aria-label="Send message">
+        <input ref={fileRef} id="composer-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" onChange={(e) => void pick(e.target.files?.[0])} />
+        <Button variant="ghost" icon onClick={() => fileRef.current?.click()} loading={uploading} aria-label="Attach an image or PDF" disabled={!!attachment}>
+          <LuPaperclip aria-hidden />
+        </Button>
+        <Button type="submit" loading={send.isPending} disabled={(!text.trim() && !attachment) || uploading} aria-label="Send message">
           <LuSend aria-hidden /> <span className="composer__label">Send</span>
         </Button>
       </form>
-      <FormError>{send.error?.message}</FormError>
+      {attachment && (
+        <div className="composer__pending">
+          {attachment.contentType === 'application/pdf' ? <LuFileText aria-hidden /> : <LuImage aria-hidden />}
+          <span>{attachment.name}</span>
+          <Button variant="ghost" size="sm" icon onClick={() => setAttachment(null)} aria-label={`Remove ${attachment.name}`}>
+            <LuX aria-hidden />
+          </Button>
+        </div>
+      )}
+      <FormError>{attachError ?? send.error?.message ?? null}</FormError>
     </Card>
+  );
+}
+
+function Attachment({ a }: { a: MessageAttachment }) {
+  const kb = a.sizeBytes < 1024 * 1024 ? `${Math.max(1, Math.round(a.sizeBytes / 1024))} KB` : `${(a.sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+  return a.contentType === 'application/pdf' ? (
+    <a href={a.url} target="_blank" rel="noopener noreferrer" className="msg-attach link" download={a.name}>
+      <LuFileText aria-hidden /> {a.name} <span className="muted small">· PDF, {kb}</span>
+    </a>
+  ) : (
+    <a href={a.url} target="_blank" rel="noopener noreferrer" className="msg-attach">
+      <img src={a.url} alt={a.name} />
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
   );
 }

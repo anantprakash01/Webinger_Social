@@ -71,7 +71,7 @@ describe('GET /creators (search)', () => {
     const leo = (await all({ q: 'leomakes' }))[0];
     expect(leo).toMatchObject({
       username: 'leomakes',
-      displayName: 'Leo Marin',
+      displayName: 'Leo Fernandes',
       reach: { platform: 'TIKTOK', followers: 152_000 },
       verified: true,
       currency: 'INR',
@@ -81,7 +81,7 @@ describe('GET /creators (search)', () => {
   });
 
   it('keyword search needs every word to match name, bio or niche (FR-20)', async () => {
-    expect((await all({ q: 'Leo Marin' })).map((c) => c.username)).toContain('leomakes');
+    expect((await all({ q: 'Leo Fernandes' })).map((c) => c.username)).toContain('leomakes');
     const tech = await all({ q: 'tech' });
     expect(tech.length).toBeGreaterThan(0);
     for (const c of tech) {
@@ -103,11 +103,11 @@ describe('GET /creators (search)', () => {
 
   it('combines niche, location, language, gender, followers, price and age filters', async () => {
     const year = new Date().getUTCFullYear();
-    const query = { niche: 'TECH', country: 'US', followersMin: 10_000, priceMaxCents: 100_000 } as const;
+    const query = { niche: 'TECH', country: 'IN', followersMin: 10_000, priceMaxCents: 100_000 } as const;
     for (const c of await all(query)) {
       const p = profileOf(c.username);
       expect(p.niches).toContain('TECH');
-      expect(p.country).toBe('US');
+      expect(p.country).toBe('IN');
       expect(c.reach!.followers).toBeGreaterThanOrEqual(10_000);
       expect(c.startingPriceCents!).toBeLessThanOrEqual(100_000);
     }
@@ -118,9 +118,9 @@ describe('GET /creators (search)', () => {
       expect(age).toBeGreaterThanOrEqual(25);
       expect(age).toBeLessThanOrEqual(34);
     }
-    const austin = await all({ country: 'US', city: 'austin' });
-    expect(austin.map((c) => c.username)).toContain('leomakes');
-    for (const c of austin) expect(c.city).toBe('Austin');
+    const mumbai = await all({ country: 'IN', city: 'mumbai' });
+    expect(mumbai.map((c) => c.username)).toContain('leomakes');
+    for (const c of mumbai) expect(c.city).toBe('Mumbai');
   });
 
   it('sorts by price, followers, rating and newest (FR-22)', async () => {

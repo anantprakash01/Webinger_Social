@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.4.0
+  version: 2.5.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -26,6 +26,8 @@ info:
 servers:
   - url: /api/v1
 tags:
+  - name: Lists
+    description: Saved lists of creators (FR-25, v2.5).
   - name: Auth
   - name: Users
   - name: Creators
@@ -279,6 +281,25 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: The export., content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+
+  /me/notification-preferences:
+    get:
+      tags: [Users]
+      summary: Notification channels per category (FR-53, v2.5)
+      operationId: getNotificationPreferences
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: The preferences., content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPreferences' } } } }
+    put:
+      tags: [Users]
+      summary: Save notification channels (FR-53, v2.5)
+      description: In-app notifications are always on. SMS and WhatsApp need a verified Indian mobile number; security emails (verification, password reset) are always sent.
+      operationId: saveNotificationPreferences
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPreferences' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPreferences' } } } }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
 
   /me/deletion:
     post:
@@ -817,6 +838,135 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
+  /lists:
+    get:
+      tags: [Lists]
+      summary: My saved lists of creators (FR-25, v2.5)
+      operationId: listSavedLists
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Newest first., content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SavedList' } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Lists]
+      summary: Create a list (max 20)
+      operationId: createSavedList
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SavedListInput' } } } }
+      responses:
+        '201': { description: Created., content: { application/json: { schema: { $ref: '#/components/schemas/SavedList' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /lists/{listId}:
+    parameters:
+      - { name: listId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Lists]
+      summary: A list with its creators as search cards
+      operationId: getSavedList
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: The list., content: { application/json: { schema: { $ref: '#/components/schemas/SavedListDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Lists]
+      summary: Rename a list
+      operationId: renameSavedList
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SavedListInput' } } } }
+      responses:
+        '200': { description: Renamed., content: { application/json: { schema: { $ref: '#/components/schemas/SavedList' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+    delete:
+      tags: [Lists]
+      summary: Delete a list
+      operationId: deleteSavedList
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /lists/{listId}/creators/{username}:
+    parameters:
+      - { name: listId, in: path, required: true, schema: { type: string } }
+      - { name: username, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [Lists]
+      summary: Save a creator to a list (max 200 per list; idempotent)
+      operationId: addToSavedList
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/SavedList' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Lists]
+      summary: Remove a creator from a list
+      operationId: removeFromSavedList
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Removed., content: { application/json: { schema: { $ref: '#/components/schemas/SavedList' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /creators/me/availability:
+    put:
+      tags: [Creators]
+      summary: Vacation mode (v2.5)
+      description: While away, the profile shows a notice, new orders and invites are refused (409 CREATOR_AWAY) and search cards show "Away". It switches off by itself after `until`.
+      operationId: saveAvailability
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatorAvailability' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/CreatorAvailability' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /campaigns/{id}/invites:
+    post:
+      tags: [Campaigns]
+      summary: Invite a creator to apply (FR-43, v2.5)
+      operationId: inviteToCampaign
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CampaignInviteInput' } } } }
+      responses:
+        '201': { description: Invited., content: { application/json: { schema: { $ref: '#/components/schemas/CampaignInvite' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /invites/{id}/decline:
+    post:
+      tags: [Campaigns]
+      summary: Decline an invitation (creator)
+      operationId: declineInvite
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Declined., content: { application/json: { schema: { $ref: '#/components/schemas/CampaignInvite' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /orders/{id}/brand-review:
+    post:
+      tags: [Reviews]
+      summary: The creator rates the brand once the order is completed (v2.5)
+      operationId: reviewBrand
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewRequest' } } } }
+      responses:
+        '201': { description: Posted., content: { application/json: { schema: { $ref: '#/components/schemas/BrandReview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
   /orders/{id}/review:
     post:
       tags: [Reviews]
@@ -857,6 +1007,7 @@ paths:
         - { name: platform, in: query, schema: { $ref: '#/components/schemas/Platform' } }
         - { name: niche, in: query, schema: { $ref: '#/components/schemas/Niche' } }
         - { name: applied, in: query, description: 'Creators only: campaigns they applied to, in any status.', schema: { type: boolean, default: false } }
+        - { name: invited, in: query, description: 'Creators only: open campaigns they were invited to (v2.5).', schema: { type: boolean, default: false } }
         - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
         - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
       responses:
@@ -1590,7 +1741,7 @@ components:
     CreatorCard:
       type: object
       description: Search result card (FR-24).
-      required: [username, displayName, photoUrl, city, country, niches, reach, startingPriceCents, currency, ratingAvg, ratingCount, verified]
+      required: [username, displayName, photoUrl, city, country, niches, reach, startingPriceCents, currency, ratingAvg, ratingCount, verified, away]
       properties:
         username: { type: string }
         displayName: { type: string }
@@ -1619,6 +1770,105 @@ components:
         verified:
           type: boolean
           description: At least one social account was verified by our team (badge).
+        away: { type: boolean, description: 'Vacation mode is on: not taking new orders (v2.5).' }
+
+    # ---------- Phase D: retention and trust (v2.5) ----------
+    SavedListInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 60 }
+
+    SavedList:
+      type: object
+      required: [id, name, usernames, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        usernames: { type: array, maxItems: 200, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SavedListDetail:
+      allOf:
+        - $ref: '#/components/schemas/SavedList'
+        - type: object
+          required: [creators]
+          properties:
+            creators: { type: array, description: Creators still visible to brands; hidden or suspended ones are left out., items: { $ref: '#/components/schemas/CreatorCard' } }
+
+    CreatorAvailability:
+      type: object
+      required: [away]
+      properties:
+        away: { type: boolean }
+        until: { type: [string, 'null'], format: date, description: 'Last day away (inclusive); null = until switched off.' }
+        message: { type: [string, 'null'], maxLength: 200 }
+
+    CampaignInviteInput:
+      type: object
+      required: [username]
+      properties:
+        username: { type: string }
+        message: { type: [string, 'null'], maxLength: 500 }
+
+    CampaignInvite:
+      type: object
+      required: [id, campaignId, campaignTitle, creator, message, status, createdAt]
+      properties:
+        id: { type: string }
+        campaignId: { type: string }
+        campaignTitle: { type: string }
+        creator: { $ref: '#/components/schemas/OrderParty' }
+        message: { type: [string, 'null'] }
+        status: { type: string, enum: [INVITED, APPLIED, DECLINED] }
+        createdAt: { type: string, format: date-time }
+
+    BrandRating:
+      type: object
+      required: [ratingAvg, ratingCount]
+      description: Creators' ratings of a brand (v2.5).
+      properties:
+        ratingAvg: { type: [number, 'null'] }
+        ratingCount: { type: integer }
+
+    BrandReview:
+      type: object
+      required: [id, rating, comment, createdAt]
+      properties:
+        id: { type: string }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    NotificationCategory:
+      type: string
+      enum: [ORDERS, CAMPAIGNS, PAYOUTS, ACCOUNT, PRODUCT_NEWS]
+
+    NotificationPreferences:
+      type: object
+      required: [phone, categories]
+      properties:
+        phone: { type: [string, 'null'], description: 'Indian mobile number, +91 followed by 10 digits starting 6–9. Needed for SMS and WhatsApp.', examples: ['+919876543210'] }
+        categories:
+          type: array
+          items:
+            type: object
+            required: [category, email, sms, whatsapp]
+            properties:
+              category: { $ref: '#/components/schemas/NotificationCategory' }
+              email: { type: boolean }
+              sms: { type: boolean }
+              whatsapp: { type: boolean }
+
+    MessageAttachment:
+      type: object
+      required: [url, name, contentType, sizeBytes]
+      properties:
+        url: { type: string }
+        name: { type: string, maxLength: 200 }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf] }
+        sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
 
     CreatorSearchPage:
       allOf:
@@ -1790,7 +2040,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/CreatorCard'
         - type: object
-          required: [bio, languages, coverUrls, socials, packages, portfolio, reviews, memberSince, vettingStatus, completedOrders, typicalAcceptHours]
+          required: [bio, languages, coverUrls, socials, packages, portfolio, reviews, memberSince, vettingStatus, completedOrders, typicalAcceptHours, availability]
           properties:
             bio: { type: [string, 'null'] }
             completedOrders: { type: integer, description: 'Orders completed on the platform (v1.1).' }
@@ -1818,6 +2068,7 @@ components:
               description: Latest 20 reviews; `ratingCount` has the total.
               items: { $ref: '#/components/schemas/Review' }
             memberSince: { type: string, format: date-time }
+            availability: { $ref: '#/components/schemas/CreatorAvailability' }
             vettingStatus:
               $ref: '#/components/schemas/VettingStatus'
               description: Always APPROVED for the public; other values only in an owner or admin preview.
@@ -1910,8 +2161,9 @@ components:
 
     CreatorMe:
       type: object
-      required: [username, displayName, bio, city, country, gender, birthYear, languages, niches, photoUrl, coverUrls, vettingStatus, rejectionReason, submittedAt, socials, packages, portfolio, payoutStatus, checklist, usernameLocked]
+      required: [username, displayName, bio, city, country, gender, birthYear, languages, niches, photoUrl, coverUrls, vettingStatus, rejectionReason, submittedAt, socials, packages, portfolio, payoutStatus, checklist, usernameLocked, availability]
       properties:
+        availability: { $ref: '#/components/schemas/CreatorAvailability' }
         username: { type: [string, 'null'] }
         displayName: { type: string }
         bio: { type: [string, 'null'] }
@@ -1981,9 +2233,9 @@ components:
       type: object
       required: [purpose, fileName, contentType, sizeBytes]
       properties:
-        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE] }
+        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE, MESSAGE_ATTACHMENT] }
         fileName: { type: string, maxLength: 200 }
-        contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf], description: 'PDF only for MESSAGE_ATTACHMENT (v2.5).' }
         sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
 
     PresignResponse:
@@ -2378,7 +2630,7 @@ components:
 
     CampaignSummary:
       type: object
-      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, createdAt]
+      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, myInvite, brandRating, createdAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         brand: { $ref: '#/components/schemas/OrderParty' }
@@ -2392,17 +2644,20 @@ components:
         open: { type: boolean, description: OPEN and the deadline has not passed. }
         applicationCount: { type: integer, description: Shown to the owning brand; 0 for creators. }
         myApplication: { oneOf: [{ $ref: '#/components/schemas/Application' }, { type: 'null' }], description: "The creator's own application, if any." }
+        myInvite: { oneOf: [{ $ref: '#/components/schemas/CampaignInvite' }, { type: 'null' }], description: 'Creators: the invitation to this campaign, if any (v2.5).' }
+        brandRating: { $ref: '#/components/schemas/BrandRating' }
         createdAt: { type: string, format: date-time }
 
     CampaignDetail:
       allOf:
         - $ref: '#/components/schemas/CampaignSummary'
         - type: object
-          required: [brief, deliverables, applications]
+          required: [brief, deliverables, applications, invites]
           properties:
             brief: { type: string }
             deliverables: { type: array, items: { type: string } }
             applications: { type: array, description: Owning brand only; empty for creators., items: { $ref: '#/components/schemas/Application' } }
+            invites: { type: array, description: 'Owning brand only (v2.5).', items: { $ref: '#/components/schemas/CampaignInvite' } }
 
     CampaignPage:
       allOf:
@@ -2452,7 +2707,7 @@ components:
     # ---------- Chat (Week 5) ----------
     ChatMessage:
       type: object
-      required: [id, conversationId, mine, senderName, body, masked, createdAt, readAt]
+      required: [id, conversationId, mine, senderName, body, masked, attachment, createdAt, readAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         conversationId: { $ref: '#/components/schemas/Ulid' }
@@ -2460,6 +2715,7 @@ components:
         senderName: { type: string }
         body: { type: string }
         masked: { type: boolean, description: Contact details were hidden (FR-51). }
+        attachment: { oneOf: [{ $ref: '#/components/schemas/MessageAttachment' }, { type: 'null' }], description: 'One image or PDF (v2.5).' }
         createdAt: { type: string, format: date-time }
         readAt: { type: [string, 'null'], format: date-time, description: 'When the other participant read it (v1.1).' }
 
@@ -2474,8 +2730,10 @@ components:
     MessageInput:
       type: object
       required: [body]
+      description: Text, an attachment, or both.
       properties:
-        body: { type: string, minLength: 1, maxLength: 2000 }
+        body: { type: string, maxLength: 2000 }
+        attachment: { oneOf: [{ $ref: '#/components/schemas/MessageAttachment' }, { type: 'null' }] }
 
     Conversation:
       type: object
@@ -2501,7 +2759,7 @@ components:
     # ---------- Notifications (Week 5) ----------
     NotificationType:
       type: string
-      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT]
+      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT, CAMPAIGN_INVITE]
 
     Notification:
       type: object
@@ -2792,7 +3050,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/OrderSummary'
         - type: object
-          required: [packageId, campaignId, conversationId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime, taxParties, addons, usageRights, drafts, shipment, extension]
+          required: [packageId, campaignId, conversationId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime, taxParties, addons, usageRights, drafts, shipment, extension, brandReview, brandRating]
           properties:
             packageId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
             campaignId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
@@ -2812,6 +3070,8 @@ components:
             review: { oneOf: [{ $ref: '#/components/schemas/Review' }, { type: 'null' }] }
             allowedActions: { type: array, items: { $ref: '#/components/schemas/OrderAction' } }
             serverTime: { type: string, format: date-time }
+            brandReview: { oneOf: [{ $ref: '#/components/schemas/BrandReview' }, { type: 'null' }], description: "The creator's rating of the brand (v2.5)." }
+            brandRating: { $ref: '#/components/schemas/BrandRating' }
             addons: { type: array, description: 'Add-ons bought with the package (v2.4).', items: { $ref: '#/components/schemas/PackageAddon' } }
             usageRights: { type: [string, 'null'], description: 'Paid ad usage included, e.g. "Paid ads for 30 days" (v2.4).' }
             drafts: { type: array, description: 'Newest first (v2.4).', items: { $ref: '#/components/schemas/Draft' } }
