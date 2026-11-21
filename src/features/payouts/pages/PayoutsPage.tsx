@@ -37,7 +37,6 @@ export function PayoutsPage() {
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Creator workspace"
         title="Payouts"
         actions={
           <Button onClick={() => setWithdrawing(true)} disabled={!canWithdraw}>

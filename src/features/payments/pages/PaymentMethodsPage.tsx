@@ -16,7 +16,7 @@ export function PaymentMethodsPage() {
 
   return (
     <div className="page" style={{ maxWidth: 820 }}>
-      <PageHeader eyebrow="Brand workspace" title="Payment methods" />
+      <PageHeader title="Payment methods" />
       <p className="small muted">
         Pay for orders by UPI, debit or credit card, netbanking or a wallet app (Paytm, PhonePe, Amazon Pay, MobiKwik). Payments are processed by Razorpay and held until the
         creator accepts.

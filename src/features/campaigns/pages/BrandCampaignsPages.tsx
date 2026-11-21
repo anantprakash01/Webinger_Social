@@ -19,7 +19,6 @@ export function BrandCampaignsPage() {
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Brand workspace"
         title="Campaigns"
         actions={
           <Button onClick={() => setCreating(true)}>

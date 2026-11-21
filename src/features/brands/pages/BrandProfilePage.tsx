@@ -19,7 +19,7 @@ export function BrandProfilePage() {
   if (isError) return <div className="page"><ErrorState message={error.message} onRetry={() => void refetch()} /></div>;
   return (
     <div className="page" style={{ maxWidth: 880 }}>
-      <PageHeader eyebrow="Brand workspace" title="Company profile" />
+      <PageHeader title="Company profile" />
       <div className="brand-profile">
         <Card>
           <BrandForm profile={data} />

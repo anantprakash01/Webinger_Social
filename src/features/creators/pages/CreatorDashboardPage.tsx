@@ -41,7 +41,7 @@ export function CreatorDashboardPage() {
 
   return (
     <div className="page">
-      <PageHeader eyebrow="Creator workspace" title={`Hi, ${p.displayName.split(' ')[0]}`} />
+      <PageHeader title={`Hi, ${p.displayName.split(' ')[0]}`} />
       <VettingBanner status={p.vettingStatus} reason={p.rejectionReason} username={p.username} showApproved />
       {p.vettingStatus === 'APPROVED' && <ActionQueue role="CREATOR" base="/creator/orders" />}
 
