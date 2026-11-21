@@ -12,6 +12,7 @@ import type { LedgerEntry } from './ledger';
 import type { MockOrder, OrderEvent } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
 import { seedCreators } from './seed/creators';
+import { seedOrders } from './seed/orders';
 
 /* ---------- Row types ---------- */
 
@@ -95,12 +96,79 @@ export interface ReviewRow {
   /** Seeded "historic" reviews point at orders that are not in the mock. */
   orderId: string;
   creatorId: string;
+  /** Set for reviews written in the app; seeded historic reviews have none. */
+  brandUserId?: string | null;
   /** Denormalised for the mock; the backend joins order → brand profile. */
   brandName: string;
   rating: number;
   comment: string | null;
   creatorReply: string | null;
   repliedAt: string | null;
+  createdAt: string;
+}
+
+/** What was bought, copied at checkout like the fees (the package may change later). */
+export interface OrderInfoRow {
+  orderId: string;
+  kind: 'PACKAGE' | 'CUSTOM_OFFER';
+  title: string;
+  platform: Platform;
+  deliverables: string[];
+  /** Mock stand-in for the Stripe PaymentIntent (capture_method=manual). */
+  paymentIntentId: string;
+}
+
+export interface ShippingAddressRow {
+  name: string;
+  line1: string;
+  line2?: string | null;
+  city: string;
+  postalCode: string;
+  country: string;
+}
+
+/** FR-33 brief (order_briefs). */
+export interface OrderBriefRow {
+  orderId: string;
+  requirements: string;
+  needsShipping: boolean;
+  shippingAddress: ShippingAddressRow | null;
+  links: string[];
+  referenceFiles: string[];
+  updatedAt: string;
+}
+
+/** One submission (the backend stores one deliverables row per item). */
+export interface DeliveryRow {
+  id: string;
+  orderId: string;
+  revisionNo: number;
+  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null }>;
+  note: string | null;
+  submittedAt: string;
+}
+
+export interface DisputeRow {
+  id: string;
+  orderId: string;
+  openedBy: string;
+  reason: string;
+  status: 'OPEN' | 'RESOLVED';
+  resolution: 'RELEASE' | 'FULL_REFUND' | 'PARTIAL_REFUND' | null;
+  refundCents: number | null;
+  resolvedBy: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+/** Stored responses for Idempotency-Key retries. */
+export interface IdempotencyRow {
+  key: string;
+  userId: string;
+  method: string;
+  path: string;
+  status: number;
+  body: unknown;
   createdAt: string;
 }
 
@@ -167,6 +235,11 @@ export interface Db {
   orders: MockOrder[];
   orderEvents: OrderEvent[];
   ledgerEntries: LedgerEntry[];
+  orderInfo: OrderInfoRow[];
+  orderBriefs: OrderBriefRow[];
+  deliveries: DeliveryRow[];
+  disputes: DisputeRow[];
+  idempotency: IdempotencyRow[];
 }
 
 /* ---------- Helpers ---------- */
@@ -211,7 +284,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -238,6 +311,7 @@ function seed(now: Date): Db {
     updatedAt: at,
   });
   const creators = seedCreators(now, { leoId: SEED_IDS.creator, newCreatorId: SEED_IDS.newCreator, passwordHash: pw });
+  const orders = seedOrders(now, { brandId: SEED_IDS.brand, brandName: 'Saltbay Supply Co.', leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators);
   return {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
@@ -253,7 +327,7 @@ function seed(now: Date): Db {
     socialAccounts: creators.socialAccounts,
     packages: creators.packages,
     portfolioItems: creators.portfolioItems,
-    reviews: creators.reviews,
+    reviews: [...creators.reviews, ...orders.reviews],
     brandProfiles: [
       // Websites use example.com (reserved for documentation), so they never point at a real company.
       { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'US', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
@@ -264,9 +338,14 @@ function seed(now: Date): Db {
     refreshTokens: [],
     outbox: [],
     feeConfigs: [{ ...DEFAULT_FEES }],
-    orders: [],
-    orderEvents: [],
-    ledgerEntries: [],
+    orders: orders.orders,
+    orderEvents: orders.orderEvents,
+    ledgerEntries: orders.ledgerEntries,
+    orderInfo: orders.orderInfo,
+    orderBriefs: orders.orderBriefs,
+    deliveries: orders.deliveries,
+    disputes: orders.disputes,
+    idempotency: [],
   };
 }
 

@@ -1,12 +1,11 @@
 /**
  * /u/:username — public creator profile (FR-15). Works logged out; buying asks to log in as a brand.
  */
-import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LuCalendar, LuCheck, LuClock, LuExternalLink, LuEye, LuLanguages, LuMapPin, LuPlay, LuSend, LuShieldCheck } from 'react-icons/lu';
 import { CreatorPhoto, PlatformIcon, PlatformLabel, Rating, Stars, VerifiedBadge, placeLabel } from '@/components/creator';
 import { VettingBadge } from '@/components/status';
-import { Badge, Button, Card, Drawer, EmptyState, ErrorState } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, ErrorState } from '@/components/ui';
 import { formatCompact, LANGUAGE_LABEL, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { ApiError, type CreatorProfile, type Package, type PortfolioItem, type Review } from '@/types';
@@ -47,7 +46,6 @@ export function CreatorProfilePage() {
 
 function Profile({ p }: { p: CreatorProfile }) {
   const actions = usePurchaseActions(p.username);
-  const [offerOpen, setOfferOpen] = useState(false);
   const place = placeLabel(p.city, p.country);
 
   return (
@@ -102,7 +100,7 @@ function Profile({ p }: { p: CreatorProfile }) {
               variant="secondary"
               disabled={!actions.canBuy}
               title={actions.reason ?? undefined}
-              onClick={() => actions.startOffer() && setOfferOpen(true)}
+              onClick={actions.startOffer}
             >
               <LuSend aria-hidden /> Send custom offer
             </Button>
@@ -194,13 +192,6 @@ function Profile({ p }: { p: CreatorProfile }) {
         </div>
       </div>
 
-      <Drawer open={offerOpen} onClose={() => setOfferOpen(false)} title={`Custom offer to ${p.displayName}`}>
-        <div className="state">
-          <LuSend size={28} aria-hidden />
-          <div className="state__title">Custom offers arrive in Week 4</div>
-          <div className="small">You will describe deliverables, price and due date here (FR-31). For now, buy one of the packages.</div>
-        </div>
-      </Drawer>
     </div>
   );
 }

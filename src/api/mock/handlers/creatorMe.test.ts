@@ -203,7 +203,15 @@ describe('dashboard stats (FR-70)', () => {
     expect(s.profileViews).toBe(getDb().creatorProfiles.find((p) => p.username === 'leomakes')!.profileViews);
     expect(s.activePackages).toBeGreaterThan(0);
     expect(Object.keys(s.ordersByStatus).sort()).toEqual(['CLOSED', 'COMPLETED', 'DELIVERED', 'DISPUTED', 'IN_PROGRESS', 'PENDING_ACCEPTANCE', 'REFUNDED']);
-    expect(s).toMatchObject({ availableCents: 0, inEscrowCents: 0, lifetimeEarnedCents: 0, currency: 'USD' });
+    // Week 4 seed: Leo has one completed order (paid), two accepted ones (in escrow) and one pending.
+    const leoId = getDb().users.find((u) => u.email === 'creator@demo.test')!.id;
+    const mine = getDb().orders.filter((o) => o.creatorUserId === leoId);
+    const payout = (o: (typeof mine)[number]) => o.priceCents - o.creatorFeeCents;
+    const completed = mine.filter((o) => o.status === 'COMPLETED').reduce((sum, o) => sum + payout(o), 0);
+    const escrow = mine.filter((o) => ['IN_PROGRESS', 'DELIVERED', 'DISPUTED'].includes(o.status)).reduce((sum, o) => sum + payout(o), 0);
+    expect(completed).toBeGreaterThan(0);
+    expect(s).toMatchObject({ availableCents: completed, lifetimeEarnedCents: completed, inEscrowCents: escrow, currency: 'USD' });
+    expect(s.ordersByStatus.PENDING_ACCEPTANCE).toBe(mine.filter((o) => o.status === 'PENDING_ACCEPTANCE').length);
   });
 });
 

@@ -471,6 +471,271 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Price a package or a custom offer before checkout (FR-30, FR-31, FR-60)
+         * @description Server-side fee calculation with the brand's plan, so the checkout summary always matches what will be charged.
+         *     Pass `packageId` for a package, or `creatorUsername` + `priceCents` for a custom offer.
+         */
+        get: operations["quoteOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in brand's or creator's orders
+         * @description Brands see their own orders, creators the orders addressed to them. Newest activity first.
+         */
+        get: operations["listOrders"];
+        put?: never;
+        /**
+         * Place an order — buy a package or send a custom offer (FR-30, FR-31, FR-33)
+         * @description Verified brands only (FR-02). Creates a Stripe PaymentIntent with `capture_method=manual`: the card is
+         *     authorised now and captured only when the creator accepts. Fees are copied onto the order.
+         *     The order becomes visible as PENDING_ACCEPTANCE once the authorisation succeeds
+         *     (in the mock, immediately). Repeating a request with the same `Idempotency-Key` returns the first result.
+         */
+        post: operations["createOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One order, as the brand or the creator sees it
+         * @description 404 for anyone who is not a participant, so order ids cannot be probed.
+         */
+        get: operations["getOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Creator accepts (FR-32) — card captured into escrow
+         * @description PENDING_ACCEPTANCE → IN_PROGRESS within 72 h of the order. Needs a verified email. Sets the due date.
+         */
+        post: operations["acceptOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Creator declines (FR-32) — hold released
+         * @description PENDING_ACCEPTANCE → CLOSED (DECLINED). The brand is never charged (FR-64).
+         */
+        post: operations["declineOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/deliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Creator delivers files and/or post links (FR-34)
+         * @description IN_PROGRESS → DELIVERED. Starts the 72-hour review window.
+         */
+        post: operations["deliverOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand updates the brief (FR-33)
+         * @description Allowed while PENDING_ACCEPTANCE or IN_PROGRESS.
+         */
+        post: operations["updateOrderBrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand approves the delivery (FR-35) — creator paid
+         * @description DELIVERED → COMPLETED within the review window. Escrow is released: creator balance gets price − creator fee.
+         */
+        post: operations["approveOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/request-revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand asks for a revision (FR-35, max 2)
+         * @description DELIVERED → IN_PROGRESS. The due date moves to at least 3 days from now.
+         */
+        post: operations["requestRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/dispute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand opens a dispute (FR-35)
+         * @description DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81).
+         */
+        post: operations["disputeOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel before acceptance (FR-37)
+         * @description Brand or creator, PENDING_ACCEPTANCE → CLOSED (CANCELED), hold released. After acceptance only an admin can cancel.
+         */
+        post: operations["cancelOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand reviews a completed order (FR-38)
+         * @description One review per order, COMPLETED orders only, 1–5 stars.
+         */
+        post: operations["reviewOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/{id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creator replies to a review, once (FR-38) */
+        post: operations["replyToReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators/{username}": {
         parameters: {
             query?: never;
@@ -819,7 +1084,7 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO";
+            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE";
             fileName: string;
             /** @enum {string} */
             contentType: "image/jpeg" | "image/png" | "image/webp";
@@ -845,6 +1110,242 @@ export interface components {
             url: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        /** @enum {string} */
+        OrderStatus: "PENDING_ACCEPTANCE" | "IN_PROGRESS" | "DELIVERED" | "COMPLETED" | "DISPUTED" | "REFUNDED" | "CLOSED";
+        /** @enum {string} */
+        CloseReason: "DECLINED" | "EXPIRED" | "CANCELED";
+        /**
+         * @description AUTHORIZED (held, not charged) → CAPTURED (in escrow) → REFUNDED, or CANCELED (hold released).
+         * @enum {string}
+         */
+        PaymentStatus: "AUTHORIZED" | "CAPTURED" | "REFUNDED" | "CANCELED";
+        /**
+         * @description What the viewer may do now. The UI offers only these; the server checks again.
+         * @enum {string}
+         */
+        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY";
+        /** @enum {string} */
+        OrderKind: "PACKAGE" | "CUSTOM_OFFER";
+        ShippingAddress: {
+            name: string;
+            line1: string;
+            line2?: string | null;
+            city: string;
+            postalCode: string;
+            country: string;
+        };
+        /** @description FR-33. What the brand wants. */
+        OrderBrief: {
+            requirements: string;
+            /** @description The creator needs the product shipped to them. */
+            needsShipping: boolean;
+            /** @description Required when needsShipping. Where the brand ships to — collected from the creator after acceptance in v2; the brand enters it now for MVP. */
+            shippingAddress?: components["schemas"]["ShippingAddress"] | null;
+            links?: string[];
+            /** @description File URLs from /files/presign. */
+            referenceFiles?: string[];
+        };
+        CustomOfferInput: {
+            title: string;
+            platform: components["schemas"]["Platform"];
+            deliverables: string[];
+            /** Format: int64 */
+            priceCents: number;
+            /** @description Days after the creator accepts. */
+            deliveryDays: number;
+        };
+        /** @description Either `packageId`, or `creatorUsername` + `offer` for a custom offer. */
+        OrderCreateRequest: {
+            packageId?: components["schemas"]["Ulid"];
+            creatorUsername?: string;
+            offer?: components["schemas"]["CustomOfferInput"];
+            brief: components["schemas"]["OrderBrief"];
+        };
+        OrderCreated: {
+            orderId: components["schemas"]["Ulid"];
+            status: components["schemas"]["OrderStatus"];
+            /** Format: int64 */
+            priceCents: number;
+            /** Format: int64 */
+            brandFeeCents: number;
+            /**
+             * Format: int64
+             * @example 22000
+             */
+            totalCents: number;
+            currency: string;
+            /** Format: date-time */
+            acceptBy: string;
+            /** @description For the Payment Element to confirm the authorisation. */
+            stripeClientSecret: string;
+        };
+        OrderQuote: {
+            kind: components["schemas"]["OrderKind"];
+            creator: components["schemas"]["OrderParty"];
+            package: components["schemas"]["Package"] | null;
+            /** Format: int64 */
+            priceCents: number;
+            /** Format: int64 */
+            brandFeeCents: number;
+            /** Format: int64 */
+            totalCents: number;
+            /** @example 1000 */
+            brandFeeBps: number;
+            currency: string;
+            /** @example 72 */
+            acceptWindowHours: number;
+        };
+        /** @description The other side of an order, as shown on it. */
+        OrderParty: {
+            name: string;
+            photoUrl: string | null;
+            /** @description Creator username (links to the profile); null for brands. */
+            username: string | null;
+        };
+        /** @description Copied onto the order at checkout; later fee changes never alter it. */
+        OrderMoney: {
+            currency: string;
+            /** Format: int64 */
+            priceCents: number;
+            /** Format: int64 */
+            brandFeeCents: number;
+            /**
+             * Format: int64
+             * @description What the brand pays.
+             */
+            totalCents: number;
+            /** Format: int64 */
+            creatorFeeCents: number;
+            /**
+             * Format: int64
+             * @description What the creator receives (price − creator fee).
+             */
+            creatorPayoutCents: number;
+        };
+        OrderPayment: {
+            status: components["schemas"]["PaymentStatus"];
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: int64 */
+            refundedCents: number;
+        };
+        Deadline: {
+            /** @enum {string} */
+            kind: "ACCEPT" | "DUE" | "REVIEW";
+            /** Format: date-time */
+            at: string;
+        };
+        OrderSummary: {
+            id: components["schemas"]["Ulid"];
+            status: components["schemas"]["OrderStatus"];
+            closeReason: components["schemas"]["CloseReason"] | null;
+            kind: components["schemas"]["OrderKind"];
+            title: string;
+            platform: components["schemas"]["Platform"];
+            counterparty: components["schemas"]["OrderParty"];
+            money: components["schemas"]["OrderMoney"];
+            nextDeadline: components["schemas"]["Deadline"] | null;
+            /** @description IN_PROGRESS past its due date. */
+            late: boolean;
+            /** @description The viewer has something to do now. */
+            needsAction: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OrderPage: components["schemas"]["PageMeta"] & {
+            content: components["schemas"]["OrderSummary"][];
+            /** @description The viewer's orders per status, for filter tabs. */
+            statusCounts: {
+                [key: string]: number;
+            };
+            /**
+             * Format: date-time
+             * @description Countdowns are computed from this
+             */
+            serverTime: string;
+        };
+        DeliveryItem: {
+            /** @enum {string} */
+            type: "FILE" | "POST_URL";
+            /** @description FILE: a fileUrl from /files/presign. POST_URL: the live post (https). */
+            url: string;
+            name?: string | null;
+        };
+        Delivery: {
+            id: components["schemas"]["Ulid"];
+            /** @description 0 = first delivery */
+            revisionNo: number;
+            items: components["schemas"]["DeliveryItem"][];
+            note: string | null;
+            /** Format: date-time */
+            submittedAt: string;
+        };
+        OrderEventView: {
+            /** @enum {string} */
+            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND";
+            fromStatus: components["schemas"]["OrderStatus"] | null;
+            toStatus: components["schemas"]["OrderStatus"];
+            /** @enum {string} */
+            actor: "BRAND" | "CREATOR" | "ADMIN" | "SYSTEM";
+            note: string | null;
+            /** Format: date-time */
+            at: string;
+        };
+        DisputeView: {
+            reason: string;
+            /** @enum {string} */
+            status: "OPEN" | "RESOLVED";
+            /** Format: date-time */
+            openedAt: string;
+            /** @enum {string|null} */
+            resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND" | null;
+            refundCents: number | null;
+        };
+        OrderDetail: components["schemas"]["OrderSummary"] & {
+            packageId: components["schemas"]["Ulid"] | null;
+            /** @description What was bought (snapshot). */
+            deliverables: string[];
+            deliveryDays: number;
+            payment: components["schemas"]["OrderPayment"];
+            /** Format: date-time */
+            acceptBy: string;
+            /** Format: date-time */
+            dueAt: string | null;
+            /** Format: date-time */
+            reviewBy: string | null;
+            revisionCount: number;
+            /** @example 2 */
+            maxRevisions: number;
+            brief: components["schemas"]["OrderBrief"];
+            /** @description Newest first. */
+            deliveries: components["schemas"]["Delivery"][];
+            /** @description Oldest first (FR-52 timeline). */
+            events: components["schemas"]["OrderEventView"][];
+            dispute: components["schemas"]["DisputeView"] | null;
+            review: components["schemas"]["Review"] | null;
+            allowedActions: components["schemas"]["OrderAction"][];
+            /** Format: date-time */
+            serverTime: string;
+        };
+        ReasonRequest: {
+            reason?: string | null;
+        };
+        NoteRequest: {
+            note: string;
+        };
+        DeliverRequest: {
+            items: components["schemas"]["DeliveryItem"][];
+            note?: string | null;
+        };
+        ReviewRequest: {
+            rating: number;
+            comment?: string | null;
+        };
+        ReplyRequest: {
+            reply: string;
         };
         AuthSession: {
             /** @description JWT */
@@ -936,7 +1437,11 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        OrderId: components["schemas"]["Ulid"];
+        /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+        IdempotencyKey: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -1600,6 +2105,427 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    quoteOrder: {
+        parameters: {
+            query?: {
+                packageId?: components["schemas"]["Ulid"];
+                creatorUsername?: string;
+                priceCents?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quote. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderQuote"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listOrders: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated OrderStatus values; empty = all. */
+                status?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of orders. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPage"];
+                };
+            };
+        };
+    };
+    createOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Order placed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderCreated"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    declineOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    deliverOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliverRequest"];
+            };
+        };
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    updateOrderBrief: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderBrief"];
+            };
+        };
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    approveOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    requestRevision: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    disputeOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    cancelOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    reviewOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Review saved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    replyToReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Ulid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Reply saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
         };
     };
     getCreatorProfile: {

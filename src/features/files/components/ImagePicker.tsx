@@ -16,6 +16,8 @@ const DEMO_IMAGES: Record<PresignRequest['purpose'], string[]> = {
   BRAND_LOGO: Array.from({ length: 24 }, (_, i) => `/demo/photo-${pad(i + 1)}.svg`),
   COVER: Array.from({ length: 12 }, (_, i) => `/demo/cover-${pad(i + 1)}.svg`),
   PORTFOLIO: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
+  BRIEF_REFERENCE: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
+  DELIVERABLE: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
 };
 
 interface Props {

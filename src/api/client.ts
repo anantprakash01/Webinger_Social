@@ -27,6 +27,15 @@ import {
   type PresignResponse,
   type SocialAccount,
   type SocialAccountInput,
+  type DeliverRequest,
+  type OrderBrief,
+  type OrderCreated,
+  type OrderCreateRequest,
+  type OrderDetail,
+  type OrderPage,
+  type OrderQuote,
+  type Review,
+  type ReviewRequest,
   type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
@@ -226,7 +235,7 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
 const enc = encodeURIComponent;
 
 /** Longest side per upload purpose, so demo images stay small enough for sessionStorage. */
-const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600 };
+const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600 };
 
 /** Mock mode only: a JPEG data URL of the image, downscaled when the browser can. */
 async function toDemoDataUrl(file: File, purpose: PresignRequest['purpose']): Promise<string> {
@@ -252,6 +261,17 @@ async function toDemoDataUrl(file: File, purpose: PresignRequest['purpose']): Pr
     r.onerror = () => reject(new ApiError({ type: 'about:blank', status: 422, title: 'Validation failed', detail: 'That image could not be read.' }));
     r.readAsDataURL(file);
   });
+}
+
+export interface SimulatedTime {
+  offsetHours: number;
+  now: string;
+  expired: number;
+  autoApproved: number;
+}
+
+function orderAction(id: string, action: string, body: unknown, idempotencyKey: string) {
+  return request<OrderDetail>('POST', `/orders/${enc(id)}/${action}`, { body, headers: { 'idempotency-key': idempotencyKey } });
 }
 
 /** Key for money-moving requests; reuse the same key when retrying the same action. */
@@ -368,8 +388,29 @@ export const api = {
       return target.fileUrl;
     },
   },
+  /** Orders (Week 4). Money-moving calls send an Idempotency-Key; reuse it when retrying the same action. */
+  orders: {
+    quote: (q: { packageId?: string; creatorUsername?: string; priceCents?: number }) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
+    create: (body: OrderCreateRequest, idempotencyKey: string) =>
+      request<OrderCreated>('POST', '/orders', { body, headers: { 'idempotency-key': idempotencyKey } }),
+    list: (q: { status?: string; page?: number; size?: number } = {}) => request<OrderPage>('GET', '/orders', { query: q }),
+    get: (id: string) => request<OrderDetail>('GET', `/orders/${enc(id)}`),
+    accept: (id: string, key: string) => orderAction(id, 'accept', undefined, key),
+    decline: (id: string, reason: string | null, key: string) => orderAction(id, 'decline', { reason }, key),
+    cancel: (id: string, reason: string | null, key: string) => orderAction(id, 'cancel', { reason }, key),
+    deliver: (id: string, body: DeliverRequest, key: string) => orderAction(id, 'deliver', body, key),
+    approve: (id: string, key: string) => orderAction(id, 'approve', undefined, key),
+    requestRevision: (id: string, note: string, key: string) => orderAction(id, 'request-revision', { note }, key),
+    dispute: (id: string, note: string, key: string) => orderAction(id, 'dispute', { note }, key),
+    updateBrief: (id: string, brief: OrderBrief) => request<OrderDetail>('POST', `/orders/${enc(id)}/brief`, { body: brief }),
+    review: (id: string, body: ReviewRequest) => request<Review>('POST', `/orders/${enc(id)}/review`, { body }),
+    reply: (reviewId: string, reply: string) => request<Review>('POST', `/reviews/${enc(reviewId)}/reply`, { body: { reply } }),
+  },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {
+    /** "Simulate time": moves the mock clock forward and runs expiry / auto-approve. */
+    simulateTime: (hours: number) => request<SimulatedTime>('POST', '/dev/simulate-time', { body: { hours }, auth: false }),
+    clock: () => request<{ offsetHours: number; now: string }>('GET', '/dev/clock', { auth: false }),
     outbox: (to?: string) => request<OutboxEmail[]>('GET', '/dev/outbox', { query: { to }, auth: false }),
     async reset(): Promise<void> {
       await request<void>('POST', '/dev/reset', { auth: false });

@@ -13,6 +13,7 @@ import * as brands from './handlers/brands';
 import * as creatorMe from './handlers/creatorMe';
 import * as creators from './handlers/creators';
 import * as files from './handlers/files';
+import * as orders from './handlers/orders';
 import * as payouts from './handlers/payouts';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
@@ -23,6 +24,8 @@ interface Route {
   path: string;
   /** true = a valid access token is required (401 otherwise). 'optional' = used when sent. */
   auth: boolean | 'optional';
+  /** Money-moving: honours the Idempotency-Key header (a retry returns the first result). */
+  idempotent?: true;
   handler: Handler;
 }
 
@@ -53,6 +56,21 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/creators', auth: false, handler: creators.searchCreators },
   { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
+  // Orders (Week 4). /orders/quote before /orders/:id, which would otherwise match "quote".
+  { method: 'GET', path: '/orders/quote', auth: true, handler: orders.quoteOrder },
+  { method: 'POST', path: '/orders', auth: true, handler: orders.createOrder, idempotent: true },
+  { method: 'GET', path: '/orders', auth: true, handler: orders.listOrders },
+  { method: 'GET', path: '/orders/:id', auth: true, handler: orders.getOrder },
+  { method: 'POST', path: '/orders/:id/accept', auth: true, handler: orders.acceptOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/decline', auth: true, handler: orders.declineOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/deliver', auth: true, handler: orders.deliverOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/brief', auth: true, handler: orders.updateOrderBrief },
+  { method: 'POST', path: '/orders/:id/approve', auth: true, handler: orders.approveOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/request-revision', auth: true, handler: orders.requestRevision, idempotent: true },
+  { method: 'POST', path: '/orders/:id/dispute', auth: true, handler: orders.disputeOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/cancel', auth: true, handler: orders.cancelOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/review', auth: true, handler: orders.reviewOrder },
+  { method: 'POST', path: '/reviews/:id/reply', auth: true, handler: orders.replyToReview },
   { method: 'GET', path: '/brands/me/profile', auth: true, handler: brands.getMyBrandProfile },
   { method: 'PUT', path: '/brands/me/profile', auth: true, handler: brands.updateMyBrandProfile },
   { method: 'POST', path: '/files/presign', auth: true, handler: files.presignUpload },
@@ -60,6 +78,8 @@ const ROUTES: Route[] = [
   // Mock only
   { method: 'POST', path: '/dev/stripe/connect-complete', auth: true, handler: payouts.completeMockConnectOnboarding },
   { method: 'POST', path: '/dev/vetting-decision', auth: true, handler: dev.vettingDecision },
+  { method: 'POST', path: '/dev/simulate-time', auth: false, handler: orders.simulateTime },
+  { method: 'GET', path: '/dev/clock', auth: false, handler: orders.getClock },
   { method: 'GET', path: '/dev/outbox', auth: false, handler: dev.outbox },
   { method: 'POST', path: '/dev/reset', auth: false, handler: dev.reset },
 ];
@@ -83,6 +103,8 @@ const problem = (status: number, title: string, detail: string, code?: string): 
 
 export function handle(req: MockRequest): MockResponse {
   const path = req.path.replace(/\/+$/, '') || '/';
+  // Scheduled jobs (expiry, auto-approve) catch up before every request, like the backend's 5-minute jobs.
+  orders.runScheduledJobs();
   let pathMatched = false;
   for (const route of ROUTES) {
     const params = match(route.path, path);
@@ -92,7 +114,21 @@ export function handle(req: MockRequest): MockResponse {
     try {
       const wantsUser = route.auth === true || (route.auth === 'optional' && !!req.headers.authorization);
       const user = wantsUser ? authenticate(req.headers.authorization) : (undefined as never);
-      return route.handler({ req, params, user });
+      const key = route.idempotent && user ? req.headers['idempotency-key'] : undefined;
+      if (key) {
+        const seen = getDb().idempotency.find((r) => r.key === key && r.userId === user.id);
+        if (seen) {
+          if (seen.method !== req.method || seen.path !== path) {
+            return problem(422, 'Validation failed', 'This Idempotency-Key was already used for a different request.', 'IDEMPOTENCY_KEY_REUSED');
+          }
+          return { status: seen.status, body: structuredClone(seen.body) };
+        }
+      }
+      const res = route.handler({ req, params, user });
+      if (key && res.status >= 200 && res.status < 300) {
+        getDb().idempotency.push({ key, userId: user.id, method: req.method, path, status: res.status, body: structuredClone(res.body), createdAt: new Date().toISOString() });
+      }
+      return res;
     } catch (e) {
       if (e instanceof HttpError) return { status: e.problem.status, body: e.problem };
       if (e instanceof TransitionError) return problem(e.status, e.status === 409 ? 'Conflict' : e.status === 403 ? 'Forbidden' : 'Validation failed', e.message, e.code);

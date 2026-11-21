@@ -31,13 +31,11 @@ export function usePurchaseActions(username: string) {
     else if (user.role === 'BRAND') navigate(checkout);
   };
 
-  /** Returns true when the caller should open the offer form (brand signed in). */
+  /** FR-31: custom offer. Guests log in first and come straight back to the offer form. */
   const startOffer = () => {
-    if (!user) {
-      navigate('/login', { state: { from: `/u/${username}`, notice: 'Log in with a brand account to send a custom offer.' } });
-      return false;
-    }
-    return user.role === 'BRAND';
+    const offer = `/checkout/offer/${username}`;
+    if (!user) navigate('/login', { state: { from: offer, notice: 'Log in with a brand account to send a custom offer.' } });
+    else if (user.role === 'BRAND') navigate(offer);
   };
 
   return { canBuy, reason, buy, startOffer, signedIn: !!user };
