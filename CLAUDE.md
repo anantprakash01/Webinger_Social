@@ -412,7 +412,7 @@ src/
 | 2 | Public marketplace: landing, search, creator profile | Done (21 Nov 2026) |
 | 3 | Creator side: onboarding wizard, packages, vetting status, payouts setup, creator dashboard; brand profile | Done (21 Nov 2026) |
 | 4 | Orders: checkout, custom offers, order detail for both sides, full state machine, reviews | Done (21 Nov 2026) |
-| 5 | Campaigns, chat, notifications, brand dashboard | |
+| 5 | Campaigns, chat, notifications, brand dashboard | Done (21 Nov 2026) |
 | 6 | Admin console, payouts and receipts, polish, contract freeze | |
 
 ### Week 1 — Foundation
@@ -607,4 +607,21 @@ Decisions to confirm:
 - Packages with orders can't be deleted, only switched off (409 `PACKAGE_HAS_ORDERS`).
 - The decline test card fails before an order exists (as Stripe's confirmation would); the real backend should create the order only after the authorisation succeeds.
 
-**Next: Week 5 — Campaigns, chat, notifications, brand dashboard (section 10).** Start with the contract (campaigns and applications, conversations/messages, notifications), then the mock chat with a polling stand-in for STOMP, then notifications from `order_events`.
+**Week 5 — Campaigns, chat, notifications, brand dashboard: done (21 Nov 2026).** `npm test` 182 passing (two clean runs); `tsc`, lint, build and `npm run check:layout` (now incl. campaigns, application checkout, chat and notifications) clean.
+
+What exists:
+- Contract v0.5: `GET/POST /campaigns` (brands: own; creators: open, or `applied=true`), `GET /campaigns/{id}`, `POST /campaigns/{id}/close`, `POST /campaigns/{id}/applications`, `POST /applications/{id}/accept` (Idempotency-Key → order) `| reject | withdraw`, `GET /conversations`, `GET/POST /conversations/{id}/messages`, `POST /conversations/{id}/read`, `GET /notifications`, `POST /notifications/read`, `GET /brands/me/stats`. `OrderKind` gained CAMPAIGN; `OrderDetail` gained `campaignId`, `conversationId`. STOMP topics `/user/queue/messages` and `/user/queue/notifications` (WebSocket `/ws`). Mock-only: `GET /dev/realtime/poll`.
+- Mock: `handlers/campaigns.ts` (accepting an application calls the shared `placeOrder` in `handlers/orders.ts` — same checkout core as packages, FR-42), `handlers/chat.ts` (chat, notifications, realtime poll), brand stats in `handlers/brands.ts`. `api/mock/notify.ts` builds one notification per order event for each participant who didn't cause it (system events: both); every one is also "emailed" to the demo outbox (FR-52). Each order gets a conversation.
+- FR-51 masking: `features/chat/schemas.ts` `maskContacts` (emails incl. "(at)/(dot)", phone-like runs of 7+ digits) runs before a message is stored while the order isn't COMPLETED; masked messages carry `masked: true`.
+- Seed `seed/engagement.ts`: 3 more invented brands (Copperleaf Candles, Tidewell Swim, Orbitfit Gear), 6 campaigns (one closed) with applications (Leo has pending and rejected ones), one conversation per order with messages on Leo's active orders (one masked), notifications derived from every seeded order event. `SCHEMA_VERSION` = 5.
+- `src/lib/realtime.ts`: one `subscribe(topic, handler)` API — STOMP (`@stomp/stompjs`, Bearer token in CONNECT) in http mode, a poller in mock mode (`VITE_REALTIME_POLL_MS`, default 3000). `useRealtimeSync` in the app shell refreshes chat, notifications, orders and campaigns. Vite proxies `/ws` to the backend.
+- Screens: `/brand/campaigns` (cards + new-campaign drawer), `/brand/campaigns/:id` (applications with reach and rating, accept → `/checkout/campaign/:campaignId/:applicationId`, decline, close), `/creator/campaigns` (open / my applications, platform and niche filters), `/creator/campaigns/:id` (apply, withdraw, link to the order once hired), `/messages` + `/messages/:id` (two panes on desktop, list → thread on phones, masking notice, Enter to send), `/notifications` (all / unread, mark all read), `/brand/dashboard` (FR-71). Unread badges on Messages / Notifications in the sidebar, bottom bar and More sheet; bell in the sidebar header and phone top bar; "Message" button on order detail.
+
+Decisions to confirm:
+- Campaigns list deliverables; the accepted creator's price and delivery days come from their application; the campaign brief (plus optional extra note) becomes the order brief.
+- A creator who withdraws may re-apply (the same application row is reused: one per campaign per creator).
+- Closing a campaign declines pending applications; orders already placed continue.
+- Contact details stay masked in messages sent before completion (only the masked text is stored).
+- Notifications go to the participant who didn't act; chat messages don't create notifications (they show as unread counts instead).
+
+**Next: Week 6 — Admin, payouts, polish, freeze (section 10).** Admin vetting queue (reuse `decideVetting`), dispute console (`ADMIN_RELEASE` / `ADMIN_REFUND` already in the machine), users, fees editor, audit log, reports, order browser with Simulate time and Reset; creator payouts and printable receipts; accessibility pass; Playwright smoke test; contract freeze.

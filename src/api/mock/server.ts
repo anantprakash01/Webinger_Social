@@ -10,6 +10,8 @@ import { findUnbalancedTxns } from './ledger';
 import { TransitionError } from './orderMachine';
 import * as auth from './handlers/auth';
 import * as brands from './handlers/brands';
+import * as campaigns from './handlers/campaigns';
+import * as chat from './handlers/chat';
 import * as creatorMe from './handlers/creatorMe';
 import * as creators from './handlers/creators';
 import * as files from './handlers/files';
@@ -71,6 +73,23 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/orders/:id/cancel', auth: true, handler: orders.cancelOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/review', auth: true, handler: orders.reviewOrder },
   { method: 'POST', path: '/reviews/:id/reply', auth: true, handler: orders.replyToReview },
+  // Campaigns (Week 5)
+  { method: 'GET', path: '/campaigns', auth: true, handler: campaigns.listCampaigns },
+  { method: 'POST', path: '/campaigns', auth: true, handler: campaigns.createCampaign },
+  { method: 'GET', path: '/campaigns/:id', auth: true, handler: campaigns.getCampaign },
+  { method: 'POST', path: '/campaigns/:id/close', auth: true, handler: campaigns.closeCampaign },
+  { method: 'POST', path: '/campaigns/:id/applications', auth: true, handler: campaigns.applyToCampaign },
+  { method: 'POST', path: '/applications/:id/accept', auth: true, handler: campaigns.acceptApplication, idempotent: true },
+  { method: 'POST', path: '/applications/:id/reject', auth: true, handler: campaigns.rejectApplication },
+  { method: 'POST', path: '/applications/:id/withdraw', auth: true, handler: campaigns.withdrawApplication },
+  // Chat and notifications (Week 5)
+  { method: 'GET', path: '/conversations', auth: true, handler: chat.listConversations },
+  { method: 'GET', path: '/conversations/:id/messages', auth: true, handler: chat.listMessages },
+  { method: 'POST', path: '/conversations/:id/messages', auth: true, handler: chat.sendMessage },
+  { method: 'POST', path: '/conversations/:id/read', auth: true, handler: chat.markConversationRead },
+  { method: 'GET', path: '/notifications', auth: true, handler: chat.listNotifications },
+  { method: 'POST', path: '/notifications/read', auth: true, handler: chat.markNotificationsRead },
+  { method: 'GET', path: '/brands/me/stats', auth: true, handler: brands.getMyBrandStats },
   { method: 'GET', path: '/brands/me/profile', auth: true, handler: brands.getMyBrandProfile },
   { method: 'PUT', path: '/brands/me/profile', auth: true, handler: brands.updateMyBrandProfile },
   { method: 'POST', path: '/files/presign', auth: true, handler: files.presignUpload },
@@ -80,6 +99,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/dev/vetting-decision', auth: true, handler: dev.vettingDecision },
   { method: 'POST', path: '/dev/simulate-time', auth: false, handler: orders.simulateTime },
   { method: 'GET', path: '/dev/clock', auth: false, handler: orders.getClock },
+  { method: 'GET', path: '/dev/realtime/poll', auth: true, handler: chat.pollRealtime },
   { method: 'GET', path: '/dev/outbox', auth: false, handler: dev.outbox },
   { method: 'POST', path: '/dev/reset', auth: false, handler: dev.reset },
 ];

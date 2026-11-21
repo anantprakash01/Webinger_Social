@@ -63,7 +63,7 @@ function Checkout() {
       return;
     }
     try {
-      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief } : { packageId, brief: v.brief });
+      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief! } : { packageId, brief: v.brief! });
       navigate(`/brand/orders/${res.orderId}`, { replace: true, state: { placed: true } });
     } catch (e) {
       let placed = false;

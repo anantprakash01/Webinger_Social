@@ -1,6 +1,6 @@
 /** Mock for the brand workspace: company profile (FR-05). Brand role only. */
 import { brandProfileInputSchema } from '@/features/brands/schemas';
-import type { BrandProfile } from '@/types';
+import type { BrandProfile, BrandStats } from '@/types';
 import { getDb, now, type BrandProfileRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
 
@@ -34,4 +34,45 @@ export const updateMyBrandProfile: Handler = ({ req, user }) => {
   });
   user.updatedAt = now().toISOString();
   return ok(toBrandProfile(b));
+};
+
+/** FR-71: spend, orders by status, delivered post links. */
+export const getMyBrandStats: Handler = ({ user }) => {
+  myBrand(user);
+  const db = getDb();
+  const orders = db.orders.filter((o) => o.brandUserId === user.id);
+  const total = (o: (typeof orders)[number]) => o.priceCents + o.brandFeeCents;
+  const captured = orders.filter((o) => o.payment.status === 'CAPTURED' || o.payment.status === 'REFUNDED');
+  const statuses = ['PENDING_ACCEPTANCE', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'REFUNDED', 'CLOSED'] as const;
+  const ids = new Set(orders.map((o) => o.id));
+  const campaigns = db.campaigns.filter((c) => c.brandUserId === user.id);
+  const today = now().toISOString().slice(0, 10);
+  const body: BrandStats = {
+    currency: 'USD',
+    spentCents: captured.reduce((s, o) => s + total(o) - o.payment.refundedCents, 0),
+    inEscrowCents: orders.filter((o) => o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED').reduce((s, o) => s + total(o), 0),
+    authorisedCents: orders.filter((o) => o.status === 'PENDING_ACCEPTANCE').reduce((s, o) => s + total(o), 0),
+    ordersByStatus: Object.fromEntries(statuses.map((s) => [s, orders.filter((o) => o.status === s).length])),
+    deliveredPosts: db.deliveries
+      .filter((d) => ids.has(d.orderId))
+      .flatMap((d) =>
+        d.items
+          .filter((i) => i.type === 'POST_URL')
+          .map((i) => {
+            const o = orders.find((x) => x.id === d.orderId)!;
+            return {
+              orderId: d.orderId,
+              orderTitle: db.orderInfo.find((x) => x.orderId === d.orderId)?.title ?? 'Order',
+              creatorName: db.creatorProfiles.find((p) => p.userId === o.creatorUserId)?.displayName ?? 'Creator',
+              url: i.url,
+              deliveredAt: d.submittedAt,
+            };
+          }),
+      )
+      .sort((a, b) => b.deliveredAt.localeCompare(a.deliveredAt))
+      .slice(0, 20),
+    openCampaigns: campaigns.filter((c) => c.status === 'OPEN' && c.deadline >= today).length,
+    pendingApplications: db.applications.filter((a) => a.status === 'PENDING' && campaigns.some((c) => c.id === a.campaignId)).length,
+  };
+  return ok(body);
 };

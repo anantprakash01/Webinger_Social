@@ -18,26 +18,28 @@ import { NotFound } from './pages/Placeholder';
 const area = <M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M & string) =>
   lazy(() => load().then((m) => ({ default: m[name] as React.ComponentType })));
 
-const brand = () => import('./pages/brand');
 const creator = () => import('./pages/creator');
 const admin = () => import('./pages/admin');
-const shared = () => import('./pages/shared');
 
 const LandingPage = area(() => import('@/features/landing/pages/LandingPage'), 'LandingPage');
 const SearchPage = area(() => import('@/features/search/pages/SearchPage'), 'SearchPage');
 const CreatorProfilePage = area(() => import('@/features/creators/pages/CreatorProfilePage'), 'CreatorProfilePage');
 
-const BrandDashboard = area(brand, 'BrandDashboard');
+const BrandDashboard = area(() => import('@/features/brands/pages/BrandDashboardPage'), 'BrandDashboardPage');
 const OrdersListPage = area(() => import('@/features/orders/pages/OrdersListPage'), 'OrdersListPage');
 const OrderDetailPage = area(() => import('@/features/orders/pages/OrderDetailPage'), 'OrderDetailPage');
-const BrandCampaigns = area(brand, 'BrandCampaigns');
-const BrandCampaignDetail = area(brand, 'BrandCampaignDetail');
+const brandCampaigns = () => import('@/features/campaigns/pages/BrandCampaignsPages');
+const BrandCampaigns = area(brandCampaigns, 'BrandCampaignsPage');
+const BrandCampaignDetail = area(brandCampaigns, 'BrandCampaignDetailPage');
+const ApplicationCheckoutPage = area(() => import('@/features/campaigns/pages/ApplicationCheckoutPage'), 'ApplicationCheckoutPage');
 const BrandProfile = area(() => import('@/features/brands/pages/BrandProfilePage'), 'BrandProfilePage');
 const CheckoutPage = area(() => import('@/features/orders/pages/CheckoutPage'), 'CheckoutPage');
 
 const CreatorOnboarding = area(() => import('@/features/creators/pages/OnboardingPage'), 'OnboardingPage');
 const CreatorDashboard = area(() => import('@/features/creators/pages/CreatorDashboardPage'), 'CreatorDashboardPage');
-const CreatorCampaigns = area(creator, 'CreatorCampaigns');
+const creatorCampaigns = () => import('@/features/campaigns/pages/CreatorCampaignsPages');
+const CreatorCampaigns = area(creatorCampaigns, 'CreatorCampaignsPage');
+const CreatorCampaignDetail = area(creatorCampaigns, 'CreatorCampaignDetailPage');
 const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
 const MockStripeConnectPage = area(() => import('@/features/payouts/pages/MockStripeConnectPage'), 'MockStripeConnectPage');
 const CreatorPayouts = area(creator, 'CreatorPayouts');
@@ -49,9 +51,8 @@ const AdminFees = area(admin, 'AdminFees');
 const AdminAudit = area(admin, 'AdminAudit');
 const AdminOrders = area(admin, 'AdminOrders');
 
-const MessagesPage = area(shared, 'MessagesPage');
-const ConversationPage = area(shared, 'ConversationPage');
-const NotificationsPage = area(shared, 'NotificationsPage');
+const MessagesPage = area(() => import('@/features/chat/pages/MessagesPage'), 'MessagesPage');
+const NotificationsPage = area(() => import('@/features/chat/pages/NotificationsPage'), 'NotificationsPage');
 
 export function AppRoutes() {
   return (
@@ -73,6 +74,7 @@ export function AppRoutes() {
       {/* Signed in */}
       <Route element={<AppShell />}>
         <Route element={<RequireRole roles={['BRAND']} />}>
+          <Route path="checkout/campaign/:campaignId/:applicationId" element={<ApplicationCheckoutPage />} />
           <Route path="checkout/offer/:username" element={<CheckoutPage />} />
           <Route path="checkout/:packageId" element={<CheckoutPage />} />
           <Route path="brand">
@@ -94,6 +96,7 @@ export function AppRoutes() {
             <Route path="orders" element={<OrdersListPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="campaigns" element={<CreatorCampaigns />} />
+            <Route path="campaigns/:id" element={<CreatorCampaignDetail />} />
             <Route path="packages" element={<CreatorPackages />} />
             <Route path="payouts" element={<CreatorPayouts />} />
           </Route>
@@ -113,7 +116,7 @@ export function AppRoutes() {
 
         <Route element={<RequireRole />}>
           <Route path="messages" element={<MessagesPage />} />
-          <Route path="messages/:conversationId" element={<ConversationPage />} />
+          <Route path="messages/:conversationId" element={<MessagesPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
       </Route>

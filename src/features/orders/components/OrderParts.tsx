@@ -214,7 +214,7 @@ function BriefEditor({ o, onDone }: { o: OrderDetail; onDone: () => void }) {
   const onSubmit = form.handleSubmit(async (v) => {
     setFormError(null);
     try {
-      await save.mutateAsync(v.brief);
+      await save.mutateAsync(v.brief!);
       onDone();
     } catch (e) {
       if (e instanceof ApiError) for (const fe of e.fieldErrors) {

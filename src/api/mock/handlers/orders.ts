@@ -13,7 +13,8 @@ import {
   replyRequestSchema,
   reviewRequestSchema,
 } from '@/features/orders/schemas';
-import type { OrderAction, OrderDetail, OrderEventView, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
+import type { OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
+import { orderEventNotifications } from '../notify';
 import { calculateFees } from '../fees';
 import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type ReviewRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
@@ -26,6 +27,7 @@ import {
   transition,
   type Actor,
   type MockOrder,
+  type OrderEvent,
   type OrderEventInput,
   type OrderEventType,
   type OrderStatus,
@@ -68,7 +70,22 @@ export function applyTransition(order: MockOrder, e: OrderEventInput, actor: Act
   if (e.type === 'DISPUTE' && actor.kind === 'USER') {
     db.disputes.push({ id: ulid(now().getTime()), orderId: order.id, openedBy: actor.userId, reason: e.note ?? '', status: 'OPEN', resolution: null, refundCents: null, resolvedBy: null, createdAt: now().toISOString(), resolvedAt: null });
   }
+  notifyOrderEvent(res.order, res.event);
   return res.order;
+}
+
+/** FR-52: in-app notification + email to each participant who did not cause the event. */
+function notifyOrderEvent(o: MockOrder, e: OrderEvent) {
+  const db = getDb();
+  const info = db.orderInfo.find((i) => i.orderId === o.id);
+  if (!info) return;
+  const drafts = orderEventNotifications(e, o, { title: info.title, brandName: brandParty(o.brandUserId).name, creatorName: creatorParty(o.creatorUserId).name });
+  for (const n of drafts) {
+    if (n.userId === e.actorId) continue;
+    db.notifications.unshift({ id: ulid(now().getTime()), ...n, readAt: null, createdAt: now().toISOString() });
+    const to = db.users.find((u) => u.id === n.userId)?.email;
+    if (to) db.outbox.unshift({ id: ulid(now().getTime()), to, subject: n.title, body: n.body, link: n.link, createdAt: now().toISOString() });
+  }
 }
 
 /**
@@ -159,6 +176,8 @@ function toDetail(o: MockOrder, user: UserRow): OrderDetail {
   return {
     ...toSummary(o, user),
     packageId: o.packageId,
+    campaignId: o.campaignId,
+    conversationId: db.conversations.find((c) => c.orderId === o.id)?.id ?? '',
     deliverables: info.deliverables,
     deliveryDays: o.deliveryDays,
     payment: { ...o.payment },
@@ -225,24 +244,42 @@ export const createOrder: Handler = ({ req, user }) => {
   const body = parseBody(orderCreateRequestSchema, req.body);
   const db = getDb();
   let creator: CreatorProfileRow;
-  let line: { kind: 'PACKAGE' | 'CUSTOM_OFFER'; packageId: string | null; title: string; platform: Platform; deliverables: string[]; priceCents: number; deliveryDays: number };
+  let line: OrderLine;
   if (body.packageId) {
     const k = db.packages.find((x) => x.id === body.packageId);
     const owner = k && db.creatorProfiles.find((c) => c.userId === k.creatorId);
     if (!k || !owner || owner.vettingStatus !== 'APPROVED') fail(404, 'This package does not exist.', 'PACKAGE_NOT_FOUND');
     if (!k.active) fail(409, 'This package is no longer offered.', 'PACKAGE_UNAVAILABLE');
     creator = owner;
-    line = { kind: 'PACKAGE', packageId: k.id, title: k.title, platform: k.platform, deliverables: k.deliverables, priceCents: k.priceCents, deliveryDays: k.deliveryDays };
+    line = { kind: 'PACKAGE', packageId: k.id, campaignId: null, title: k.title, platform: k.platform, deliverables: k.deliverables, priceCents: k.priceCents, deliveryDays: k.deliveryDays };
   } else {
     creator = approvedCreator(body.creatorUsername!);
     const o = body.offer!;
-    line = { kind: 'CUSTOM_OFFER', packageId: null, title: o.title, platform: o.platform, deliverables: o.deliverables, priceCents: o.priceCents, deliveryDays: o.deliveryDays };
+    line = { kind: 'CUSTOM_OFFER', packageId: null, campaignId: null, title: o.title, platform: o.platform, deliverables: o.deliverables, priceCents: o.priceCents, deliveryDays: o.deliveryDays };
   }
-  if (creator.payoutStatus !== 'ENABLED') fail(409, 'This creator cannot take paid orders yet.', 'CREATOR_PAYOUTS_DISABLED');
+  return ok(placeOrder(user, creator, line, normaliseBrief(body.brief)), 201);
+};
 
-  // FR-30: authorise, don't capture. The machine checks role, verified email (FR-02), price and days.
+export interface OrderLine {
+  kind: 'PACKAGE' | 'CUSTOM_OFFER' | 'CAMPAIGN';
+  packageId: string | null;
+  campaignId: string | null;
+  title: string;
+  platform: Platform;
+  deliverables: string[];
+  priceCents: number;
+  deliveryDays: number;
+}
+
+/**
+ * Checkout core shared by packages, custom offers and accepted campaign applications (FR-42: same flow).
+ * FR-30: authorise, don't capture. The machine checks role, verified email (FR-02), price and days.
+ */
+export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: OrderLine, brief: Omit<OrderBriefRow, 'orderId' | 'updatedAt'>): OrderCreated {
+  if (creator.payoutStatus !== 'ENABLED') fail(409, 'This creator cannot take paid orders yet.', 'CREATOR_PAYOUTS_DISABLED');
+  const db = getDb();
   const { order, event } = machineCreate(
-    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees: feeConfig() },
+    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees: feeConfig() },
     actorOf(user),
     { now: now() },
   );
@@ -250,23 +287,22 @@ export const createOrder: Handler = ({ req, user }) => {
   db.orders.push(order);
   db.orderEvents.push(event);
   db.orderInfo.push({ orderId: order.id, kind: line.kind, title: line.title, platform: line.platform, deliverables: line.deliverables, paymentIntentId });
-  db.orderBriefs.push({ orderId: order.id, ...normaliseBrief(body.brief), updatedAt: order.createdAt });
-  return ok(
-    {
-      orderId: order.id,
-      status: order.status,
-      priceCents: order.priceCents,
-      brandFeeCents: order.brandFeeCents,
-      totalCents: order.priceCents + order.brandFeeCents,
-      currency: order.currency,
-      acceptBy: order.acceptBy,
-      stripeClientSecret: `${paymentIntentId}_secret_mock`,
-    },
-    201,
-  );
-};
+  db.orderBriefs.push({ orderId: order.id, ...brief, updatedAt: order.createdAt });
+  db.conversations.push({ id: ulid(now().getTime()), orderId: order.id, createdAt: order.createdAt });
+  notifyOrderEvent(order, event);
+  return {
+    orderId: order.id,
+    status: order.status,
+    priceCents: order.priceCents,
+    brandFeeCents: order.brandFeeCents,
+    totalCents: order.priceCents + order.brandFeeCents,
+    currency: order.currency,
+    acceptBy: order.acceptBy,
+    stripeClientSecret: `${paymentIntentId}_secret_mock`,
+  };
+}
 
-function normaliseBrief(b: ReturnType<typeof briefSchema.parse>): Omit<OrderBriefRow, 'orderId' | 'updatedAt'> {
+export function normaliseBrief(b: ReturnType<typeof briefSchema.parse>): Omit<OrderBriefRow, 'orderId' | 'updatedAt'> {
   return { requirements: b.requirements, needsShipping: b.needsShipping, shippingAddress: b.needsShipping ? (b.shippingAddress ?? null) : null, links: b.links, referenceFiles: b.referenceFiles };
 }
 

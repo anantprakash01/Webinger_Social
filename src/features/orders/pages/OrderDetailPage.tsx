@@ -1,6 +1,6 @@
 /** /brand/orders/:id and /creator/orders/:id — one order, as the viewer sees it. */
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuCircleCheck } from 'react-icons/lu';
+import { LuArrowLeft, LuCircleCheck, LuMessageSquare } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
 import { CreatorPhoto } from '@/components/creator';
 import { OrderStatusBadge } from '@/components/status';
@@ -80,6 +80,11 @@ export function OrderDetailPage() {
               <div className="list__title">{party.name}</div>
             )}
           </div>
+          {o.conversationId && (
+            <Link to={`/messages/${o.conversationId}`} className="btn btn--secondary btn--sm">
+              <LuMessageSquare aria-hidden /> Message
+            </Link>
+          )}
         </div>
       </header>
 

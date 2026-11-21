@@ -72,6 +72,19 @@ for (const width of [360, 1280]) {
   await page.getByRole('button', { name: /Request revision/ }).click();
   await check(page, width, 'brand-order-revision-dialog');
   await check(page, width, 'offer-checkout', '/checkout/offer/leomakes');
+  // Week 5: campaigns, a campaign with applications, application checkout, chat, notifications.
+  await check(page, width, 'brand-campaigns', '/brand/campaigns');
+  await page.locator('.campaign-card__link').first().click();
+  await page.waitForURL(/\/brand\/campaigns\/[0-9A-Z]{26}$/);
+  await check(page, width, 'brand-campaign-detail');
+  await page.getByRole('button', { name: 'Accept and pay' }).first().click();
+  await page.waitForURL(/\/checkout\/campaign\//);
+  await check(page, width, 'application-checkout');
+  await check(page, width, 'brand-messages', '/messages');
+  await page.locator('.conv').first().click();
+  await page.waitForURL(/\/messages\/[0-9A-Z]{26}$/);
+  await check(page, width, 'brand-thread');
+  await check(page, width, 'brand-notifications', '/notifications');
   await ctx.close();
 
   for (const [email, pages] of [['newcreator@demo.test', AS_DRAFT_CREATOR], ['creator@demo.test', AS_CREATOR]]) {
@@ -101,6 +114,12 @@ for (const width of [360, 1280]) {
       await p.waitForURL(/\/creator\/orders\/[0-9A-Z]{26}$/);
       await p.getByRole('button', { name: /Deliver work/ }).click();
       await check(p, width, 'creator-deliver-dialog');
+      // Week 5: browse campaigns and open one to apply.
+      await check(p, width, 'creator-campaigns', '/creator/campaigns');
+      await p.locator('.campaign-card__link').first().click();
+      await p.waitForURL(/\/creator\/campaigns\/[0-9A-Z]{26}$/);
+      await check(p, width, 'creator-campaign-detail');
+      await check(p, width, 'creator-messages', '/messages');
     }
     await c.close();
   }

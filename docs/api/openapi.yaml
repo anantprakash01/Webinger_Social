@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 0.4.0
+  version: 0.5.0
   description: |
-    Contract v0.4 (Phase 0, Week 4): orders, checkout quote, reviews; plus authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
+    Contract v0.5 (Phase 0, Week 5): campaigns, chat, notifications, brand stats; orders, checkout quote, reviews; plus authentication, `/me`, public creator search and profile, the creator workspace (profile, socials, packages, portfolio, vetting, stats), brand profile, uploads and payout onboarding.
     This file is the single source of truth between the React app and the Spring Boot API.
     Frontend types are generated from it with `npm run gen:api` (openapi-typescript).
 
@@ -30,6 +30,9 @@ tags:
   - name: Payouts
   - name: Orders
   - name: Reviews
+  - name: Campaigns
+  - name: Chat
+  - name: Notifications
 
 paths:
   /auth/register:
@@ -668,6 +671,196 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
+  /campaigns:
+    get:
+      tags: [Campaigns]
+      summary: Campaigns — a brand's own, or open campaigns for creators (FR-40, FR-41)
+      description: "Brands see their own campaigns in every status. Creators see OPEN campaigns whose deadline has not passed, newest first."
+      operationId: listCampaigns
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: platform, in: query, schema: { $ref: '#/components/schemas/Platform' } }
+        - { name: niche, in: query, schema: { $ref: '#/components/schemas/Niche' } }
+        - { name: applied, in: query, description: 'Creators only: campaigns they applied to, in any status.', schema: { type: boolean, default: false } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/CampaignPage' } } } }
+    post:
+      tags: [Campaigns]
+      summary: Post a campaign (FR-40)
+      description: Verified brands only.
+      operationId: createCampaign
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CampaignInput' } } } }
+      responses:
+        '201': { description: Created., content: { application/json: { schema: { $ref: '#/components/schemas/CampaignDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /campaigns/{id}:
+    get:
+      tags: [Campaigns]
+      summary: One campaign. The owning brand also sees every application; a creator sees their own.
+      operationId: getCampaign
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/CampaignDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /campaigns/{id}/close:
+    post:
+      tags: [Campaigns]
+      summary: Close a campaign to new applications
+      description: Pending applications are declined. Orders already created are not affected.
+      operationId: closeCampaign
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/CampaignDetail' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /campaigns/{id}/applications:
+    post:
+      tags: [Campaigns]
+      summary: Apply to a campaign with a pitch and a price (FR-41)
+      description: Approved creators only, one application per campaign (409 ALREADY_APPLIED), while the campaign is open.
+      operationId: applyToCampaign
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApplicationInput' } } } }
+      responses:
+        '201': { description: Applied., content: { application/json: { schema: { $ref: '#/components/schemas/Application' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /applications/{id}/accept:
+    post:
+      tags: [Campaigns]
+      summary: Accept an application — creates an order (FR-42)
+      description: "Same flow as buying a package: the brand's card is authorised for the applied price plus the brand fee, and the creator still has 72 hours to accept the order. The campaign brief becomes the order brief."
+      operationId: acceptApplication
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/ApplicationAcceptRequest' } } } }
+      responses:
+        '201': { description: Order placed., content: { application/json: { schema: { $ref: '#/components/schemas/OrderCreated' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /applications/{id}/reject:
+    post:
+      tags: [Campaigns]
+      summary: Decline an application
+      operationId: rejectApplication
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/Application' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /applications/{id}/withdraw:
+    post:
+      tags: [Campaigns]
+      summary: Creator withdraws a pending application
+      operationId: withdrawApplication
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/Application' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /conversations:
+    get:
+      tags: [Chat]
+      summary: The viewer's conversations, one per order (FR-50), most recent activity first
+      operationId: listConversations
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ConversationList' } } } }
+
+  /conversations/{id}/messages:
+    get:
+      tags: [Chat]
+      summary: Messages in a conversation, oldest first
+      description: "Pass `after` (a message id) to get only newer messages. Live updates arrive on the STOMP topic /user/queue/messages."
+      operationId: listMessages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { name: after, in: query, schema: { $ref: '#/components/schemas/Ulid' } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/MessageList' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Chat]
+      summary: Send a message
+      description: "Until the order is COMPLETED, email addresses and phone numbers are replaced with [email hidden] / [phone hidden] before the message is stored (FR-51)."
+      operationId: sendMessage
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MessageInput' } } } }
+      responses:
+        '201': { description: Sent., content: { application/json: { schema: { $ref: '#/components/schemas/ChatMessage' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /conversations/{id}/read:
+    post:
+      tags: [Chat]
+      summary: Mark every message in the conversation as read by the viewer
+      operationId: markConversationRead
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }]
+      responses:
+        '204': { description: Marked. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: The viewer's notifications, newest first (FR-52)
+      operationId: listNotifications
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: unreadOnly, in: query, schema: { type: boolean, default: false } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/NotificationPage' } } } }
+
+  /notifications/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notifications as read
+      operationId: markNotificationsRead
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MarkReadRequest' } } } }
+      responses:
+        '204': { description: Marked. }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /brands/me/stats:
+    get:
+      tags: [Brand workspace]
+      summary: Brand dashboard numbers (FR-71)
+      operationId: getMyBrandStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandStats' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /creators/{username}:
     get:
       tags: [Creators]
@@ -1168,6 +1361,200 @@ components:
         url: { type: string }
         expiresAt: { type: string, format: date-time }
 
+    # ---------- Campaigns (Week 5) ----------
+    CampaignStatus:
+      type: string
+      description: OPEN until the brand closes it. Creators can apply only while OPEN and before the deadline.
+      enum: [OPEN, CLOSED]
+
+    CampaignInput:
+      type: object
+      required: [title, brief, platforms, niches, deliverables, budgetPerCreatorCents, deadline]
+      properties:
+        title: { type: string, minLength: 5, maxLength: 100 }
+        brief: { type: string, minLength: 30, maxLength: 4000 }
+        platforms: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '#/components/schemas/Platform' } }
+        niches: { type: array, minItems: 1, maxItems: 3, uniqueItems: true, items: { $ref: '#/components/schemas/Niche' } }
+        deliverables: { type: array, minItems: 1, maxItems: 10, items: { type: string, minLength: 2, maxLength: 120 } }
+        budgetPerCreatorCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
+        deadline: { type: string, format: date, description: 'Last day to apply; 1 to 180 days from today.' }
+
+    CampaignSummary:
+      type: object
+      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        brand: { $ref: '#/components/schemas/OrderParty' }
+        title: { type: string }
+        platforms: { type: array, items: { $ref: '#/components/schemas/Platform' } }
+        niches: { type: array, items: { $ref: '#/components/schemas/Niche' } }
+        budgetPerCreatorCents: { type: integer, format: int64 }
+        currency: { type: string }
+        deadline: { type: string, format: date }
+        status: { $ref: '#/components/schemas/CampaignStatus' }
+        open: { type: boolean, description: OPEN and the deadline has not passed. }
+        applicationCount: { type: integer, description: Shown to the owning brand; 0 for creators. }
+        myApplication: { oneOf: [{ $ref: '#/components/schemas/Application' }, { type: 'null' }], description: "The creator's own application, if any." }
+        createdAt: { type: string, format: date-time }
+
+    CampaignDetail:
+      allOf:
+        - $ref: '#/components/schemas/CampaignSummary'
+        - type: object
+          required: [brief, deliverables, applications]
+          properties:
+            brief: { type: string }
+            deliverables: { type: array, items: { type: string } }
+            applications: { type: array, description: Owning brand only; empty for creators., items: { $ref: '#/components/schemas/Application' } }
+
+    CampaignPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/CampaignSummary' } }
+
+    ApplicationStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, REJECTED, WITHDRAWN]
+
+    Application:
+      type: object
+      required: [id, campaignId, creator, pitch, priceCents, currency, deliveryDays, status, orderId, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        campaignId: { $ref: '#/components/schemas/Ulid' }
+        creator: { allOf: [{ $ref: '#/components/schemas/OrderParty' }], description: Includes the creator's reach for the brand to compare. }
+        reach: { oneOf: [{ $ref: '#/components/schemas/PlatformReach' }, { type: 'null' }] }
+        ratingAvg: { type: [number, 'null'] }
+        ratingCount: { type: integer }
+        pitch: { type: string }
+        priceCents: { type: integer, format: int64 }
+        currency: { type: string }
+        deliveryDays: { type: integer }
+        status: { $ref: '#/components/schemas/ApplicationStatus' }
+        orderId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }], description: Set once accepted. }
+        createdAt: { type: string, format: date-time }
+
+    ApplicationInput:
+      type: object
+      required: [pitch, priceCents, deliveryDays]
+      properties:
+        pitch: { type: string, minLength: 30, maxLength: 1000 }
+        priceCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
+        deliveryDays: { type: integer, minimum: 1, maximum: 60 }
+
+    ApplicationAcceptRequest:
+      type: object
+      properties:
+        note: { type: [string, 'null'], maxLength: 2000, description: Extra instructions added to the campaign brief. }
+
+    # ---------- Chat (Week 5) ----------
+    ChatMessage:
+      type: object
+      required: [id, conversationId, mine, senderName, body, masked, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        conversationId: { $ref: '#/components/schemas/Ulid' }
+        mine: { type: boolean }
+        senderName: { type: string }
+        body: { type: string }
+        masked: { type: boolean, description: Contact details were hidden (FR-51). }
+        createdAt: { type: string, format: date-time }
+
+    MessageList:
+      type: object
+      required: [messages, contactsHidden, serverTime]
+      properties:
+        messages: { type: array, items: { $ref: '#/components/schemas/ChatMessage' } }
+        contactsHidden: { type: boolean, description: True until the order is completed (FR-51). }
+        serverTime: { type: string, format: date-time }
+
+    MessageInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
+
+    Conversation:
+      type: object
+      required: [id, orderId, orderTitle, orderStatus, counterparty, lastMessage, unreadCount, contactsHidden, updatedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        orderId: { $ref: '#/components/schemas/Ulid' }
+        orderTitle: { type: string }
+        orderStatus: { $ref: '#/components/schemas/OrderStatus' }
+        counterparty: { $ref: '#/components/schemas/OrderParty' }
+        lastMessage: { oneOf: [{ $ref: '#/components/schemas/ChatMessage' }, { type: 'null' }] }
+        unreadCount: { type: integer }
+        contactsHidden: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+
+    ConversationList:
+      type: object
+      required: [content, unreadTotal]
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/Conversation' } }
+        unreadTotal: { type: integer }
+
+    # ---------- Notifications (Week 5) ----------
+    NotificationType:
+      type: string
+      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED]
+
+    Notification:
+      type: object
+      required: [id, type, title, body, link, read, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        type: { $ref: '#/components/schemas/NotificationType' }
+        title: { type: string }
+        body: { type: string }
+        link: { type: [string, 'null'], description: 'App path to open, e.g. /brand/orders/{id}.' }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    NotificationPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content, unreadCount]
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+            unreadCount: { type: integer }
+
+    MarkReadRequest:
+      type: object
+      description: Either ids, or all = true.
+      properties:
+        ids: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/Ulid' } }
+        all: { type: boolean }
+
+    # ---------- Brand dashboard (Week 5) ----------
+    DeliveredPost:
+      type: object
+      required: [orderId, orderTitle, creatorName, url, deliveredAt]
+      properties:
+        orderId: { $ref: '#/components/schemas/Ulid' }
+        orderTitle: { type: string }
+        creatorName: { type: string }
+        url: { type: string }
+        deliveredAt: { type: string, format: date-time }
+
+    BrandStats:
+      type: object
+      required: [currency, spentCents, inEscrowCents, authorisedCents, ordersByStatus, deliveredPosts, openCampaigns, pendingApplications]
+      properties:
+        currency: { type: string }
+        spentCents: { type: integer, format: int64, description: "Charged to the brand's card, minus refunds." }
+        inEscrowCents: { type: integer, format: int64, description: Charged and held until approval. }
+        authorisedCents: { type: integer, format: int64, description: Card holds on orders not yet accepted (not charged). }
+        ordersByStatus: { type: object, additionalProperties: { type: integer } }
+        deliveredPosts: { type: array, description: 'Live post links from deliveries, newest first (FR-71).', items: { $ref: '#/components/schemas/DeliveredPost' } }
+        openCampaigns: { type: integer }
+        pendingApplications: { type: integer }
+
     # ---------- Orders (Week 4) ----------
     OrderStatus:
       type: string
@@ -1189,7 +1576,7 @@ components:
 
     OrderKind:
       type: string
-      enum: [PACKAGE, CUSTOM_OFFER]
+      enum: [PACKAGE, CUSTOM_OFFER, CAMPAIGN]
 
     ShippingAddress:
       type: object
@@ -1370,9 +1757,11 @@ components:
       allOf:
         - $ref: '#/components/schemas/OrderSummary'
         - type: object
-          required: [packageId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime]
+          required: [packageId, campaignId, conversationId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime]
           properties:
             packageId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
+            campaignId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
+            conversationId: { $ref: '#/components/schemas/Ulid', description: The order's chat thread (FR-50). }
             deliverables: { type: array, items: { type: string }, description: What was bought (snapshot). }
             deliveryDays: { type: integer }
             payment: { $ref: '#/components/schemas/OrderPayment' }
