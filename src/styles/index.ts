@@ -16,3 +16,4 @@ import './engagement.css';
 import './admin.css';
 import './ux.css';
 import './payments.css';
+import './collab.css';

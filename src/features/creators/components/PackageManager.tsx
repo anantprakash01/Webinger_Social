@@ -3,6 +3,7 @@
  * Used by the onboarding wizard and by /creator/packages.
  */
 import { toast, useConfirm } from '@/components/feedback';
+import type { PackageAddon } from '@/types';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -112,6 +113,21 @@ export function PackageManager({ me }: { me: CreatorMe }) {
   );
 }
 
+const MAX_REVISIONS_INCLUDED = 2;
+
+/** Form strings for a package's add-ons (phase C). */
+function addonFields(addons: PackageAddon[]) {
+  const of = (k: PackageAddon['kind']) => addons.find((a) => a.kind === k);
+  const rupees = (c?: number) => (c ? (c / 100).toFixed(c % 100 ? 2 : 0) : '');
+  return {
+    usagePrice: rupees(of('USAGE_RIGHTS')?.priceCents),
+    usageDays: String(of('USAGE_RIGHTS')?.usageDays ?? 30),
+    rushPrice: rupees(of('RUSH')?.priceCents),
+    rushDays: String(of('RUSH')?.rushDays ?? 2),
+    revisionPrice: rupees(of('EXTRA_REVISION')?.priceCents),
+  };
+}
+
 function PackageEditor({ pkg, defaultPlatform, activeFull, onDone }: { pkg: OwnPackage | null; defaultPlatform: PackageInput['platform']; activeFull: boolean; onDone: () => void }) {
   const create = useCreatePackage();
   const update = useUpdatePackage();
@@ -129,8 +145,9 @@ function PackageEditor({ pkg, defaultPlatform, activeFull, onDone }: { pkg: OwnP
           price: (pkg.priceCents / 100).toFixed(pkg.priceCents % 100 ? 2 : 0),
           deliveryDays: String(pkg.deliveryDays),
           active: pkg.active,
+          ...addonFields(pkg.addons ?? []),
         }
-      : { platform: defaultPlatform, title: '', description: '', deliverablesText: '', price: '', deliveryDays: '5', active: !activeFull },
+      : { platform: defaultPlatform, title: '', description: '', deliverablesText: '', price: '', deliveryDays: '5', active: !activeFull, ...addonFields([]) },
   });
   const { errors } = formState;
   const description = useWatch({ control, name: 'description' }) ?? '';
@@ -187,6 +204,19 @@ function PackageEditor({ pkg, defaultPlatform, activeFull, onDone }: { pkg: OwnP
         <Input label="Price (₹)" inputMode="decimal" placeholder="10000" hint="At least ₹500." error={errors.price?.message} {...register('price')} />
         <Input label="Delivery (days)" inputMode="numeric" hint="1 to 60 days." error={errors.deliveryDays?.message} {...register('deliveryDays')} />
       </div>
+      <fieldset className="addon-fields">
+        <legend>Add-ons (optional)</legend>
+        <p className="small muted">Extras a brand can tick at checkout. Leave the price empty to not offer one.</p>
+        <div className="form-row">
+          <Input label="Paid ad usage (₹)" inputMode="decimal" placeholder="e.g. 3000" error={errors.usagePrice?.message} {...register('usagePrice')} />
+          <Input label="Usage period (days)" inputMode="numeric" hint="7 to 365 days." error={errors.usageDays?.message} {...register('usageDays')} />
+        </div>
+        <div className="form-row">
+          <Input label="Rush delivery (₹)" inputMode="decimal" placeholder="e.g. 1500" error={errors.rushPrice?.message} {...register('rushPrice')} />
+          <Input label="Rush delivery (days)" inputMode="numeric" hint="Faster than the normal delivery." error={errors.rushDays?.message} {...register('rushDays')} />
+        </div>
+        <Input label="Extra revision (₹)" inputMode="decimal" placeholder="e.g. 1000" hint={`Adds one revision to the ${MAX_REVISIONS_INCLUDED} included.`} error={errors.revisionPrice?.message} {...register('revisionPrice')} />
+      </fieldset>
       <label className="check small">
         <input type="checkbox" {...register('active')} disabled={activeFull && !pkg?.active} />
         <span>

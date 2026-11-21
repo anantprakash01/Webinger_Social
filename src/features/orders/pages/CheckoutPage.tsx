@@ -40,6 +40,8 @@ function Checkout() {
   const [pay, setPay] = useState<PayChoice>(emptyChoice());
   const [payErrors, setPayErrors] = useState<PayErrors>({});
   const [paying, setPaying] = useState(false);
+  // Phase C: package add-ons ticked by the brand; the server prices them into the quote and the order.
+  const [addonIds, setAddonIds] = useState<string[]>([]);
 
   const form = useForm<CheckoutFormValues, unknown, CheckoutFormOutput>({
     resolver: zodResolver(makeCheckoutSchema({ offer: offerMode, card: false })),
@@ -59,7 +61,10 @@ function Checkout() {
     }, 300);
     return () => clearTimeout(t);
   }, [price, offerMode]);
-  const quote = useOrderQuote(offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId }, offerMode ? !!username : !!packageId);
+  const quote = useOrderQuote(
+    offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId, addonIds: addonIds.length ? [...addonIds].sort().join(',') : undefined },
+    offerMode ? !!username : !!packageId,
+  );
 
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
@@ -71,7 +76,7 @@ function Checkout() {
     try {
       // Pay first (authorise only); the server verifies the payment before the order exists.
       const payment = await collectOrderPayment(pay, quote.data.totalCents);
-      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment } : { packageId, brief: v.brief!, payment });
+      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment } : { packageId, brief: v.brief!, payment, addonIds });
       navigate(`/brand/orders/${res.orderId}`, { replace: true, state: { placed: true } });
     } catch (e) {
       let placed = false;
@@ -161,7 +166,7 @@ function Checkout() {
         </div>
 
         <aside className="checkout__side">
-          <Summary q={q} offerMode={offerMode} priceReady={!offerMode || quotedPrice !== undefined} />
+          <Summary q={q} offerMode={offerMode} priceReady={!offerMode || quotedPrice !== undefined} addonIds={addonIds} onAddons={setAddonIds} />
           <FormError>{formError}</FormError>
           {/* On phones this sticks above the bottom nav, so paying never needs a scroll back (UX pass, item 4). */}
           <div className="checkout__pay">
@@ -187,7 +192,9 @@ function Checkout() {
   );
 }
 
-function Summary({ q, offerMode, priceReady }: { q: OrderQuote; offerMode: boolean; priceReady: boolean }) {
+function Summary({ q, offerMode, priceReady, addonIds, onAddons }: { q: OrderQuote; offerMode: boolean; priceReady: boolean; addonIds: string[]; onAddons: (ids: string[]) => void }) {
+  const addons = q.package?.addons ?? [];
+  const rush = addons.find((a) => a.kind === 'RUSH' && addonIds.includes(a.id));
   return (
     <Card>
       <div className="form-stack">
@@ -214,12 +221,33 @@ function Summary({ q, offerMode, priceReady }: { q: OrderQuote; offerMode: boole
               ))}
             </ul>
             <span className="small muted">
-              <LuClock aria-hidden style={{ verticalAlign: 'middle' }} /> Delivered within {q.package.deliveryDays} days of acceptance
+              <LuClock aria-hidden style={{ verticalAlign: 'middle' }} /> Delivered within {rush?.rushDays ?? q.package.deliveryDays} days of acceptance
             </span>
           </div>
         )}
+        {addons.length > 0 && (
+          <fieldset className="addons">
+            <legend className="small">
+              <strong>Add-ons</strong> <span className="muted">(optional)</span>
+            </legend>
+            {addons.map((a) => (
+              <label key={a.id} className="check small addon">
+                <input
+                  type="checkbox"
+                  checked={addonIds.includes(a.id)}
+                  onChange={(e) => onAddons(e.target.checked ? [...addonIds, a.id] : addonIds.filter((x) => x !== a.id))}
+                />
+                <span className="addon__title">{a.title}</span>
+                <span className="addon__price">+{formatMoney(a.priceCents, q.currency)}</span>
+              </label>
+            ))}
+            {!addons.some((a) => a.kind === 'USAGE_RIGHTS' && addonIds.includes(a.id)) && (
+              <p className="small muted">Without usage rights, the content is for organic posting only, not paid ads.</p>
+            )}
+          </fieldset>
+        )}
         <dl className="money">
-          <BrandMoneyLines priceLabel={offerMode ? 'Offer price' : 'Package price'} priceCents={q.priceCents} brandFeeCents={q.brandFeeCents} brandFeeBps={q.brandFeeBps} totalCents={q.totalCents} taxes={q.taxes} currency={q.currency} ready={priceReady} />
+          <BrandMoneyLines priceLabel={offerMode ? 'Offer price' : addonIds.length ? 'Package + add-ons' : 'Package price'} priceCents={q.priceCents} brandFeeCents={q.brandFeeCents} brandFeeBps={q.brandFeeBps} totalCents={q.totalCents} taxes={q.taxes} currency={q.currency} ready={priceReady} />
         </dl>
       </div>
     </Card>

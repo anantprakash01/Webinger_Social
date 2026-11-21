@@ -1,0 +1,95 @@
+/* Launch readiness, phase C: add-ons, drafts, shipping, extensions, post results. */
+
+.addon-fields {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.addon-fields legend {
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.addons {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.addons legend {
+  margin-bottom: 6px;
+}
+.addon {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.addon__title {
+  min-width: 0;
+}
+.addon__price {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.package__addons {
+  margin: 0;
+}
+
+.shipment {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+.shipment > svg {
+  margin-top: 3px;
+  color: var(--ink-3);
+}
+@media (max-width: 480px) {
+  .shipment {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .shipment > .badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.metrics-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  margin-right: 8px;
+  flex-wrap: wrap;
+}
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.post-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.post-results__value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+}

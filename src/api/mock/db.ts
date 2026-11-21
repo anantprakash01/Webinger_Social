@@ -6,6 +6,8 @@
  * Week 1: demo accounts. Week 2: ~60 invented creators with socials, packages, portfolio, reviews
  * (src/api/mock/seed/creators.ts). Orders and campaigns arrive with their weeks.
  */
+import { seedAddons, seedMetrics } from './seed/collab';
+import type { PackageAddon, PostMetrics } from '@/types';
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
 import type { LedgerEntry } from './ledger';
@@ -92,6 +94,8 @@ export interface PackageRow {
   priceCents: number;
   deliveryDays: number;
   active: boolean;
+  /** Phase C: optional extras (usage rights, rush, extra revision). */
+  addons?: PackageAddon[];
   createdAt: string;
 }
 
@@ -129,6 +133,9 @@ export interface OrderInfoRow {
   deliverables: string[];
   /** Razorpay payment id for the order (authorised at checkout, captured on accept). */
   paymentIntentId: string;
+  /** Phase C: add-ons bought with the package, and the paid-ads usage they grant. */
+  addons?: PackageAddon[];
+  usageRights?: string | null;
 }
 
 export interface ShippingAddressRow {
@@ -156,9 +163,42 @@ export interface DeliveryRow {
   id: string;
   orderId: string;
   revisionNo: number;
-  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null }>;
+  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null; metrics?: PostMetrics | null }>;
   note: string | null;
   submittedAt: string;
+}
+
+/** Phase C: a draft shared for approval before posting. */
+export interface DraftRow {
+  id: string;
+  orderId: string;
+  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null }>;
+  note: string | null;
+  status: 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED';
+  feedback: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+}
+
+/** Phase C: product sent to the creator. */
+export interface ShipmentRow {
+  orderId: string;
+  courier: string;
+  trackingNumber: string;
+  shippedAt: string;
+  receivedAt: string | null;
+}
+
+/** Phase C: the creator asks for more time. */
+export interface ExtensionRow {
+  id: string;
+  orderId: string;
+  extraDays: number;
+  reason: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  requestedAt: string;
+  decidedAt: string | null;
+  newDueAt: string;
 }
 
 export interface DisputeRow {
@@ -409,6 +449,9 @@ export interface Db {
   orderInfo: OrderInfoRow[];
   orderBriefs: OrderBriefRow[];
   deliveries: DeliveryRow[];
+  drafts: DraftRow[];
+  shipments: ShipmentRow[];
+  extensions: ExtensionRow[];
   disputes: DisputeRow[];
   idempotency: IdempotencyRow[];
   campaigns: CampaignRow[];
@@ -468,7 +511,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -498,6 +541,8 @@ function seed(now: Date): Db {
   const orders = seedOrders(now, { brandId: SEED_IDS.brand, brandName: 'Saltbay Supply Co.', leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators);
   const engagement = seedEngagement(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, passwordHash: pw }, creators, orders);
   const payments = seedPayments(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator }, creators, creators.users);
+  seedAddons(creators.packages, SEED_IDS.creator);
+  seedMetrics(orders.orders, orders.deliveries, now.toISOString());
   const admin = seedAdmin(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators, orders, engagement);
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -533,6 +578,9 @@ function seed(now: Date): Db {
     orderInfo: orders.orderInfo,
     orderBriefs: orders.orderBriefs,
     deliveries: orders.deliveries,
+    drafts: [],
+    shipments: [],
+    extensions: [],
     disputes: orders.disputes,
     idempotency: [],
     campaigns: engagement.campaigns,

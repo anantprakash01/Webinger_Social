@@ -264,6 +264,11 @@ function PackageCard({ pkg, canBuy, onBuy }: { pkg: Package; canBuy: boolean; on
           ))}
         </ul>
       )}
+      {(pkg.addons?.length ?? 0) > 0 && (
+        <p className="small muted package__addons">
+          Add-ons: {pkg.addons!.map((a) => `${a.title} +${formatMoney(a.priceCents, pkg.currency)}`).join(' · ')}
+        </p>
+      )}
       <div className="package__foot">
         <span className="package__price">{formatMoney(pkg.priceCents, pkg.currency)}</span>
         <Button onClick={onBuy} disabled={!canBuy} aria-label={`Buy ${pkg.title} for ${formatMoney(pkg.priceCents, pkg.currency)}`}>

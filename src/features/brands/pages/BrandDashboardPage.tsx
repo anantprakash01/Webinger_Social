@@ -1,4 +1,6 @@
 /** /brand/dashboard (FR-71): spend, orders by status, delivered post links, campaigns. */
+import { MetricsLine } from '@/features/orders/components/Collaboration';
+import type { BrandStats } from '@/types';
 import { Link } from 'react-router-dom';
 import { LuArrowRight, LuExternalLink, LuSearch } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
@@ -107,6 +109,7 @@ export function BrandDashboardPage() {
 
       <div className="grid">
         <Card title="Delivered posts">
+          <PostResults posts={s.deliveredPosts} />
           {s.deliveredPosts.length === 0 ? (
             <EmptyState title="No posts yet">Links to live posts appear here as creators deliver.</EmptyState>
           ) : (
@@ -121,6 +124,7 @@ export function BrandDashboardPage() {
                     <div className="list__meta">
                       {p.creatorName} · {formatWhen(p.deliveredAt)}
                     </div>
+                    {p.metrics && <MetricsLine m={p.metrics} />}
                   </div>
                   <Link to={`/brand/orders/${p.orderId}`} className="link small">
                     View order <LuArrowRight aria-hidden style={{ verticalAlign: 'middle' }} />
@@ -132,6 +136,35 @@ export function BrandDashboardPage() {
           )}
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** Phase C: totals of the results creators recorded on their posts (manual metrics). */
+function PostResults({ posts }: { posts: BrandStats['deliveredPosts'] }) {
+  const measured = posts.filter((p) => p.metrics);
+  if (measured.length === 0) return null;
+  const sum = (k: 'views' | 'likes' | 'comments') => measured.reduce((t, p) => t + (p.metrics?.[k] ?? 0), 0);
+  const views = sum('views');
+  const engagement = sum('likes') + sum('comments');
+  const fmt = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+  return (
+    <div className="post-results">
+      <div>
+        <div className="post-results__value">{fmt.format(views)}</div>
+        <div className="list__meta">views</div>
+      </div>
+      <div>
+        <div className="post-results__value">{fmt.format(engagement)}</div>
+        <div className="list__meta">likes + comments</div>
+      </div>
+      <div>
+        <div className="post-results__value">{views ? `${((engagement / views) * 100).toFixed(1)}%` : '—'}</div>
+        <div className="list__meta">engagement rate</div>
+      </div>
+      <p className="small muted" style={{ gridColumn: '1 / -1', margin: 0 }}>
+        From {measured.length} of {posts.length} post{posts.length === 1 ? '' : 's'}, as reported by the creators.
+      </p>
     </div>
   );
 }

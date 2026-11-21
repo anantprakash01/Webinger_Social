@@ -69,7 +69,7 @@ import {
   type MarkReadRequest,
   type MessageList,
   type NotificationPage,
-  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest } from '@/types';
+  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest, type PostMetricsInput } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -477,7 +477,7 @@ export const api = {
   },
   /** Orders (Week 4). Money-moving calls send an Idempotency-Key; reuse it when retrying the same action. */
   orders: {
-    quote: (q: { packageId?: string; creatorUsername?: string; priceCents?: number }) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
+    quote: (q: { packageId?: string; creatorUsername?: string; priceCents?: number; addonIds?: string }) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
     create: (body: OrderCreateRequest, idempotencyKey: string) =>
       request<OrderCreated>('POST', '/orders', { body, headers: { 'idempotency-key': idempotencyKey } }),
     list: (q: { status?: string; page?: number; size?: number } = {}) => request<OrderPage>('GET', '/orders', { query: q }),
@@ -490,6 +490,16 @@ export const api = {
     requestRevision: (id: string, note: string, key: string) => orderAction(id, 'request-revision', { note }, key),
     dispute: (id: string, note: string, key: string) => orderAction(id, 'dispute', { note }, key),
     updateBrief: (id: string, brief: OrderBrief) => request<OrderDetail>('POST', `/orders/${enc(id)}/brief`, { body: brief }),
+    /* Collaboration (phase C) */
+    shareDraft: (id: string, body: DeliverRequest) => request<OrderDetail>('POST', `/orders/${enc(id)}/drafts`, { body }),
+    reviewDraft: (id: string, draftId: string, body: { decision: 'APPROVE' | 'CHANGES'; note?: string | null }) =>
+      request<OrderDetail>('POST', `/orders/${enc(id)}/drafts/${enc(draftId)}/review`, { body }),
+    saveShipment: (id: string, body: { courier: string; trackingNumber: string }) => request<OrderDetail>('PUT', `/orders/${enc(id)}/shipment`, { body }),
+    markReceived: (id: string) => request<OrderDetail>('POST', `/orders/${enc(id)}/shipment/received`),
+    requestExtension: (id: string, body: { extraDays: number; reason: string }) => request<OrderDetail>('POST', `/orders/${enc(id)}/extension`, { body }),
+    reviewExtension: (id: string, decision: 'ACCEPT' | 'DECLINE') => request<OrderDetail>('POST', `/orders/${enc(id)}/extension/review`, { body: { decision } }),
+    saveMetrics: (id: string, deliveryId: string, body: PostMetricsInput) =>
+      request<OrderDetail>('PUT', `/orders/${enc(id)}/deliveries/${enc(deliveryId)}/metrics`, { body }),
     review: (id: string, body: ReviewRequest) => request<Review>('POST', `/orders/${enc(id)}/review`, { body }),
     reply: (reviewId: string, reply: string) => request<Review>('POST', `/reviews/${enc(reviewId)}/reply`, { body: { reply } }),
   },

@@ -64,6 +64,24 @@ export function orderEventNotifications(e: OrderEvent, o: MockOrder, n: OrderNam
       const refund = formatMoney(o.payment.refundedCents, o.currency);
       return [toBrand('Dispute resolved — refund', `${refund} was refunded for “${n.title}”.`), toCreator('Dispute resolved', `${refund} was refunded to the brand for “${n.title}”.`)];
     }
+    case 'DRAFT_SHARED':
+      return [toBrand(`${first(n.creatorName)} shared a draft`, `Approve the draft for “${n.title}” or ask for changes before it's posted.`)];
+    case 'DRAFT_APPROVED':
+      return [toCreator('Draft approved', `${n.brandName} approved your draft for “${n.title}”. Go ahead and post it, then deliver.`)];
+    case 'DRAFT_CHANGES_REQUESTED':
+      return [toCreator('Changes requested on your draft', `${n.brandName}${e.note ? `: “${e.note}”` : ` asked for changes to “${n.title}”.`}`)];
+    case 'SHIPPED':
+      return [toCreator('Product shipped to you', `${n.brandName} shipped the product for “${n.title}”${e.note ? ` — ${e.note}` : ''}.`)];
+    case 'RECEIVED':
+      return [toBrand('Product received', `${first(n.creatorName)} received the product for “${n.title}”.`)];
+    case 'EXTENSION_REQUESTED':
+      return [toBrand(`${first(n.creatorName)} asked for more time`, `“${n.title}”${e.note ? `: ${e.note}` : ''}. Accept or decline on the order page.`)];
+    case 'EXTENSION_ACCEPTED':
+      return [toCreator('More time granted', `${n.brandName} moved the due date of “${n.title}”.`)];
+    case 'EXTENSION_DECLINED':
+      return [toCreator('Request for more time declined', `The due date of “${n.title}” stays the same.`)];
+    case 'METRICS_ADDED':
+      return [toBrand('Post results added', `${first(n.creatorName)} added views and engagement for “${n.title}”.`)];
     case 'ADMIN_CANCEL': {
       const refund = formatMoney(o.payment.refundedCents, o.currency);
       return [toBrand('Order cancelled by our team', `“${n.title}” was cancelled and ${refund} refunded to your payment method.`), toCreator('Order cancelled by our team', `“${n.title}” was cancelled by our team and the brand was refunded.`)];

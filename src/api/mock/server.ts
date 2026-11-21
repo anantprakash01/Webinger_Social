@@ -3,6 +3,7 @@
  * into problem+json exactly like the Spring Boot API. The API client calls `handle()` instead of
  * `fetch()` when VITE_API_MODE=mock.
  */
+import * as collab from './handlers/collab';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
 import { HttpError, type Handler, type MockRequest, type MockResponse } from './http';
@@ -77,6 +78,13 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/orders/:id/decline', auth: true, handler: orders.declineOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/deliver', auth: true, handler: orders.deliverOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/brief', auth: true, handler: orders.updateOrderBrief },
+  { method: 'POST', path: '/orders/:id/drafts', auth: true, handler: collab.shareDraft },
+  { method: 'POST', path: '/orders/:id/drafts/:draftId/review', auth: true, handler: collab.reviewDraft },
+  { method: 'PUT', path: '/orders/:id/shipment', auth: true, handler: collab.saveShipment },
+  { method: 'POST', path: '/orders/:id/shipment/received', auth: true, handler: collab.markReceived },
+  { method: 'POST', path: '/orders/:id/extension', auth: true, handler: collab.requestExtension },
+  { method: 'POST', path: '/orders/:id/extension/review', auth: true, handler: collab.reviewExtension },
+  { method: 'PUT', path: '/orders/:id/deliveries/:deliveryId/metrics', auth: true, handler: collab.savePostMetrics },
   { method: 'POST', path: '/orders/:id/approve', auth: true, handler: orders.approveOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/request-revision', auth: true, handler: orders.requestRevision, idempotent: true },
   { method: 'POST', path: '/orders/:id/dispute', auth: true, handler: orders.disputeOrder, idempotent: true },

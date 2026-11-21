@@ -2,6 +2,8 @@
  * Mock for the creator workspace (FR-10 – FR-16, FR-70): the signed-in creator's own profile,
  * socials, packages, portfolio, submit-for-review and dashboard stats. Creator role only.
  */
+import { toAddon } from './orders';
+import type { PackageAddon } from '@/types';
 import {
   creatorProfileInputSchema,
   MAX_ACTIVE_PACKAGES,
@@ -37,7 +39,19 @@ const toOwnPackage = (k: PackageRow): OwnPackage => ({
   currency: CURRENCY,
   deliveryDays: k.deliveryDays,
   active: k.active,
+  addons: (k.addons ?? []).map(toAddon),
 });
+
+/** Phase C: give new add-ons ids; rush must be faster than the package. */
+function normaliseAddons(addons: Array<Omit<PackageAddon, 'id' | 'usageDays' | 'rushDays'> & { id?: string; usageDays?: number | null; rushDays?: number | null }>, deliveryDays: number, existing: PackageAddon[] = []): PackageAddon[] {
+  return addons.map((a) => {
+    if (a.kind === 'RUSH' && (a.rushDays ?? 0) >= deliveryDays)
+      fail(422, 'Rush delivery must be faster than the package.', 'VALIDATION_FAILED', [{ field: 'addons', message: `Rush delivery must be under ${deliveryDays} days.` }]);
+    // Keep ids stable across edits (by id, else by kind), so a brand's open checkout still matches.
+    const id = a.id && existing.some((e) => e.id === a.id) ? a.id : (existing.find((e) => e.kind === a.kind)?.id ?? ulid(now().getTime() + Math.floor(Math.random() * 1000)));
+    return { id, kind: a.kind, title: a.title, priceCents: a.priceCents, usageDays: a.kind === 'USAGE_RIGHTS' ? (a.usageDays ?? null) : null, rushDays: a.kind === 'RUSH' ? (a.rushDays ?? null) : null };
+  });
+}
 
 const activeCount = (creatorId: string) => getDb().packages.filter((k) => k.creatorId === creatorId && k.active).length;
 
@@ -165,7 +179,7 @@ export const createMyPackage: Handler = ({ req, user }) => {
   const p = myProfile(user);
   const body = parseBody(packageInputSchema, req.body);
   if (body.active && activeCount(p.userId) >= MAX_ACTIVE_PACKAGES) limitError();
-  const row: PackageRow = { id: ulid(now().getTime()), creatorId: p.userId, ...body, createdAt: now().toISOString() };
+  const row: PackageRow = { id: ulid(now().getTime()), creatorId: p.userId, ...body, addons: normaliseAddons(body.addons, body.deliveryDays), createdAt: now().toISOString() };
   getDb().packages.push(row);
   return ok(toOwnPackage(row), 201);
 };
@@ -174,7 +188,10 @@ export const updateMyPackage: Handler = ({ req, params, user }) => {
   const k = ownPackage(user, params.id);
   const patch = parseBody(packagePatchSchema, req.body);
   if (patch.active === true && !k.active && activeCount(k.creatorId) >= MAX_ACTIVE_PACKAGES) limitError();
-  Object.assign(k, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)));
+  const { addons, ...rest } = patch;
+  Object.assign(k, Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)));
+  if (addons) k.addons = normaliseAddons(addons, k.deliveryDays, k.addons);
+  else if (rest.deliveryDays && k.addons?.some((a) => a.kind === 'RUSH' && (a.rushDays ?? 0) >= k.deliveryDays)) k.addons = k.addons.filter((a) => a.kind !== 'RUSH');
   return ok(toOwnPackage(k));
 };
 

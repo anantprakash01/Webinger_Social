@@ -791,6 +791,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a draft for approval before posting (v2.4)
+         * @description Creator, while IN_PROGRESS. The brand approves it or asks for changes; money does not move. Then the creator posts and delivers as usual.
+         */
+        post: operations["shareDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/drafts/{draftId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a draft or ask for changes (v2.4) */
+        post: operations["reviewDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/shipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add or update the product shipment to the creator (v2.4)
+         * @description Brand, when the brief needs shipping, while PENDING_ACCEPTANCE or IN_PROGRESS.
+         */
+        put: operations["saveShipment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/shipment/received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The creator received the product (v2.4) */
+        post: operations["markShipmentReceived"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/extension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for more time (v2.4)
+         * @description Creator, while IN_PROGRESS, one pending request at a time, 1–14 extra days. The brand accepts (the due date moves) or declines.
+         */
+        post: operations["requestExtension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/extension/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept or decline a request for more time (v2.4) */
+        post: operations["reviewExtension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/deliveries/{deliveryId}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record a post's results (manual metrics, v2.4)
+         * @description Creator, once DELIVERED or later. Shown to the brand on the order and the dashboard.
+         */
+        put: operations["savePostMetrics"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}/review": {
         parameters: {
             query?: never;
@@ -1710,6 +1841,101 @@ export interface components {
             /** @example USD */
             currency: string;
             deliveryDays: number;
+            /** @description Optional extras (v2.4). */
+            addons?: components["schemas"]["PackageAddon"][];
+        };
+        /** @description Optional extra on a package (v2.4): paid ad usage rights, rush delivery or an extra revision. */
+        PackageAddon: {
+            id: string;
+            /** @enum {string} */
+            kind: "USAGE_RIGHTS" | "RUSH" | "EXTRA_REVISION";
+            title: string;
+            /** Format: int64 */
+            priceCents: number;
+            /** @description USAGE_RIGHTS: days the brand may run the content as paid ads. */
+            usageDays: number | null;
+            /** @description RUSH: delivery days instead of the package's. */
+            rushDays: number | null;
+        };
+        PackageAddonInput: {
+            /** @description Keep an existing add-on's id. */
+            id?: string;
+            /** @enum {string} */
+            kind: "USAGE_RIGHTS" | "RUSH" | "EXTRA_REVISION";
+            title: string;
+            /** Format: int64 */
+            priceCents: number;
+            usageDays?: number | null;
+            rushDays?: number | null;
+        };
+        DraftReview: {
+            /** @enum {string} */
+            decision: "APPROVE" | "CHANGES";
+            /** @description Required (10+ characters) when asking for changes. */
+            note?: string | null;
+        };
+        Draft: {
+            id: string;
+            items: components["schemas"]["DeliveryItem"][];
+            note: string | null;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "CHANGES_REQUESTED";
+            feedback: string | null;
+            /** Format: date-time */
+            submittedAt: string;
+            /** Format: date-time */
+            reviewedAt: string | null;
+        };
+        ShipmentInput: {
+            /** @example Delhivery */
+            courier: string;
+            trackingNumber: string;
+        };
+        Shipment: {
+            courier: string;
+            trackingNumber: string;
+            /** Format: date-time */
+            shippedAt: string;
+            /** Format: date-time */
+            receivedAt: string | null;
+        };
+        ExtensionRequest: {
+            extraDays: number;
+            reason: string;
+        };
+        ExtensionReview: {
+            /** @enum {string} */
+            decision: "ACCEPT" | "DECLINE";
+        };
+        Extension: {
+            extraDays: number;
+            reason: string;
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "DECLINED";
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            decidedAt: string | null;
+            /** Format: date-time */
+            newDueAt: string;
+        };
+        PostMetricsInput: {
+            /** @description Index of the POST_URL item in the delivery. */
+            itemIndex: number;
+            views: number;
+            likes: number;
+            comments: number;
+            shares?: number | null;
+            reach?: number | null;
+        };
+        PostMetrics: {
+            views: number;
+            likes: number;
+            comments: number;
+            shares: number | null;
+            reach: number | null;
+            /** Format: date-time */
+            recordedAt: string;
         };
         PortfolioItem: {
             id: components["schemas"]["Ulid"];
@@ -1780,6 +2006,8 @@ export interface components {
             deliveryDays: number;
             /** @default true */
             active: boolean;
+            /** @description v2.4; one of each kind. */
+            addons?: components["schemas"]["PackageAddonInput"][];
         };
         /** @description Any subset of PackageInput fields. */
         PackagePatch: {
@@ -1791,6 +2019,8 @@ export interface components {
             priceCents?: number;
             deliveryDays?: number;
             active?: boolean;
+            /** @description v2.4: replaces the add-ons. */
+            addons?: components["schemas"]["PackageAddonInput"][];
         };
         OwnPackage: components["schemas"]["Package"] & {
             active: boolean;
@@ -2433,6 +2663,7 @@ export interface components {
             url: string;
             /** Format: date-time */
             deliveredAt: string;
+            metrics?: components["schemas"]["PostMetrics"] | null;
         };
         BrandStats: {
             currency: string;
@@ -2517,6 +2748,8 @@ export interface components {
             offer?: components["schemas"]["CustomOfferInput"];
             brief: components["schemas"]["OrderBrief"];
             payment: components["schemas"]["OrderPaymentInput"];
+            /** @description Package add-ons chosen at checkout (v2.4). */
+            addonIds?: string[];
         };
         OrderCreated: {
             orderId: components["schemas"]["Ulid"];
@@ -2677,6 +2910,8 @@ export interface components {
             /** @description FILE: a fileUrl from /files/presign. POST_URL: the live post (https). */
             url: string;
             name?: string | null;
+            /** @description Results entered by the creator (v2.4); POST_URL items only. */
+            metrics?: components["schemas"]["PostMetrics"] | null;
         };
         Delivery: {
             id: components["schemas"]["Ulid"];
@@ -2689,7 +2924,7 @@ export interface components {
         };
         OrderEventView: {
             /** @enum {string} */
-            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND" | "ADMIN_CANCEL";
+            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND" | "ADMIN_CANCEL" | "DRAFT_SHARED" | "DRAFT_APPROVED" | "DRAFT_CHANGES_REQUESTED" | "SHIPPED" | "RECEIVED" | "EXTENSION_REQUESTED" | "EXTENSION_ACCEPTED" | "EXTENSION_DECLINED" | "METRICS_ADDED";
             fromStatus: components["schemas"]["OrderStatus"] | null;
             toStatus: components["schemas"]["OrderStatus"];
             /** @enum {string} */
@@ -2736,6 +2971,15 @@ export interface components {
             allowedActions: components["schemas"]["OrderAction"][];
             /** Format: date-time */
             serverTime: string;
+            /** @description Add-ons bought with the package (v2.4). */
+            addons: components["schemas"]["PackageAddon"][];
+            /** @description Paid ad usage included, e.g. "Paid ads for 30 days" (v2.4). */
+            usageRights: string | null;
+            /** @description Newest first (v2.4). */
+            drafts: components["schemas"]["Draft"][];
+            shipment: components["schemas"]["Shipment"] | null;
+            /** @description The latest request for more time. */
+            extension: components["schemas"]["Extension"] | null;
             /** @description For tax invoices (v2.3): GSTINs and the place of supply. */
             taxParties: {
                 platformGstin: string;
@@ -3668,6 +3912,8 @@ export interface operations {
                 packageId?: components["schemas"]["Ulid"];
                 creatorUsername?: string;
                 priceCents?: number;
+                /** @description Comma-separated package add-on ids (v2.4). */
+                addonIds?: string;
             };
             header?: never;
             path?: never;
@@ -4021,6 +4267,205 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    shareDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliverRequest"];
+            };
+        };
+        responses: {
+            /** @description Shared. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    reviewDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftReview"];
+            };
+        };
+        responses: {
+            /** @description Reviewed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    saveShipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    markShipmentReceived: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked received. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    requestExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionRequest"];
+            };
+        };
+        responses: {
+            /** @description Requested. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    reviewExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionReview"];
+            };
+        };
+        responses: {
+            /** @description Decided. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    savePostMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+                deliveryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostMetricsInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
         };

@@ -14,6 +14,7 @@ import { eventLabel, formatDateTime, paymentText } from '../format';
 import { useReplyToReview, useReviewOrder, useUpdateBrief } from '../hooks';
 import { emptyCheckoutForm, formFieldFor, makeCheckoutSchema, type CheckoutFormOutput, type CheckoutFormValues } from '../schemas';
 import { BriefFields } from './BriefFields';
+import { PostMetricsControl } from './Collaboration';
 
 /* ---------- Payment and fees ---------- */
 
@@ -79,8 +80,21 @@ export function OrderedCard({ o }: { o: OrderDetail }) {
             </li>
           ))}
         </ul>
+        {o.addons.length > 0 && (
+          <div className="form-stack" style={{ gap: 4 }}>
+            <span className="small"><strong>Add-ons</strong></span>
+            <ul className="package__deliverables">
+              {o.addons.map((a) => (
+                <li key={a.id}>
+                  <LuCheck aria-hidden /> {a.title} · {formatMoney(a.priceCents, o.money.currency)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <span className="small muted">
           Delivery within {o.deliveryDays} day{o.deliveryDays === 1 ? '' : 's'} of acceptance · up to {o.maxRevisions} revisions
+          {o.usageRights ? ` · ${o.usageRights}` : ' · organic posting only, no paid ads'}
         </span>
       </div>
     </Card>
@@ -89,7 +103,7 @@ export function OrderedCard({ o }: { o: OrderDetail }) {
 
 /* ---------- Deliveries (FR-34) ---------- */
 
-export function Deliveries({ o }: { o: OrderDetail }) {
+export function Deliveries({ o, role }: { o: OrderDetail; role: Role }) {
   if (o.deliveries.length === 0) return null;
   return (
     <Card title="Deliveries">
@@ -120,6 +134,7 @@ export function Deliveries({ o }: { o: OrderDetail }) {
                       <LuLink aria-hidden /> {it.name ?? 'Post'} <LuExternalLink aria-hidden />
                       <span className="sr-only"> (opens in a new tab)</span>
                     </a>
+                    {i === 0 && <PostMetricsControl o={o} d={d} index={j} role={role} />}
                   </li>
                 ),
               )}

@@ -11,7 +11,7 @@ import { ImagePicker } from '@/features/files/components/ImagePicker';
 import { formatMoney } from '@/lib/money';
 import { ApiError, type DeliveryItem, type OrderDetail, type Role } from '@/types';
 import { countdown, formatDay, serverNow } from '../format';
-import { useOrderAction, useTicker, type OrderActionInput } from '../hooks';
+import { useCollab, useOrderAction, useTicker, type OrderActionInput } from '../hooks';
 
 type Dialog = 'accept' | 'decline' | 'cancel' | 'approve' | 'revision' | 'dispute' | 'deliver' | null;
 
@@ -262,9 +262,14 @@ function ConfirmDialog({ o, kind, first, onClose }: { o: OrderDetail; kind: Excl
   );
 }
 
-/** FR-34: files and/or links to the live posts, plus a note. */
-function DeliverDialog({ o, onClose }: { o: OrderDetail; onClose: () => void }) {
+/**
+ * FR-34: files and/or links to the live posts, plus a note. Phase C reuses it to share a draft for
+ * approval before posting (`mode="draft"`): same items, no money or status change.
+ */
+export function DeliverDialog({ o, onClose, mode = 'deliver' }: { o: OrderDetail; onClose: () => void; mode?: 'deliver' | 'draft' }) {
   const action = useOrderAction(o.id);
+  const collab = useCollab(o.id);
+  const draft = mode === 'draft';
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [link, setLink] = useState('');
   const [note, setNote] = useState('');
@@ -277,14 +282,16 @@ function DeliverDialog({ o, onClose }: { o: OrderDetail; onClose: () => void }) 
       return;
     }
     setError(null);
-    setItems((xs) => [...xs, { type: 'POST_URL', url, name: 'Post link' }]);
+    setItems((xs) => [...xs, { type: 'POST_URL', url, name: draft ? 'Preview link' : 'Post link' }]);
     setLink('');
   };
 
   const submit = async () => {
     setError(null);
     try {
-      await action.mutateAsync({ type: 'deliver', body: { items, note: note.trim() || null } });
+      const body = { items, note: note.trim() || null };
+      if (draft) await collab.mutateAsync({ type: 'share-draft', body });
+      else await action.mutateAsync({ type: 'deliver', body });
       onClose();
     } catch (e) {
       setError(e instanceof ApiError ? (e.fieldErrors[0]?.message ?? e.message) : 'Could not deliver. Try again.');
@@ -292,9 +299,13 @@ function DeliverDialog({ o, onClose }: { o: OrderDetail; onClose: () => void }) 
   };
 
   return (
-    <Drawer open onClose={onClose} title={o.revisionCount ? `Deliver revision ${o.revisionCount}` : 'Deliver your work'}>
+    <Drawer open onClose={onClose} title={draft ? 'Share a draft' : o.revisionCount ? `Deliver revision ${o.revisionCount}` : 'Deliver your work'}>
       <div className="form-stack">
-        <p className="small muted">The brand has 72 hours to approve, ask for a revision or dispute. If they do nothing, it is approved and you are paid.</p>
+        <p className="small muted">
+          {draft
+            ? 'Upload the draft video or images (or a private preview link) before you post. The brand approves it or asks for changes; nothing is paid yet.'
+            : 'The brand has 72 hours to approve, ask for a revision or dispute. If they do nothing, it is approved and you are paid.'}
+        </p>
         {items.length > 0 && (
           <ul className="list">
             {items.map((it, i) => (
@@ -311,7 +322,7 @@ function DeliverDialog({ o, onClose }: { o: OrderDetail; onClose: () => void }) 
           </ul>
         )}
         <div className="deliver-add">
-          <Input label="Link to the live post" type="url" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
+          <Input label={draft ? 'Preview link' : 'Link to the live post'} type="url" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
           <Button variant="secondary" size="sm" onClick={addLink} disabled={!link.trim() || items.length >= 10}>
             <LuPlus aria-hidden /> Add link
           </Button>
@@ -329,8 +340,8 @@ function DeliverDialog({ o, onClose }: { o: OrderDetail; onClose: () => void }) 
         <TextArea label="Note to the brand (optional)" rows={3} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} />
         <FormError>{error}</FormError>
         <div className="row" style={{ flexWrap: 'wrap' }}>
-          <Button onClick={() => void submit()} loading={action.isPending} disabled={items.length === 0}>
-            <LuUpload aria-hidden /> Deliver
+          <Button onClick={() => void submit()} loading={action.isPending || collab.isPending} disabled={items.length === 0}>
+            <LuUpload aria-hidden /> {draft ? 'Share draft' : 'Deliver'}
           </Button>
           <Button variant="ghost" onClick={onClose}>
             Back

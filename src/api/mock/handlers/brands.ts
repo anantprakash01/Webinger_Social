@@ -90,6 +90,7 @@ export const getMyBrandStats: Handler = ({ user }) => {
               creatorName: db.creatorProfiles.find((p) => p.userId === o.creatorUserId)?.displayName ?? 'Creator',
               url: i.url,
               deliveredAt: d.submittedAt,
+              metrics: i.metrics ?? null,
             };
           }),
       )

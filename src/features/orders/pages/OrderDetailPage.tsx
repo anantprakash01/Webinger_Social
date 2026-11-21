@@ -8,6 +8,7 @@ import { OrderStatusBadge } from '@/components/status';
 import { Badge, Card, ErrorState, PageSkeleton } from '@/components/ui';
 import { ApiError } from '@/types';
 import { ActionPanel } from '../components/ActionPanel';
+import { DraftsCard, ExtensionCard, ShippingCard } from '../components/Collaboration';
 import { BriefCard, Deliveries, MoneyCard, OrderedCard, ReviewCard, Timeline } from '../components/OrderParts';
 import { shortId } from '../format';
 import { useOrder } from '../hooks';
@@ -101,7 +102,10 @@ export function OrderDetailPage() {
         <div className="order__main">
           <ActionPanel o={o} role={role} fetchedAt={dataUpdatedAt} />
           <ReviewCard o={o} role={role} />
-          <Deliveries o={o} />
+          <ExtensionCard o={o} role={role} />
+          <ShippingCard o={o} role={role} />
+          <DraftsCard o={o} role={role} />
+          <Deliveries o={o} role={role} />
           <BriefCard o={o} />
           <OrderedCard o={o} />
         </div>

@@ -63,6 +63,8 @@ export const orderCreateRequestSchema = z
     brief: briefSchema,
     /** Checked by the payments module (v2.0): Razorpay proof or the brand wallet. */
     payment: z.unknown(),
+    /** Phase C: package add-ons chosen at checkout. */
+    addonIds: z.array(z.string().min(1)).max(5).optional(),
   })
   .refine((v) => (v.packageId ? !v.offer && !v.creatorUsername : !!v.offer && !!v.creatorUsername), {
     error: 'Send either a packageId, or a creatorUsername with an offer.',
@@ -77,6 +79,42 @@ export const deliveryItemSchema = z.discriminatedUnion('type', [
 export const deliverRequestSchema = z.object({
   items: z.array(deliveryItemSchema).min(1, { error: 'Add at least one file or post link.' }).max(10, { error: 'Add up to 10 items.' }),
   note: z.string().trim().max(1000, { error: 'Use at most 1000 characters.' }).nullable().optional(),
+});
+
+/* ---------- Collaboration (phase C) ---------- */
+
+export const draftReviewSchema = z
+  .object({
+    decision: z.enum(['APPROVE', 'CHANGES']),
+    note: z.string().trim().max(2000, { error: 'Use at most 2000 characters.' }).nullable().optional(),
+  })
+  .refine((v) => v.decision === 'APPROVE' || (v.note ?? '').length >= 10, { error: 'Explain the changes in at least 10 characters.', path: ['note'] });
+
+export const shipmentSchema = z.object({
+  courier: z.string().trim().min(2, { error: 'Name the courier.' }).max(60),
+  trackingNumber: z
+    .string()
+    .trim()
+    .min(4, { error: 'Enter the tracking number.' })
+    .max(40)
+    .regex(/^[A-Za-z0-9-]+$/, { error: 'Letters, digits and dashes only.' }),
+});
+
+export const MAX_EXTENSION_DAYS = 14;
+export const extensionRequestSchema = z.object({
+  extraDays: z.number({ error: 'Enter the number of days.' }).int({ error: 'Whole days only.' }).min(1, { error: '1 to 14 days.' }).max(MAX_EXTENSION_DAYS, { error: '1 to 14 days.' }),
+  reason: z.string().trim().min(10, { error: 'Explain in at least 10 characters.' }).max(500),
+});
+export const extensionReviewSchema = z.object({ decision: z.enum(['ACCEPT', 'DECLINE']) });
+
+const count = z.number({ error: 'Enter a number.' }).int({ error: 'Whole numbers only.' }).min(0, { error: 'Cannot be negative.' }).max(10_000_000_000);
+export const postMetricsSchema = z.object({
+  itemIndex: z.number().int().min(0),
+  views: count,
+  likes: count,
+  comments: count,
+  shares: count.nullable().optional(),
+  reach: count.nullable().optional(),
 });
 
 export const noteRequestSchema = z.object({
@@ -99,6 +137,7 @@ export const quoteQuerySchema = z
     packageId: z.string().min(1).optional(),
     creatorUsername: z.string().trim().toLowerCase().min(1).optional(),
     priceCents: z.coerce.number().int().min(MIN_PRICE_CENTS, { error: 'The minimum price is ₹500.' }).max(MAX_PRICE_CENTS).optional(),
+    addonIds: z.string().max(400).optional(),
   })
   .refine((q) => !!q.packageId || (!!q.creatorUsername && q.priceCents !== undefined), {
     error: 'Send a packageId, or a creatorUsername with a priceCents.',

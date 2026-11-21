@@ -62,6 +62,8 @@ export interface MockOrder {
   dueAt: string | null;
   reviewBy: string | null;
   revisionCount: number;
+  /** Revisions included; MAX_REVISIONS unless an extra-revision add-on was bought (phase C). */
+  maxRevisions?: number;
   /** Optimistic lock, like the JPA @Version column: approve and auto-approve cannot both win. */
   version: number;
   payment: { status: PaymentStatus; amountCents: number; refundedCents: number } & OrderPaymentInfo;
@@ -73,7 +75,7 @@ export interface MockOrder {
 
 export interface OrderEvent {
   orderId: string;
-  type: OrderEventType | 'CREATE';
+  type: OrderEventType | 'CREATE' | CollabEventType;
   fromStatus: OrderStatus | null;
   toStatus: OrderStatus;
   actorId: string | null;
@@ -97,6 +99,18 @@ export type OrderEventInput =
   | { type: 'ADMIN_CANCEL'; note?: string };
 
 export type OrderEventType = OrderEventInput['type'];
+
+/** Phase C: timeline events that don't change the status or move money (drafts, shipping, time, metrics). */
+export type CollabEventType =
+  | 'DRAFT_SHARED'
+  | 'DRAFT_APPROVED'
+  | 'DRAFT_CHANGES_REQUESTED'
+  | 'SHIPPED'
+  | 'RECEIVED'
+  | 'EXTENSION_REQUESTED'
+  | 'EXTENSION_ACCEPTED'
+  | 'EXTENSION_DECLINED'
+  | 'METRICS_ADDED';
 
 export type Actor =
   | { kind: 'USER'; userId: string; role: 'BRAND' | 'CREATOR' | 'ADMIN'; emailVerified: boolean }
@@ -134,6 +148,7 @@ export class TransitionError extends Error {
 export const ACCEPT_WINDOW_HOURS = 72;
 export const REVIEW_WINDOW_HOURS = 72;
 export const MAX_REVISIONS = 2;
+export const maxRevisionsOf = (o: { maxRevisions?: number }) => o.maxRevisions ?? MAX_REVISIONS;
 /** A revision request gives the creator at least this many days, even if the original due date has passed. */
 export const REVISION_MIN_DAYS = 3;
 export const MIN_DELIVERY_DAYS = 1;
@@ -206,8 +221,8 @@ function guard(order: MockOrder, e: OrderEventInput, actor: Actor, now: Date): T
     case 'EXPIRE':
       return isPast(order.acceptBy, now) ? null : new TransitionError(409, 'NOT_YET_DUE', 'The order can still be accepted.');
     case 'REQUEST_REVISION':
-      if (order.revisionCount >= MAX_REVISIONS)
-        return new TransitionError(409, 'REVISION_LIMIT', `Only ${MAX_REVISIONS} revisions are included.`);
+      if (order.revisionCount >= maxRevisionsOf(order))
+        return new TransitionError(409, 'REVISION_LIMIT', `Only ${maxRevisionsOf(order)} revisions are included.`);
       return isPast(order.reviewBy, now) ? new TransitionError(409, 'REVIEW_WINDOW_PASSED', 'The 72-hour review window has passed.') : null;
     case 'APPROVE':
     case 'DISPUTE':
@@ -369,6 +384,8 @@ export interface NewOrderInput {
   payment?: OrderPaymentInfo;
   /** Place of supply and the creator's GST registration; default: same state, not registered. */
   tax?: { intraState: boolean; creatorGstRegistered: boolean };
+  /** Revisions included (extra-revision add-ons raise it). */
+  maxRevisions?: number;
 }
 
 export const DEFAULT_PAYMENT: OrderPaymentInfo = { method: 'CARD', methodLabel: 'Visa •••• 1111' };
@@ -404,6 +421,7 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     dueAt: null,
     reviewBy: null,
     revisionCount: 0,
+    maxRevisions: input.maxRevisions ?? MAX_REVISIONS,
     version: 0,
     taxes,
     payment: { status: 'AUTHORIZED', amountCents: brandTotalCents({ ...f, taxes }), refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },

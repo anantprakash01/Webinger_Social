@@ -2,6 +2,7 @@
  * Mock for the public Creators module: GET /creators (search, FR-20 – FR-24) and
  * GET /creators/{username} (profile, FR-15). Only APPROVED creators are visible (FR-16, rule 9.5.1).
  */
+import { toAddon } from './orders';
 import { creatorSearchQuerySchema, type ValidSearchQuery } from '@/features/search/schemas';
 import { NICHE_LABEL } from '@/lib/catalog';
 import type { CreatorCard, CreatorProfile, CreatorSearchPage, Platform } from '@/types';
@@ -173,7 +174,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
     packages: db.packages
       .filter((k) => k.creatorId === p.userId && k.active)
       .sort((a, b) => a.priceCents - b.priceCents)
-      .map((k) => ({ id: k.id, platform: k.platform, title: k.title, description: k.description, deliverables: k.deliverables, priceCents: k.priceCents, currency: CURRENCY, deliveryDays: k.deliveryDays })),
+      .map((k) => ({ id: k.id, platform: k.platform, title: k.title, description: k.description, deliverables: k.deliverables, priceCents: k.priceCents, currency: CURRENCY, deliveryDays: k.deliveryDays, addons: (k.addons ?? []).map(toAddon) })),
     portfolio: db.portfolioItems
       .filter((i) => i.creatorId === p.userId)
       .sort((a, b) => a.sortOrder - b.sortOrder)

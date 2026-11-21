@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.3.0
+  version: 2.4.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -520,6 +520,7 @@ paths:
         - { name: packageId, in: query, schema: { $ref: '#/components/schemas/Ulid' } }
         - { name: creatorUsername, in: query, schema: { type: string } }
         - { name: priceCents, in: query, schema: { type: integer, minimum: 1000 } }
+        - { name: addonIds, in: query, description: 'Comma-separated package add-on ids (v2.4).', schema: { type: string } }
       responses:
         '200': { description: The quote., content: { application/json: { schema: { $ref: '#/components/schemas/OrderQuote' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -710,6 +711,109 @@ paths:
         '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/drafts:
+    post:
+      tags: [Orders]
+      summary: Share a draft for approval before posting (v2.4)
+      description: Creator, while IN_PROGRESS. The brand approves it or asks for changes; money does not move. Then the creator posts and delivers as usual.
+      operationId: shareDraft
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeliverRequest' } } } }
+      responses:
+        '201': { description: Shared., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/drafts/{draftId}/review:
+    post:
+      tags: [Orders]
+      summary: Approve a draft or ask for changes (v2.4)
+      operationId: reviewDraft
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { name: draftId, in: path, required: true, schema: { type: string } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DraftReview' } } } }
+      responses:
+        '200': { description: Reviewed., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/shipment:
+    put:
+      tags: [Orders]
+      summary: Add or update the product shipment to the creator (v2.4)
+      description: Brand, when the brief needs shipping, while PENDING_ACCEPTANCE or IN_PROGRESS.
+      operationId: saveShipment
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ShipmentInput' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/shipment/received:
+    post:
+      tags: [Orders]
+      summary: The creator received the product (v2.4)
+      operationId: markShipmentReceived
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses:
+        '200': { description: Marked received., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /orders/{id}/extension:
+    post:
+      tags: [Orders]
+      summary: Ask for more time (v2.4)
+      description: Creator, while IN_PROGRESS, one pending request at a time, 1–14 extra days. The brand accepts (the due date moves) or declines.
+      operationId: requestExtension
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExtensionRequest' } } } }
+      responses:
+        '201': { description: Requested., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/extension/review:
+    post:
+      tags: [Orders]
+      summary: Accept or decline a request for more time (v2.4)
+      operationId: reviewExtension
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExtensionReview' } } } }
+      responses:
+        '200': { description: Decided., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /orders/{id}/deliveries/{deliveryId}/metrics:
+    put:
+      tags: [Orders]
+      summary: Record a post's results (manual metrics, v2.4)
+      description: Creator, once DELIVERED or later. Shown to the brand on the order and the dashboard.
+      operationId: savePostMetrics
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { name: deliveryId, in: path, required: true, schema: { type: string } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PostMetricsInput' } } } }
+      responses:
+        '200': { description: Saved., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
@@ -1555,6 +1659,111 @@ components:
         priceCents: { type: integer, format: int64, minimum: 1000 }
         currency: { type: string, examples: [USD] }
         deliveryDays: { type: integer, minimum: 1, maximum: 60 }
+        addons: { type: array, description: 'Optional extras (v2.4).', items: { $ref: '#/components/schemas/PackageAddon' } }
+
+    PackageAddon:
+      type: object
+      description: 'Optional extra on a package (v2.4): paid ad usage rights, rush delivery or an extra revision.'
+      required: [id, kind, title, priceCents, usageDays, rushDays]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [USAGE_RIGHTS, RUSH, EXTRA_REVISION] }
+        title: { type: string, maxLength: 80 }
+        priceCents: { type: integer, format: int64, minimum: 10000 }
+        usageDays: { type: [integer, 'null'], description: 'USAGE_RIGHTS: days the brand may run the content as paid ads.' }
+        rushDays: { type: [integer, 'null'], description: 'RUSH: delivery days instead of the package''s.' }
+
+    PackageAddonInput:
+      type: object
+      required: [kind, title, priceCents]
+      properties:
+        id: { type: string, description: Keep an existing add-on's id. }
+        kind: { type: string, enum: [USAGE_RIGHTS, RUSH, EXTRA_REVISION] }
+        title: { type: string, minLength: 3, maxLength: 80 }
+        priceCents: { type: integer, format: int64, minimum: 10000 }
+        usageDays: { type: [integer, 'null'], minimum: 7, maximum: 365 }
+        rushDays: { type: [integer, 'null'], minimum: 1, maximum: 59 }
+
+    DraftReview:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [APPROVE, CHANGES] }
+        note: { type: [string, 'null'], maxLength: 2000, description: Required (10+ characters) when asking for changes. }
+
+    Draft:
+      type: object
+      required: [id, items, note, status, feedback, submittedAt, reviewedAt]
+      properties:
+        id: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/DeliveryItem' } }
+        note: { type: [string, 'null'] }
+        status: { type: string, enum: [PENDING, APPROVED, CHANGES_REQUESTED] }
+        feedback: { type: [string, 'null'] }
+        submittedAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+
+    ShipmentInput:
+      type: object
+      required: [courier, trackingNumber]
+      properties:
+        courier: { type: string, minLength: 2, maxLength: 60, examples: [Delhivery] }
+        trackingNumber: { type: string, minLength: 4, maxLength: 40 }
+
+    Shipment:
+      type: object
+      required: [courier, trackingNumber, shippedAt, receivedAt]
+      properties:
+        courier: { type: string }
+        trackingNumber: { type: string }
+        shippedAt: { type: string, format: date-time }
+        receivedAt: { type: [string, 'null'], format: date-time }
+
+    ExtensionRequest:
+      type: object
+      required: [extraDays, reason]
+      properties:
+        extraDays: { type: integer, minimum: 1, maximum: 14 }
+        reason: { type: string, minLength: 10, maxLength: 500 }
+
+    ExtensionReview:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [ACCEPT, DECLINE] }
+
+    Extension:
+      type: object
+      required: [extraDays, reason, status, requestedAt, decidedAt, newDueAt]
+      properties:
+        extraDays: { type: integer }
+        reason: { type: string }
+        status: { type: string, enum: [PENDING, ACCEPTED, DECLINED] }
+        requestedAt: { type: string, format: date-time }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        newDueAt: { type: string, format: date-time }
+
+    PostMetricsInput:
+      type: object
+      required: [itemIndex, views, likes, comments]
+      properties:
+        itemIndex: { type: integer, minimum: 0, description: Index of the POST_URL item in the delivery. }
+        views: { type: integer, minimum: 0 }
+        likes: { type: integer, minimum: 0 }
+        comments: { type: integer, minimum: 0 }
+        shares: { type: [integer, 'null'], minimum: 0 }
+        reach: { type: [integer, 'null'], minimum: 0 }
+
+    PostMetrics:
+      type: object
+      required: [views, likes, comments, shares, reach, recordedAt]
+      properties:
+        views: { type: integer }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: [integer, 'null'] }
+        reach: { type: [integer, 'null'] }
+        recordedAt: { type: string, format: date-time }
 
     PortfolioItem:
       type: object
@@ -1651,6 +1860,7 @@ components:
         priceCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
         deliveryDays: { type: integer, minimum: 1, maximum: 60 }
         active: { type: boolean, default: true }
+        addons: { type: array, maxItems: 5, items: { $ref: '#/components/schemas/PackageAddonInput' }, description: 'v2.4; one of each kind.' }
 
     PackagePatch:
       type: object
@@ -1663,6 +1873,7 @@ components:
         priceCents: { type: integer, format: int64, minimum: 1000, maximum: 10000000 }
         deliveryDays: { type: integer, minimum: 1, maximum: 60 }
         active: { type: boolean }
+        addons: { type: array, maxItems: 5, items: { $ref: '#/components/schemas/PackageAddonInput' }, description: 'v2.4: replaces the add-ons.' }
 
     OwnPackage:
       allOf:
@@ -2330,6 +2541,7 @@ components:
         creatorName: { type: string }
         url: { type: string }
         deliveredAt: { type: string, format: date-time }
+        metrics: { oneOf: [{ $ref: '#/components/schemas/PostMetrics' }, { type: 'null' }] }
 
     BrandStats:
       type: object
@@ -2418,6 +2630,7 @@ components:
         offer: { $ref: '#/components/schemas/CustomOfferInput' }
         brief: { $ref: '#/components/schemas/OrderBrief' }
         payment: { $ref: '#/components/schemas/OrderPaymentInput' }
+        addonIds: { type: array, items: { type: string }, description: 'Package add-ons chosen at checkout (v2.4).' }
 
     OrderCreated:
       type: object
@@ -2542,6 +2755,7 @@ components:
         type: { type: string, enum: [FILE, POST_URL] }
         url: { type: string, description: 'FILE: a fileUrl from /files/presign. POST_URL: the live post (https).' }
         name: { type: [string, 'null'], maxLength: 200 }
+        metrics: { oneOf: [{ $ref: '#/components/schemas/PostMetrics' }, { type: 'null' }], description: 'Results entered by the creator (v2.4); POST_URL items only.' }
 
     Delivery:
       type: object
@@ -2557,7 +2771,7 @@ components:
       type: object
       required: [type, fromStatus, toStatus, actor, note, at]
       properties:
-        type: { type: string, enum: [CREATE, ACCEPT, DECLINE, CANCEL, EXPIRE, DELIVER, REQUEST_REVISION, APPROVE, AUTO_APPROVE, DISPUTE, ADMIN_RELEASE, ADMIN_REFUND, ADMIN_CANCEL] }
+        type: { type: string, enum: [CREATE, ACCEPT, DECLINE, CANCEL, EXPIRE, DELIVER, REQUEST_REVISION, APPROVE, AUTO_APPROVE, DISPUTE, ADMIN_RELEASE, ADMIN_REFUND, ADMIN_CANCEL, DRAFT_SHARED, DRAFT_APPROVED, DRAFT_CHANGES_REQUESTED, SHIPPED, RECEIVED, EXTENSION_REQUESTED, EXTENSION_ACCEPTED, EXTENSION_DECLINED, METRICS_ADDED] }
         fromStatus: { oneOf: [{ $ref: '#/components/schemas/OrderStatus' }, { type: 'null' }] }
         toStatus: { $ref: '#/components/schemas/OrderStatus' }
         actor: { type: string, enum: [BRAND, CREATOR, ADMIN, SYSTEM] }
@@ -2578,7 +2792,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/OrderSummary'
         - type: object
-          required: [packageId, campaignId, conversationId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime, taxParties]
+          required: [packageId, campaignId, conversationId, deliverables, deliveryDays, payment, acceptBy, dueAt, reviewBy, revisionCount, maxRevisions, brief, deliveries, events, dispute, review, allowedActions, serverTime, taxParties, addons, usageRights, drafts, shipment, extension]
           properties:
             packageId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
             campaignId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
@@ -2598,6 +2812,11 @@ components:
             review: { oneOf: [{ $ref: '#/components/schemas/Review' }, { type: 'null' }] }
             allowedActions: { type: array, items: { $ref: '#/components/schemas/OrderAction' } }
             serverTime: { type: string, format: date-time }
+            addons: { type: array, description: 'Add-ons bought with the package (v2.4).', items: { $ref: '#/components/schemas/PackageAddon' } }
+            usageRights: { type: [string, 'null'], description: 'Paid ad usage included, e.g. "Paid ads for 30 days" (v2.4).' }
+            drafts: { type: array, description: 'Newest first (v2.4).', items: { $ref: '#/components/schemas/Draft' } }
+            shipment: { oneOf: [{ $ref: '#/components/schemas/Shipment' }, { type: 'null' }] }
+            extension: { oneOf: [{ $ref: '#/components/schemas/Extension' }, { type: 'null' }], description: The latest request for more time. }
             taxParties:
               type: object
               description: 'For tax invoices (v2.3): GSTINs and the place of supply.'
