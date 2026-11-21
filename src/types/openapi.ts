@@ -195,6 +195,28 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the picture shown for the signed-in user (v2.1)
+         * @description Creators: their profile photo (required for review, so it can be replaced but not removed — 422).
+         *     Brands: the company logo (can be removed). Admins: their own avatar. Upload first with
+         *     `POST /files/presign` (purpose AVATAR or BRAND_LOGO) and send the resulting URL.
+         */
+        put: operations["updateMyAvatar"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators": {
         parameters: {
             query?: never;
@@ -1478,8 +1500,14 @@ export interface components {
             createdAt: string;
             /** @description Set in a read-only admin impersonation session (FR-82): the admin's name. */
             impersonatedBy?: string | null;
+            /** @description Picture for the account menu (v2.1): creator photo, brand logo or admin avatar; null shows initials. */
+            avatarUrl?: string | null;
             creator?: components["schemas"]["CreatorSummary"];
             brand?: components["schemas"]["BrandSummary"];
+        };
+        AvatarUpdate: {
+            /** @description Uploaded image URL; null removes it (not allowed for creators). */
+            url: string | null;
         };
         UpdateMeRequest: {
             name?: string;
@@ -2867,6 +2895,32 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateMeRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    updateMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvatarUpdate"];
             };
         };
         responses: {

@@ -202,7 +202,9 @@ export function Progress({ value, label }: { value: number; label: string }) {
 }
 
 /* ---------- Avatar ---------- */
-export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
+/** Initials on navy, or the picture when `src` is set (account photo / company logo). */
+export function Avatar({ name, size = 36, src }: { name: string; size?: number; src?: string | null }) {
+  if (src) return <img src={src} alt="" className="avatar avatar--img" style={{ width: size, height: size }} />;
   const initials = name
     .split(' ')
     .filter(Boolean)

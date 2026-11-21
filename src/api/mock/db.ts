@@ -33,6 +33,8 @@ export interface UserRow {
   updatedAt: string;
   /** Last sign-in or token refresh (v1.1). */
   lastActiveAt?: string | null;
+  /** Admin avatar (v2.1); creators and brands use their photo / logo. */
+  avatarUrl?: string | null;
 }
 
 export interface CreatorProfileRow {

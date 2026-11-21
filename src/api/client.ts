@@ -389,6 +389,12 @@ export const api = {
       setUser(user);
       return user;
     },
+    /** v2.1: creator photo, brand logo or admin avatar. */
+    async updateAvatar(url: string | null): Promise<Me> {
+      const user = await request<Me>('PUT', '/me/avatar', { body: { url } });
+      setUser(user);
+      return user;
+    },
   },
   creators: {
     /** Public search (FR-20 – FR-24). */

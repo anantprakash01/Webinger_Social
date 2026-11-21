@@ -9,7 +9,7 @@ import { LuBell, LuChevronDown, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-i
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
 import { Logo } from '@/components/Logo';
-import { Avatar, Button, PageSkeleton, cx } from '@/components/ui';
+import { Button, PageSkeleton, cx } from '@/components/ui';
 import { VerifyEmailBanner } from '@/features/auth/components/VerifyEmailGate';
 import { VettingBanner } from '@/features/creators/components/VettingBanner';
 import { useDemoVettingDecision } from '@/features/creators/workspaceHooks';
@@ -19,6 +19,7 @@ import { useAdminSummary } from '@/features/admin/hooks';
 import { ROLE_LABEL } from '@/types';
 import { homePath, useAuth } from '../AuthContext';
 import { AREA_TITLE, NAV } from '../nav';
+import { AccountMenu } from './AccountMenu';
 import './shell.css';
 
 export function AppShell() {
@@ -40,7 +41,6 @@ export function AppShell() {
   const items = NAV[user.role];
   const primary = items.filter((i) => i.primary).slice(0, 4);
   const hasMore = items.length > primary.length;
-  const subtitle = user.role === 'BRAND' ? (user.brand?.companyName ?? 'Brand') : ROLE_LABEL[user.role];
 
   const signOut = async () => {
     await logout();
@@ -69,13 +69,7 @@ export function AppShell() {
           ))}
         </nav>
         <div className="sidebar__foot">
-          <div className="me">
-            <Avatar name={user.name} />
-            <div style={{ minWidth: 0 }}>
-              <div className="me__name">{user.name}</div>
-              <div className="me__role">{subtitle}</div>
-            </div>
-          </div>
+          <AccountMenu user={user} onSignOut={() => void signOut()} placement="up" showName />
           <Button variant="ghost" size="sm" onClick={() => void signOut()}>
             <LuLogOut aria-hidden /> Sign out
           </Button>
@@ -88,7 +82,7 @@ export function AppShell() {
           <Logo height={20} />
           <span className="spacer" />
           <Bell count={counts.notifications} />
-          <Avatar name={user.name} size={32} />
+          <AccountMenu user={user} onSignOut={() => void signOut()} placement="down" />
         </header>
         {user.impersonatedBy && <ImpersonationBanner name={user.name} admin={user.impersonatedBy} />}
         <VerifyEmailBanner />

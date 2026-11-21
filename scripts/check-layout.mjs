@@ -180,6 +180,10 @@ for (const width of [360, 1280]) {
       await p.waitForURL(/\/creator\/campaigns\/[0-9A-Z]{26}$/);
       await check(p, width, 'creator-campaign-detail');
       await check(p, width, 'creator-messages', '/messages');
+      // v2.1: the account menu (top bar on phones, sidebar on desktop).
+      await p.locator(width < 900 ? '.topbar .account__trigger' : '.sidebar .account__trigger').click();
+      await check(p, width, 'account-menu');
+      await p.keyboard.press('Escape');
       // v2.0: withdraw now, and changing the payout account.
       await p.goto(`${base}/creator/payouts`, { waitUntil: 'networkidle' });
       await p.getByRole('button', { name: /Withdraw now/ }).click();

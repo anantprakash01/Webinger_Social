@@ -60,6 +60,7 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/creators', auth: false, handler: creators.searchCreators },
   { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
+  { method: 'PUT', path: '/me/avatar', auth: true, handler: me.updateMyAvatar },
   // Orders (Week 4). /orders/quote before /orders/:id, which would otherwise match "quote".
   { method: 'GET', path: '/orders/quote', auth: true, handler: orders.quoteOrder },
   { method: 'POST', path: '/orders', auth: true, handler: orders.createOrder, idempotent: true },
