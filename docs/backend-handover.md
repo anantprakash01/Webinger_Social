@@ -153,6 +153,38 @@ All additive. Mock code to port: `handlers/account.ts`, `tax.ts`, `handlers/coll
 - `GET /creators?fastAccept=true`: creators whose `typicalAcceptHours` ≤ 24.
 - `GET /creators/suggestions?q=`: up to 8 — niches and cities that start with the text, then approved creators by name word or username prefix. Public; cache briefly.
 
+## Marketplace growth (contract v3.0 – v3.4, branch `marketplace-growth`)
+
+Mock code to port: `handlers/chat.ts` (inquiries), `handlers/disputes.ts`, `handlers/plans.ts`, `handlers/promos.ts`, `handlers/finance.ts`, the ledger changes in `ledger.ts` / `orderMachine.ts`, and the matching `*.test.ts`. Shared rules: `src/lib/plans.ts`, `features/orders/schemas.ts` (disputes, promo code), `features/promos/schemas.ts`, `features/plans/schemas.ts`.
+
+### Pre-booking inquiries (v3.0 — the one breaking change)
+- `conversations.order_id` becomes nullable; inquiries store `brand_id` + `creator_id` (unique pair). `Conversation.kind` ORDER | INQUIRY; `orderId`/`orderStatus` null for inquiries.
+- `POST /conversations/inquiries` (brand, verified email, approved active creator) opens or reuses the inquiry and stores the first message. Contacts are always masked in inquiries. New inquiries per rolling 30 days: FREE 5, PRO 50, PREMIUM unlimited → 429 `INQUIRY_LIMIT`. Notification `NEW_INQUIRY` only for a new inquiry. `GET /conversations/inquiries/allowance`; `CreatorProfile.myInquiryId`.
+
+### Disputes (v3.1)
+- `disputes` gains `reason_code`, `respond_by` (= opened + 48 h), `creator_response`, `responded_at`, `resolution_reason`; new table `dispute_evidence` (side, kind FILE|LINK, url, name, note). Max 5 items per side, only while OPEN.
+- `POST /orders/{id}/dispute` takes optional `reasonCode`; `POST …/dispute/response` (creator, once, ≥ 20 chars, before `respond_by`: 409 `ALREADY_RESPONDED` / `RESPONSE_WINDOW_PASSED`); `POST …/dispute/evidence`. Presign purpose `DISPUTE_EVIDENCE` accepts PDF.
+- `ResolveDisputeRequest.resolutionReason` is required. `GET /admin/disputes/report?days=` aggregates outcomes and reasons. Open disputes of PREMIUM brands sort first.
+
+### Plans (FR-66, v3.2)
+- `fee_configs` rows per plan (newest per plan applies); `PUT /admin/fees` takes `plan`. Quotes and orders use the brand's plan.
+- `subscriptions` (brand, plan, cycle, period, cancel_at_period_end, next_plan, next_cycle, method) and `subscription_invoices` (number `WC/<FY>/S0001`, price, GST 18% CGST+SGST or IGST). Razorpay Subscriptions in production; the mock charges renewals in the scheduled jobs.
+- Rules: higher plan or monthly→yearly starts today and is paid now (session purpose SUBSCRIPTION for price + GST, no proration); lower plan or yearly→monthly is scheduled for the period end; cancel keeps the plan until the period end; resume undoes either. Ledger per invoice `sub_<id>`: BRAND_CHARGE → PLATFORM_REVENUE (price) + GST_PAYABLE.
+- `CampaignSummary.brandPlan` drives the "Pro brand" badge.
+
+### Promo codes and referral credits (v3.3)
+- New ledger account **PROMOTIONS** (platform marketing spend). Orders gain `discount` (promo_code, promo_cents, credit_cents), fixed at checkout. Brand is charged `total − discount` (≥ ₹1, else 422 `DISCOUNT_TOO_LARGE`).
+  - Capture: BRAND_CHARGE (paid) + PROMOTIONS (discount) → ESCROW (full total). Release is unchanged.
+  - Full refund (= what the brand paid): ESCROW → BRAND_CHARGE (paid) + PROMOTIONS (discount). Partial refund ≤ min(creator payout, paid).
+  - CLOSED or fully refunded orders release the promo redemption and return the credit (`ORDER_RETURNED`).
+- Promo validation on quote and order (422 field error `promoCode`): `PROMO_NOT_FOUND`, `PROMO_EXPIRED`, `PROMO_INACTIVE`, `PROMO_EXHAUSTED`, `PROMO_ALREADY_USED` (one use per brand), `PROMO_FIRST_ORDER` (brand has an order that is not CLOSED), `PROMO_MIN_ORDER` (on the price). Percent codes apply to the price, capped by `maxDiscountCents`.
+- Credits: `credits` table of +/− entries per user; balance = sum. Promotional only — no purchase, withdrawal or transfer (not a prepaid instrument).
+- Referrals: `users.referral_code`, `referred_by`, `referral_rewarded_at`. Sign-up `referralCode` must match the role (422 `REFERRAL_NOT_FOUND` / `REFERRAL_ROLE_MISMATCH`, checked before the account is created). Brand invitee +₹500 credit at sign-up; on the invitee's first COMPLETED order: inviting brand +₹1,000 credit, inviting creator +₹500 via PROMOTIONS → CREATOR_BALANCE (ref `ref_<referrer>_<referee>`, included in the creator's balance). Admin promo CRUD audited as `PROMO_CHANGED`.
+
+### Finance (v3.4)
+- `GET /admin/finance?days=` from the ledger (see `financeOverview`). Payout status FAILED with `failure_reason`: reversal PAYOUT (+ fee from PLATFORM_REVENUE) → CREATOR_BALANCE on the RazorpayX `payout.reversed`/`failed` webhook. `POST /admin/payouts/{id}/retry` once, to a VERIFIED account, if the balance still covers it (409 `NOT_FAILED`, `ALREADY_RETRIED`, `PAYOUT_ACCOUNT_NOT_VERIFIED`, `INSUFFICIENT_BALANCE`); audited `PAYOUT_RETRIED`.
+- Reconciliation checks (port to the hourly job, plus Razorpay settlement and RazorpayX reports): balanced txns; BRAND_CHARGE per order = payment amount − refunds; ESCROW per order = total while accepted and unfinished, else 0; PAYOUT per payout = amount − fee (0 when failed); invoice charge = price + GST; Razorpay order amount = payment amount; no authorisation older than 5 days.
+
 ## Decisions still to confirm (CLAUDE.md §16 and §17)
 - Partial-refund rule above (who absorbs a partial refund).
 - Tax rates, TDS/TCS treatment and invoice format — confirm with a CA (CLAUDE.md §16).
