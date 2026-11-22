@@ -116,9 +116,47 @@ Endpoints: `GET /admin/summary`, `/admin/vetting`, `POST /admin/creators/{id}/ap
 | `ChatMessage.readAt` | When the other participant read the message (already tracked for unread counts). |
 | `AdminUser.lastActiveAt` | Last sign-in or token refresh. The mock also counts order actions and chat messages for seeded users. `GET /admin/users` now lists newest accounts first. |
 
+## Launch readiness (contract v2.2 – v2.6, branch `launch-readiness`)
+
+All additive. Mock code to port: `handlers/account.ts`, `tax.ts`, `handlers/collab.ts`, `handlers/retention.ts`, `deliver.ts`, and the matching `*.test.ts`.
+
+### Account (v2.2, DPDP / FR-06)
+- `POST /me/password` (current password required; revokes other sessions), `POST /me/email` (re-verify the new address; old address told), `POST /me/sessions/revoke-others`, `GET /me/export` (JSON of everything we hold about the caller).
+- `POST /me/deletion` schedules deletion in 30 days (409 `OPEN_ORDERS` while orders are open, 409 `BALANCE_REMAINING` while a creator has money to withdraw); `DELETE /me/deletion` cancels. A daily job anonymises the account after 30 days (orders, ledger and invoices are kept for tax law, with personal data removed).
+
+### Admin cancel (FR-37)
+- `POST /admin/orders/{id}/cancel` (Idempotency-Key, note ≥ 10): `ADMIN_CANCEL` from IN_PROGRESS or DELIVERED → REFUNDED, full refund to the original method; audited `ORDER_CANCELLED`.
+
+### Indian taxes (v2.3) — confirm every rate with a CA
+- `tax.ts` is the reference: GST 18% on both platform fees — CGST 9% + SGST 9% when the brand's state is the platform's (or unknown), else IGST 18%. GST-registered creators (GSTIN on a VERIFIED payout account) add 18% GST on their price, paid by the brand and passed through. At release: TDS u/s 194-O 0.1% of the price, and TCS u/s 52 CGST 0.5% for registered creators. Rounding: half-up on integer paise, per line.
+- Taxes are computed at checkout and **copied onto the order** like the fees (`OrderTaxes`); later rate or profile changes never alter an order.
+- Ledger accounts `GST_PAYABLE` and `TAX_WITHHELD`; every transaction still sums to zero. Brand total = price + creator GST + brand fee + GST on it. Creator payout = price + creator GST − creator fee − GST on it − TDS − TCS.
+- Brand profile: `state` required for India, `gstin` optional (pattern, state code must match). Payout account: `gstin` optional, must contain the PAN. Receipts are tax invoices (SAC 998599 platform services; invoice no. `WC/<FY>/<id>`); `PayoutOverview` reports TDS/TCS for the financial year. Platform GSTIN/state are placeholders.
+
+### Collaboration (v2.4)
+- **Add-ons** on packages (`PackageAddon`: USAGE_RIGHTS with `usageDays` 7–365, RUSH with `rushDays` < delivery days, EXTRA_REVISION; one of each kind, ≥ ₹100). Chosen with `addonIds` on quote and checkout; the order fixes price (base + add-ons), delivery days (rush), `maxRevisions` (2 + extra) and a `usageRights` text. Unknown id → 422 `UNKNOWN_ADDON`. Editing a package keeps add-on ids by kind.
+- **Drafts**: creator `POST /orders/{id}/drafts` while IN_PROGRESS (one PENDING at a time, 409 `DRAFT_PENDING`); brand `POST …/drafts/{draftId}/review` APPROVE or CHANGES (note ≥ 10). Drafts don't use revisions or move money.
+- **Shipping**: brand `PUT /orders/{id}/shipment` (only when the brief needs shipping, 409 `NO_SHIPPING`; before delivery); creator `POST …/shipment/received` (409 `NOT_SHIPPED` / `ALREADY_RECEIVED`).
+- **More time**: creator `POST /orders/{id}/extension` (1–14 days, reason, one pending); brand `POST …/extension/review` ACCEPT (moves `dueAt`, bumps `version`) or DECLINE.
+- **Post results**: creator `PUT /orders/{id}/deliveries/{deliveryId}/metrics` on a POST_URL item once DELIVERED or COMPLETED; shown on the order and in `BrandStats.deliveredPosts`.
+- Each writes an order event that is **not a state transition** (`DRAFT_SHARED`, `DRAFT_APPROVED`, `DRAFT_CHANGES_REQUESTED`, `SHIPPED`, `RECEIVED`, `EXTENSION_REQUESTED|ACCEPTED|DECLINED`, `METRICS_ADDED`; from = to status) and notifies the other side. Keep them out of `OrderStateMachine`.
+
+### Retention and trust (v2.5)
+- **Saved lists** (FR-25): brands only; max 20 lists × 200 creators; names unique per brand (409 `LIST_NAME_TAKEN`); add is idempotent; the list view only shows creators still approved and active.
+- **Campaign invites** (FR-43): `POST /campaigns/{id}/invites` (open campaign, approved active creator, not away, not already invited or applied); creators see `myInvite` and `GET /campaigns?invited=true`; `POST /invites/{id}/decline`. An invite reads APPLIED once the creator has a live application. Notification type `CAMPAIGN_INVITE`.
+- **Vacation mode**: `PUT /creators/me/availability` {away, until (inclusive, ≤ 1 year), message}. While away: `CreatorCard.away`, profile `availability`, and new orders / custom offers / hiring from campaigns / invites → 409 `CREATOR_AWAY`. Switches off by itself after `until`. Open orders continue.
+- **Notification preferences** (FR-53): `GET/PUT /me/notification-preferences`; categories ORDERS, CAMPAIGNS, PAYOUTS, ACCOUNT, PRODUCT_NEWS × email / SMS / WhatsApp; in-app always on; SMS/WhatsApp need a +91 mobile (6–9 then 9 digits). Defaults: email on except PRODUCT_NEWS. Every notification goes through one delivery service (`deliver.ts`); security emails bypass it. SMS/WhatsApp providers (e.g. MSG91, Gupshup / WhatsApp Business API with DLT-registered templates) are not chosen yet.
+- **Chat attachments**: one image (JPEG/PNG/WebP) or PDF ≤ 10 MB per message, uploaded with presign purpose `MESSAGE_ATTACHMENT` (the only purpose that accepts PDF); body may be empty when there is an attachment.
+- **Brand ratings**: creator `POST /orders/{id}/brand-review` once, only when COMPLETED; `BrandRating` on campaigns and order detail.
+
+### UI support (v2.6)
+- `GET /creators?fastAccept=true`: creators whose `typicalAcceptHours` ≤ 24.
+- `GET /creators/suggestions?q=`: up to 8 — niches and cities that start with the text, then approved creators by name word or username prefix. Public; cache briefly.
+
 ## Decisions still to confirm (CLAUDE.md §16 and §17)
 - Partial-refund rule above (who absorbs a partial refund).
-- Launch market and payment provider (USD/Stripe vs INR/Razorpay) — changes the payment module.
+- Tax rates, TDS/TCS treatment and invoice format — confirm with a CA (CLAUDE.md §16).
+- Legal pages (Terms, Privacy, Refunds) are templates for a lawyer; DPDP parental consent for creators under 18 (current minimum age 16).
 - Username locked after first approval; no re-review of edits after approval.
 - Brief shipping: brand gives a return address; the creator's address is exchanged in chat.
 - Contact details stay masked in messages sent before completion (only masked text is stored).

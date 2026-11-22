@@ -1,9 +1,10 @@
 /** /creator/dashboard (FR-70): earnings, orders by status, profile views, setup state. */
+import { ShortMoney } from '@/components/Money';
+import { AvailabilityCard } from '@/features/retention/components/Panels';
 import { Link } from 'react-router-dom';
 import { LuArrowRight, LuEye, LuPackage, LuWallet } from 'react-icons/lu';
 import { orderStatusLabel } from '@/components/status';
 import { Badge, Card, ErrorState, PageHeader, PageSkeleton, Stat } from '@/components/ui';
-import { formatMoney } from '@/lib/money';
 import type { OrderStatus } from '@/api/mock/orderMachine';
 import { MAX_ACTIVE_PACKAGES } from '../schemas';
 import { VettingBanner } from '../components/VettingBanner';
@@ -46,10 +47,10 @@ export function CreatorDashboardPage() {
       {p.vettingStatus === 'APPROVED' && <ActionQueue role="CREATOR" base="/creator/orders" />}
 
       <div className="grid grid--stats">
-        <Stat label="Available balance" value={formatMoney(s.availableCents, s.currency)} hint="Paid out weekly" accent />
-        <Stat label="In escrow" value={formatMoney(s.inEscrowCents, s.currency)} hint="Released when brands approve" />
-        <Stat label="Lifetime earnings" value={formatMoney(s.lifetimeEarnedCents, s.currency)} />
-        <Stat label="Profile views" value={s.profileViews.toLocaleString('en-US')} hint="All time" />
+        <Stat label="Available balance" value={<ShortMoney cents={s.availableCents} currency={s.currency} />} hint="Paid out weekly" accent />
+        <Stat label="In escrow" value={<ShortMoney cents={s.inEscrowCents} currency={s.currency} />} hint="Released when brands approve" />
+        <Stat label="Lifetime earnings" value={<ShortMoney cents={s.lifetimeEarnedCents} currency={s.currency} />} />
+        <Stat label="Profile views" value={s.profileViews.toLocaleString('en-IN')} hint="All time" />
       </div>
 
       <div className="grid grid--2">
@@ -75,6 +76,7 @@ export function CreatorDashboardPage() {
           )}
         </Card>
 
+        {p.vettingStatus === 'APPROVED' && <AvailabilityCard value={p.availability} />}
         <Card title="Your setup">
           <ul className="list">
             <li className="list__item">

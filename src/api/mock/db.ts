@@ -6,6 +6,8 @@
  * Week 1: demo accounts. Week 2: ~60 invented creators with socials, packages, portfolio, reviews
  * (src/api/mock/seed/creators.ts). Orders and campaigns arrive with their weeks.
  */
+import { seedAddons, seedMetrics } from './seed/collab';
+import type { MessageAttachment, NotificationCategory, PackageAddon, PostMetrics } from '@/types';
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
 import type { LedgerEntry } from './ledger';
@@ -35,6 +37,9 @@ export interface UserRow {
   lastActiveAt?: string | null;
   /** Admin avatar (v2.1); creators and brands use their photo / logo. */
   avatarUrl?: string | null;
+  /** Account deletion requested (v2.2): erased after this date unless cancelled. */
+  deletionScheduledFor?: string | null;
+  deletedAt?: string | null;
 }
 
 export interface CreatorProfileRow {
@@ -65,6 +70,10 @@ export interface CreatorProfileRow {
   payoutStatus: PayoutStatus;
   /** Pay the whole balance every Monday (default on). */
   autoWeekly?: boolean;
+  /** Phase E: typical hours to accept from before the mock (seed only); used until 3 real orders exist. */
+  historicAcceptHours?: number | null;
+  /** Phase D vacation mode. */
+  availability?: { away: boolean; until: string | null; message: string | null };
   createdAt: string;
 }
 
@@ -89,6 +98,8 @@ export interface PackageRow {
   priceCents: number;
   deliveryDays: number;
   active: boolean;
+  /** Phase C: optional extras (usage rights, rush, extra revision). */
+  addons?: PackageAddon[];
   createdAt: string;
 }
 
@@ -126,6 +137,9 @@ export interface OrderInfoRow {
   deliverables: string[];
   /** Razorpay payment id for the order (authorised at checkout, captured on accept). */
   paymentIntentId: string;
+  /** Phase C: add-ons bought with the package, and the paid-ads usage they grant. */
+  addons?: PackageAddon[];
+  usageRights?: string | null;
 }
 
 export interface ShippingAddressRow {
@@ -153,9 +167,42 @@ export interface DeliveryRow {
   id: string;
   orderId: string;
   revisionNo: number;
-  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null }>;
+  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null; metrics?: PostMetrics | null }>;
   note: string | null;
   submittedAt: string;
+}
+
+/** Phase C: a draft shared for approval before posting. */
+export interface DraftRow {
+  id: string;
+  orderId: string;
+  items: Array<{ type: 'FILE' | 'POST_URL'; url: string; name?: string | null }>;
+  note: string | null;
+  status: 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED';
+  feedback: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+}
+
+/** Phase C: product sent to the creator. */
+export interface ShipmentRow {
+  orderId: string;
+  courier: string;
+  trackingNumber: string;
+  shippedAt: string;
+  receivedAt: string | null;
+}
+
+/** Phase C: the creator asks for more time. */
+export interface ExtensionRow {
+  id: string;
+  orderId: string;
+  extraDays: number;
+  reason: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  requestedAt: string;
+  decidedAt: string | null;
+  newDueAt: string;
 }
 
 export interface DisputeRow {
@@ -215,6 +262,8 @@ export interface MessageRow {
   body: string;
   /** Contact details were hidden before storing (FR-51). */
   masked: boolean;
+  /** Phase D: one image or PDF. */
+  attachment?: MessageAttachment | null;
   createdAt: string;
   /** Read by the other participant. */
   readAt: string | null;
@@ -223,7 +272,7 @@ export interface MessageRow {
 export interface NotificationRow {
   id: string;
   userId: string;
-  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT';
+  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT' | 'CAMPAIGN_INVITE';
   title: string;
   body: string;
   link: string | null;
@@ -242,7 +291,7 @@ export interface AuditRow {
   id: string;
   actorId: string | null;
   actorName: string;
-  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT';
+  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT' | 'ORDER_CANCELLED' | 'ACCOUNT_DELETION_REQUESTED';
   entityType: string;
   entityId: string;
   summary: string;
@@ -317,6 +366,8 @@ export interface PayoutAccountRow {
   accountNumber: string | null;
   ifsc: string | null;
   vpa: string | null;
+  /** Optional GSTIN (v2.3): registered creators charge GST and have TCS withheld. */
+  gstin?: string | null;
   status: 'VERIFYING' | 'VERIFIED' | 'FAILED';
   failureReason: string | null;
   updatedAt: string;
@@ -342,6 +393,9 @@ export interface BrandProfileRow {
   country: string | null;
   plan: 'FREE';
   stripeCustomerId: string | null;
+  /** Indian state code (GST place of supply) and optional GSTIN (v2.3). */
+  state?: string | null;
+  gstin?: string | null;
 }
 
 export interface OneTimeTokenRow {
@@ -377,6 +431,47 @@ export interface OutboxEmailRow {
   body: string;
   link: string | null;
   createdAt: string;
+  /** Phase D: SMS and WhatsApp are mocked into the same outbox (to = phone number). Default EMAIL. */
+  channel?: 'EMAIL' | 'SMS' | 'WHATSAPP';
+}
+
+/** Phase D: saved lists of creators (FR-25). */
+export interface SavedListRow {
+  id: string;
+  brandUserId: string;
+  name: string;
+  /** Newest first. */
+  creatorUserIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Phase D: campaign invitations (FR-43). */
+export interface InviteRow {
+  id: string;
+  campaignId: string;
+  creatorUserId: string;
+  message: string | null;
+  status: 'INVITED' | 'DECLINED';
+  createdAt: string;
+}
+
+/** Phase D: a creator's rating of a brand, one per completed order. */
+export interface BrandReviewRow {
+  id: string;
+  orderId: string;
+  brandUserId: string;
+  creatorUserId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+/** Phase D: notification channels per category (FR-53). */
+export interface NotificationPrefsRow {
+  userId: string;
+  phone: string | null;
+  categories: Record<NotificationCategory, { email: boolean; sms: boolean; whatsapp: boolean }>;
 }
 
 export interface Db {
@@ -401,6 +496,9 @@ export interface Db {
   orderInfo: OrderInfoRow[];
   orderBriefs: OrderBriefRow[];
   deliveries: DeliveryRow[];
+  drafts: DraftRow[];
+  shipments: ShipmentRow[];
+  extensions: ExtensionRow[];
   disputes: DisputeRow[];
   idempotency: IdempotencyRow[];
   campaigns: CampaignRow[];
@@ -414,6 +512,10 @@ export interface Db {
   paymentSessions: PaymentSessionRow[];
   savedMethods: SavedMethodRow[];
   payoutAccounts: PayoutAccountRow[];
+  savedLists: SavedListRow[];
+  invites: InviteRow[];
+  brandReviews: BrandReviewRow[];
+  notificationPrefs: NotificationPrefsRow[];
   /** Last weekly payout run (Mondays 00:00 UTC). */
   lastPayoutRunAt: string;
 }
@@ -460,7 +562,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 12;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -490,16 +592,18 @@ function seed(now: Date): Db {
   const orders = seedOrders(now, { brandId: SEED_IDS.brand, brandName: 'Saltbay Supply Co.', leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators);
   const engagement = seedEngagement(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, passwordHash: pw }, creators, orders);
   const payments = seedPayments(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator }, creators, creators.users);
+  seedAddons(creators.packages, SEED_IDS.creator);
+  seedMetrics(orders.orders, orders.deliveries, now.toISOString());
   const admin = seedAdmin(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators, orders, engagement);
   return {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
     users: [
-      user(SEED_IDS.brand, 'brand@demo.test', 'Maya Okafor', 'BRAND'),
-      user(SEED_IDS.creator, 'creator@demo.test', 'Leo Marin', 'CREATOR'),
-      user(SEED_IDS.newCreator, 'newcreator@demo.test', 'Ivy Sandoval', 'CREATOR'),
-      user(SEED_IDS.admin, 'admin@demo.test', 'Sam Ortega', 'ADMIN'),
-      user(SEED_IDS.unverifiedBrand, 'unverified@demo.test', 'Theo Lindqvist', 'BRAND', false),
+      user(SEED_IDS.brand, 'brand@demo.test', 'Maya Iyer', 'BRAND'),
+      user(SEED_IDS.creator, 'creator@demo.test', 'Leo Fernandes', 'CREATOR'),
+      user(SEED_IDS.newCreator, 'newcreator@demo.test', 'Ivy Mathew', 'CREATOR'),
+      user(SEED_IDS.admin, 'admin@demo.test', 'Sam Mehta', 'ADMIN'),
+      user(SEED_IDS.unverifiedBrand, 'unverified@demo.test', 'Theo Pinto', 'BRAND', false),
       ...creators.users,
       ...engagement.users,
     ],
@@ -510,8 +614,8 @@ function seed(now: Date): Db {
     reviews: [...creators.reviews, ...orders.reviews],
     brandProfiles: [
       // Websites use example.com (reserved for documentation), so they never point at a real company.
-      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'IN', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay' },
-      { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House', website: null, logoUrl: null, industry: 'FOOD', country: 'GB', plan: 'FREE', stripeCustomerId: null },
+      { userId: SEED_IDS.brand, companyName: 'Saltbay Supply Co.', website: 'https://saltbay.example.com', logoUrl: null, industry: 'HOME', country: 'IN', plan: 'FREE', stripeCustomerId: 'cus_demosaltbay', state: 'KA', gstin: '29AAACS1234B1Z9' },
+      { userId: SEED_IDS.unverifiedBrand, companyName: 'Fernhill Tea House', website: null, logoUrl: null, industry: 'FOOD', country: 'IN', state: 'WB', plan: 'FREE', stripeCustomerId: null },
       ...engagement.brandProfiles,
     ],
     oneTimeTokens: [],
@@ -525,6 +629,9 @@ function seed(now: Date): Db {
     orderInfo: orders.orderInfo,
     orderBriefs: orders.orderBriefs,
     deliveries: orders.deliveries,
+    drafts: [],
+    shipments: [],
+    extensions: [],
     disputes: orders.disputes,
     idempotency: [],
     campaigns: engagement.campaigns,
@@ -538,6 +645,10 @@ function seed(now: Date): Db {
     paymentSessions: [],
     savedMethods: payments.savedMethods,
     payoutAccounts: payments.payoutAccounts,
+    savedLists: [],
+    invites: [],
+    brandReviews: [],
+    notificationPrefs: [],
     lastPayoutRunAt: now.toISOString(),
   };
 }

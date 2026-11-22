@@ -39,6 +39,7 @@ const toMessage = (m: MessageRow, viewer: UserRow): ChatMessage => ({
   senderName: senderName(m.senderUserId),
   body: m.body,
   masked: m.masked,
+  attachment: m.attachment ?? null,
   createdAt: m.createdAt,
   readAt: m.readAt,
 });
@@ -95,10 +96,10 @@ export const listMessages: Handler = ({ req, params, user }) => {
 export const sendMessage: Handler = ({ req, params, user }) => {
   const c = myConversation(user, params.id);
   if (user.role === 'ADMIN') fail(403, 'Admins can read but not post in order chats.', 'ROLE_NOT_ALLOWED');
-  const { body } = parseBody(messageInputSchema, req.body);
+  const { body, attachment } = parseBody(messageInputSchema, req.body);
   // FR-51: hide contact details until the order is completed, before storing.
   const m = contactsHidden(c) ? maskContacts(body) : { text: body, masked: false };
-  const row: MessageRow = { id: ulid(now().getTime()), conversationId: c.id, senderUserId: user.id, body: m.text, masked: m.masked, createdAt: now().toISOString(), readAt: null };
+  const row: MessageRow = { id: ulid(now().getTime()), conversationId: c.id, senderUserId: user.id, body: m.text, masked: m.masked, attachment: attachment ?? null, createdAt: now().toISOString(), readAt: null };
   getDb().messages.push(row);
   return ok(toMessage(row, user), 201);
 };

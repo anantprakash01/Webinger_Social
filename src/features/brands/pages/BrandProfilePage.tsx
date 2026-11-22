@@ -1,6 +1,7 @@
 /** /brand/profile — company profile (FR-05): name, website, logo, industry, country. */
+import { INDIAN_STATES } from '@/api/mock/tax';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DEFAULT_FEES } from '@/api/mock/fees';
 import { useCurrentFees } from '@/features/admin/hooks';
@@ -43,6 +44,8 @@ const toFormValues = (p: BrandProfile): BrandProfileForm => ({
   logoUrl: p.logoUrl,
   industry: p.industry ?? ('' as BrandProfileForm['industry']),
   country: p.country ?? '',
+  state: p.state ?? '',
+  gstin: p.gstin ?? '',
 });
 
 function BrandForm({ profile }: { profile: BrandProfile }) {
@@ -53,6 +56,7 @@ function BrandForm({ profile }: { profile: BrandProfile }) {
     defaultValues: toFormValues(profile),
   });
   const { errors } = formState;
+  const country = useWatch({ control, name: 'country' });
 
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
@@ -60,7 +64,7 @@ function BrandForm({ profile }: { profile: BrandProfile }) {
       // The saved values become the new baseline, so the form is clean.
       reset(toFormValues(await save.mutateAsync(v)));
     } catch (e) {
-      setFormError(applyServerErrors(e, setError, ['companyName', 'website', 'logoUrl', 'industry', 'country']));
+      setFormError(applyServerErrors(e, setError, ['companyName', 'website', 'logoUrl', 'industry', 'country', 'state', 'gstin']));
     }
   });
 
@@ -105,6 +109,29 @@ function BrandForm({ profile }: { profile: BrandProfile }) {
           {errors.country && <span className="field__error">{errors.country.message}</span>}
         </div>
       </div>
+      {country === 'IN' && (
+        <fieldset className="form-optional">
+          <legend className="field__label">GST details</legend>
+          <p className="small muted">Your state sets how GST appears on our invoices (CGST + SGST or IGST). Add your GSTIN to claim input tax credit.</p>
+          <div className="form-row">
+            <div className="field">
+              <label className="field__label" htmlFor="bp-state">
+                State
+              </label>
+              <select id="bp-state" className="field__input" aria-invalid={errors.state ? true : undefined} {...register('state')}>
+                <option value="">Choose…</option>
+                {INDIAN_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              {errors.state && <span className="field__error">{errors.state.message}</span>}
+            </div>
+            <Input label="GSTIN (optional)" placeholder="29ABCDE1234F1Z5" maxLength={15} style={{ textTransform: 'uppercase' }} error={errors.gstin?.message} {...register('gstin')} />
+          </div>
+        </fieldset>
+      )}
       <div className="row">
         <Button type="submit" loading={save.isPending}>
           Save profile

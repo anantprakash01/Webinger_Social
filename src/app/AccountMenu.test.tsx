@@ -41,7 +41,7 @@ describe('account menu', () => {
     await login('creator@demo.test');
     renderAt('/creator/dashboard');
     const sidebar = await screen.findByRole('complementary', { name: 'Main navigation' });
-    await user.click(within(sidebar).getByRole('button', { expanded: false, name: /Leo Marin/ }));
+    await user.click(within(sidebar).getByRole('button', { expanded: false, name: /Leo Fernandes/ }));
     const menu = sidebar.querySelector('.account__menu') as HTMLElement;
     expect(within(menu).getByText('creator@demo.test')).toBeInTheDocument();
     expect(within(menu).getByRole('link', { name: /View public profile/ })).toHaveAttribute('href', '/u/leomakes');

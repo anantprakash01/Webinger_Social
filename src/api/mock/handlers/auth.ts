@@ -77,11 +77,11 @@ function issueOneTimeToken(user: UserRow, kind: OneTimeTokenRow['kind']): string
   return token;
 }
 
-function sendEmail(to: string, subject: string, body: string, link: string | null) {
+export function sendEmail(to: string, subject: string, body: string, link: string | null) {
   getDb().outbox.unshift({ id: ulid(now().getTime()), to, subject, body, link, createdAt: now().toISOString() });
 }
 
-function sendVerification(user: UserRow) {
+export function sendVerification(user: UserRow) {
   const token = issueOneTimeToken(user, 'VERIFY_EMAIL');
   sendEmail(
     user.email,

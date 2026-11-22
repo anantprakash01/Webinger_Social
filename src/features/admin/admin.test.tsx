@@ -70,7 +70,7 @@ describe('admin console (Week 6)', () => {
     const brandFee = await screen.findByLabelText('Brand fee (bps)');
     await user.clear(brandFee);
     await user.type(brandFee, '800');
-    expect(screen.getByText(/brand pays/)).toHaveTextContent('₹10,800.00');
+    expect(screen.getByText(/brand pays/)).toHaveTextContent('₹10,944.00'); // ₹10,000 + 8% fee + 18% GST on the fee
     await user.click(screen.getByRole('button', { name: 'Save fees' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Apply the new fees?' })).getByRole('button', { name: 'Apply fees' }));
     expect(await screen.findByText('Fees updated for new orders')).toBeInTheDocument();
@@ -114,8 +114,11 @@ describe('payouts and receipts (FR-63, FR-65)', () => {
     const o = getDb().orders.find((x) => x.status === 'COMPLETED' && x.brandUserId === userId('brand@demo.test'))!;
     renderAt(`/brand/orders/${o.id}`);
     await userEvent.setup().click(await screen.findByRole('link', { name: /Receipt/ }));
-    const receipt = await screen.findByRole('article', { name: 'Receipt' });
-    expect(within(receipt).getByText('Total charged')).toBeInTheDocument();
+    const receipt = await screen.findByRole('article', { name: 'Tax invoice' });
+    // Saltbay is in Karnataka, like the platform: CGST + SGST on the service fee.
+    expect(within(receipt).getByText('CGST 9%')).toBeInTheDocument();
+    expect(within(receipt).getByText(/GSTIN 29AAACS1234B1Z9/)).toBeInTheDocument();
+    expect(within(receipt).getByText(/Total paid/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Print/ })).toBeInTheDocument();
   });
 });

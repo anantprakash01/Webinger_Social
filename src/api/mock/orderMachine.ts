@@ -17,6 +17,7 @@
  * to order_events, the ledger entries and the payment action. The caller (a mock handler) stores them.
  */
 import { calculateFees, MIN_PRICE_CENTS, type FeeConfig } from './fees';
+import { calculateTaxes, type OrderTaxes } from './tax';
 import { captureLines, postTxn, refundLines, releaseLines, type LedgerEntry, type LedgerLine } from './ledger';
 
 /* ---------- Types ---------- */
@@ -61,16 +62,20 @@ export interface MockOrder {
   dueAt: string | null;
   reviewBy: string | null;
   revisionCount: number;
+  /** Revisions included; MAX_REVISIONS unless an extra-revision add-on was bought (phase C). */
+  maxRevisions?: number;
   /** Optimistic lock, like the JPA @Version column: approve and auto-approve cannot both win. */
   version: number;
   payment: { status: PaymentStatus; amountCents: number; refundedCents: number } & OrderPaymentInfo;
+  /** GST, TDS and TCS on this order, fixed at checkout like the fees (phase B). */
+  taxes: OrderTaxes;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface OrderEvent {
   orderId: string;
-  type: OrderEventType | 'CREATE';
+  type: OrderEventType | 'CREATE' | CollabEventType;
   fromStatus: OrderStatus | null;
   toStatus: OrderStatus;
   actorId: string | null;
@@ -89,9 +94,23 @@ export type OrderEventInput =
   | { type: 'AUTO_APPROVE' }
   | { type: 'DISPUTE'; note?: string }
   | { type: 'ADMIN_RELEASE'; note?: string }
-  | { type: 'ADMIN_REFUND'; refundCents: number; note?: string };
+  | { type: 'ADMIN_REFUND'; refundCents: number; note?: string }
+  /** FR-37: an admin cancels an accepted order; the brand gets a full refund. */
+  | { type: 'ADMIN_CANCEL'; note?: string };
 
 export type OrderEventType = OrderEventInput['type'];
+
+/** Phase C: timeline events that don't change the status or move money (drafts, shipping, time, metrics). */
+export type CollabEventType =
+  | 'DRAFT_SHARED'
+  | 'DRAFT_APPROVED'
+  | 'DRAFT_CHANGES_REQUESTED'
+  | 'SHIPPED'
+  | 'RECEIVED'
+  | 'EXTENSION_REQUESTED'
+  | 'EXTENSION_ACCEPTED'
+  | 'EXTENSION_DECLINED'
+  | 'METRICS_ADDED';
 
 export type Actor =
   | { kind: 'USER'; userId: string; role: 'BRAND' | 'CREATOR' | 'ADMIN'; emailVerified: boolean }
@@ -129,6 +148,7 @@ export class TransitionError extends Error {
 export const ACCEPT_WINDOW_HOURS = 72;
 export const REVIEW_WINDOW_HOURS = 72;
 export const MAX_REVISIONS = 2;
+export const maxRevisionsOf = (o: { maxRevisions?: number }) => o.maxRevisions ?? MAX_REVISIONS;
 /** A revision request gives the creator at least this many days, even if the original due date has passed. */
 export const REVISION_MIN_DAYS = 3;
 export const MIN_DELIVERY_DAYS = 1;
@@ -136,7 +156,7 @@ export const MAX_DELIVERY_DAYS = 60;
 
 type ActorRole = 'BRAND' | 'CREATOR' | 'ADMIN' | 'SYSTEM';
 
-const RULES: Record<OrderEventType, { from: OrderStatus; to: OrderStatus; by: ActorRole[] }> = {
+const RULES: Record<OrderEventType, { from: OrderStatus | OrderStatus[]; to: OrderStatus; by: ActorRole[] }> = {
   ACCEPT: { from: 'PENDING_ACCEPTANCE', to: 'IN_PROGRESS', by: ['CREATOR'] },
   DECLINE: { from: 'PENDING_ACCEPTANCE', to: 'CLOSED', by: ['CREATOR'] },
   CANCEL: { from: 'PENDING_ACCEPTANCE', to: 'CLOSED', by: ['BRAND', 'CREATOR'] },
@@ -148,7 +168,10 @@ const RULES: Record<OrderEventType, { from: OrderStatus; to: OrderStatus; by: Ac
   DISPUTE: { from: 'DELIVERED', to: 'DISPUTED', by: ['BRAND'] },
   ADMIN_RELEASE: { from: 'DISPUTED', to: 'COMPLETED', by: ['ADMIN'] },
   ADMIN_REFUND: { from: 'DISPUTED', to: 'REFUNDED', by: ['ADMIN'] },
+  ADMIN_CANCEL: { from: ['IN_PROGRESS', 'DELIVERED'], to: 'REFUNDED', by: ['ADMIN'] },
 };
+
+const fromOk = (rule: (typeof RULES)[OrderEventType], s: OrderStatus) => (Array.isArray(rule.from) ? rule.from.includes(s) : rule.from === s);
 
 export const ORDER_EVENT_TYPES = Object.keys(RULES) as OrderEventType[];
 
@@ -159,10 +182,16 @@ const isPast = (iso: string | null, now: Date) => !!iso && now.getTime() >= new 
 const roleOf = (a: Actor): ActorRole => (a.kind === 'SYSTEM' ? 'SYSTEM' : a.role);
 const actorId = (a: Actor) => (a.kind === 'SYSTEM' ? null : a.userId);
 
-/** Amount the brand paid in total (price + brand fee). */
-export const brandTotalCents = (o: Pick<MockOrder, 'priceCents' | 'brandFeeCents'>) => o.priceCents + o.brandFeeCents;
-/** Amount the creator receives on release before any partial refund. */
-export const creatorPayoutCents = (o: Pick<MockOrder, 'priceCents' | 'creatorFeeCents'>) => o.priceCents - o.creatorFeeCents;
+type Money = Pick<MockOrder, 'priceCents' | 'brandFeeCents' | 'creatorFeeCents'> & { taxes?: OrderTaxes };
+/** What the brand pays: price + creator's GST (if registered) + service fee + GST on the fee. */
+export const brandTotalCents = (o: Money) => o.priceCents + o.brandFeeCents + (o.taxes?.creatorGstCents ?? 0) + (o.taxes?.brandFeeGstCents ?? 0);
+/** What the creator receives on release (before any partial refund): price + their GST − commission − GST on it − TDS − TCS. */
+export const creatorPayoutCents = (o: Money) =>
+  o.priceCents + (o.taxes?.creatorGstCents ?? 0) - o.creatorFeeCents - (o.taxes?.creatorFeeGstCents ?? 0) - (o.taxes?.tdsCents ?? 0) - (o.taxes?.tcsCents ?? 0);
+/** GST on both platform fees (owed by the platform). */
+export const feeGstCents = (o: Money) => (o.taxes?.brandFeeGstCents ?? 0) + (o.taxes?.creatorFeeGstCents ?? 0);
+/** TDS + TCS withheld from the creator. */
+export const withheldCents = (o: Money) => (o.taxes?.tdsCents ?? 0) + (o.taxes?.tcsCents ?? 0);
 
 /* ---------- Checks shared by every transition ---------- */
 
@@ -192,8 +221,8 @@ function guard(order: MockOrder, e: OrderEventInput, actor: Actor, now: Date): T
     case 'EXPIRE':
       return isPast(order.acceptBy, now) ? null : new TransitionError(409, 'NOT_YET_DUE', 'The order can still be accepted.');
     case 'REQUEST_REVISION':
-      if (order.revisionCount >= MAX_REVISIONS)
-        return new TransitionError(409, 'REVISION_LIMIT', `Only ${MAX_REVISIONS} revisions are included.`);
+      if (order.revisionCount >= maxRevisionsOf(order))
+        return new TransitionError(409, 'REVISION_LIMIT', `Only ${maxRevisionsOf(order)} revisions are included.`);
       return isPast(order.reviewBy, now) ? new TransitionError(409, 'REVIEW_WINDOW_PASSED', 'The 72-hour review window has passed.') : null;
     case 'APPROVE':
     case 'DISPUTE':
@@ -226,7 +255,7 @@ function guard(order: MockOrder, e: OrderEventInput, actor: Actor, now: Date): T
 export function allowedEvents(order: MockOrder, actor: Actor, now: Date): OrderEventType[] {
   return ORDER_EVENT_TYPES.filter((type) => {
     const rule = RULES[type];
-    if (rule.from !== order.status) return false;
+    if (!fromOk(rule, order.status)) return false;
     try {
       checkActor(order, rule, actor);
     } catch {
@@ -241,7 +270,7 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
   const rule = RULES[e.type];
   if (!rule) throw new TransitionError(422, 'UNKNOWN_EVENT', `Unknown order action ${(e as { type: string }).type}.`);
   checkActor(order, rule, actor);
-  if (order.status !== rule.from) {
+  if (!fromOk(rule, order.status)) {
     throw new TransitionError(
       409,
       'INVALID_TRANSITION',
@@ -292,7 +321,7 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
     case 'APPROVE':
     case 'AUTO_APPROVE':
     case 'ADMIN_RELEASE':
-      lines = releaseLines({ escrowCents: brandTotalCents(order), creatorPayoutCents: creatorPayoutCents(order) });
+      lines = releaseLines({ escrowCents: brandTotalCents(order), creatorPayoutCents: creatorPayoutCents(order), gstCents: feeGstCents(order), withheldCents: withheldCents(order) });
       memo = e.type === 'AUTO_APPROVE' ? 'Auto-approved after 72 h' : e.type === 'ADMIN_RELEASE' ? 'Dispute resolved: released' : 'Approved by brand';
       break;
     case 'DISPUTE':
@@ -313,10 +342,21 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
           ...releaseLines({
             escrowCents: total - e.refundCents,
             creatorPayoutCents: creatorPayoutCents(order) - e.refundCents,
+            gstCents: feeGstCents(order),
+            withheldCents: withheldCents(order),
           }),
         ];
         memo = 'Dispute resolved: partial refund';
       }
+      break;
+    }
+    case 'ADMIN_CANCEL': {
+      const total = brandTotalCents(order);
+      next.payment.status = 'REFUNDED';
+      next.payment.refundedCents = total;
+      paymentAction = 'REFUND';
+      lines = refundLines(total);
+      memo = 'Cancelled by admin: full refund';
       break;
     }
   }
@@ -342,6 +382,10 @@ export interface NewOrderInput {
   fees: FeeConfig;
   /** Defaults to a card payment (seed data and older callers). */
   payment?: OrderPaymentInfo;
+  /** Place of supply and the creator's GST registration; default: same state, not registered. */
+  tax?: { intraState: boolean; creatorGstRegistered: boolean };
+  /** Revisions included (extra-revision add-ons raise it). */
+  maxRevisions?: number;
 }
 
 export const DEFAULT_PAYMENT: OrderPaymentInfo = { method: 'CARD', methodLabel: 'Visa •••• 1111' };
@@ -356,6 +400,7 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     throw new TransitionError(422, 'INVALID_DELIVERY_DAYS', 'Delivery must be between 1 and 60 days.');
 
   const f = calculateFees(input.priceCents, input.fees);
+  const taxes = calculateTaxes(f, input.tax ?? { intraState: true, creatorGstRegistered: false });
   const at = ctx.now.toISOString();
   const order: MockOrder = {
     id: input.id,
@@ -376,8 +421,10 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     dueAt: null,
     reviewBy: null,
     revisionCount: 0,
+    maxRevisions: input.maxRevisions ?? MAX_REVISIONS,
     version: 0,
-    payment: { status: 'AUTHORIZED', amountCents: f.brandTotalCents, refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
+    taxes,
+    payment: { status: 'AUTHORIZED', amountCents: brandTotalCents({ ...f, taxes }), refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
     createdAt: at,
     updatedAt: at,
   };

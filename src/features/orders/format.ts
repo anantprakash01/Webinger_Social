@@ -60,8 +60,28 @@ export function eventLabel(e: OrderEventView, o: Pick<OrderDetail, 'money' | 'co
       return 'Dispute opened — money stays in escrow';
     case 'ADMIN_RELEASE':
       return 'Dispute resolved — payment released to the creator';
+    case 'ADMIN_CANCEL':
+      return `Cancelled by our team — ${formatMoney(o.payment.refundedCents, m.currency)} refunded to the brand`;
     case 'ADMIN_REFUND':
       return `Dispute resolved — ${formatMoney(o.payment.refundedCents, m.currency)} refunded to the brand`;
+    case 'DRAFT_SHARED':
+      return 'Draft shared for approval';
+    case 'DRAFT_APPROVED':
+      return 'Draft approved — ready to post';
+    case 'DRAFT_CHANGES_REQUESTED':
+      return 'Changes requested on the draft';
+    case 'SHIPPED':
+      return e.note ? `Product shipped — ${e.note}` : 'Product shipped';
+    case 'RECEIVED':
+      return 'Product received by the creator';
+    case 'EXTENSION_REQUESTED':
+      return 'More time requested';
+    case 'EXTENSION_ACCEPTED':
+      return 'More time granted — due date moved';
+    case 'EXTENSION_DECLINED':
+      return 'Request for more time declined';
+    case 'METRICS_ADDED':
+      return 'Post results added';
   }
 }
 

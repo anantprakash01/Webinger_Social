@@ -3,7 +3,7 @@ import { toast } from '@/components/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, newIdempotencyKey } from '@/api/client';
-import type { DeliverRequest, OrderBrief, OrderCreateRequest, OrderDetail, ReviewRequest } from '@/types';
+import type { DeliverRequest, OrderBrief, OrderCreateRequest, OrderDetail, PostMetricsInput, ReviewRequest } from '@/types';
 
 export const orderKeys = {
   all: ['orders'] as const,
@@ -17,7 +17,7 @@ export const useOrders = (status: string, page: number) =>
 
 export const useOrder = (id: string) => useQuery({ queryKey: orderKeys.detail(id), queryFn: () => api.orders.get(id) });
 
-export const useOrderQuote = (q: { packageId?: string; creatorUsername?: string; priceCents?: number }, enabled = true) =>
+export const useOrderQuote = (q: { packageId?: string; creatorUsername?: string; priceCents?: number; addonIds?: string }, enabled = true) =>
   useQuery({ queryKey: orderKeys.quote(q), queryFn: () => api.orders.quote(q), enabled, placeholderData: keepPreviousData, retry: false });
 
 /**
@@ -151,5 +151,55 @@ export function useSimulateTime() {
     mutationFn: (hours: number) => api.dev.simulateTime(hours),
     // Everything time-based may have changed: refetch it all.
     onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+/* ---------- Collaboration (phase C): drafts, shipping, more time, post results ---------- */
+
+type CollabInput =
+  | { type: 'share-draft'; body: DeliverRequest }
+  | { type: 'review-draft'; draftId: string; decision: 'APPROVE' | 'CHANGES'; note?: string | null }
+  | { type: 'ship'; courier: string; trackingNumber: string }
+  | { type: 'received' }
+  | { type: 'request-extension'; extraDays: number; reason: string }
+  | { type: 'review-extension'; decision: 'ACCEPT' | 'DECLINE' }
+  | { type: 'metrics'; deliveryId: string; body: PostMetricsInput };
+
+const COLLAB_DONE: Record<CollabInput['type'], string> = {
+  'share-draft': 'Draft shared with the brand.',
+  'review-draft': 'Draft reviewed.',
+  ship: 'Shipping details saved.',
+  received: 'Marked as received.',
+  'request-extension': 'Request sent to the brand.',
+  'review-extension': 'Answer sent.',
+  metrics: 'Results saved.',
+};
+
+export function useCollab(id: string) {
+  const refresh = useRefreshOrders();
+  return useMutation({
+    mutationFn: (a: CollabInput) => {
+      switch (a.type) {
+        case 'share-draft':
+          return api.orders.shareDraft(id, a.body);
+        case 'review-draft':
+          return api.orders.reviewDraft(id, a.draftId, { decision: a.decision, note: a.note ?? null });
+        case 'ship':
+          return api.orders.saveShipment(id, { courier: a.courier, trackingNumber: a.trackingNumber });
+        case 'received':
+          return api.orders.markReceived(id);
+        case 'request-extension':
+          return api.orders.requestExtension(id, { extraDays: a.extraDays, reason: a.reason });
+        case 'review-extension':
+          return api.orders.reviewExtension(id, a.decision);
+        case 'metrics':
+          return api.orders.saveMetrics(id, a.deliveryId, a.body);
+      }
+    },
+    onSuccess: (detail, a) => {
+      refresh(detail);
+      toast(COLLAB_DONE[a.type]);
+    },
+    onError: () => refresh(),
   });
 }

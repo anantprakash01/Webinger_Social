@@ -1,3 +1,4 @@
+import { brandTotalCents } from '../orderMachine';
 import { payFor, payTotal, UNPAID } from '@/test/payments';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { api } from '@/api/client';
@@ -82,9 +83,10 @@ describe('campaigns (FR-40 – FR-42)', () => {
     const spring = (await api.campaigns.list()).content.find((c) => c.title === 'Spring home refresh')!;
     const detail = await api.campaigns.get(spring.id);
     const leoApp = detail.applications.find((a) => a.creator.username === 'leomakes')!;
-    const total = leoApp.priceCents + Math.floor((leoApp.priceCents * 1000 + 5000) / 10000);
+    // Total with tax, as the checkout quotes it (Saltbay is in the platform's state; Leo isn't GST-registered).
+    const total = (await api.orders.quote({ creatorUsername: 'leomakes', priceCents: leoApp.priceCents })).totalCents;
     const res = await api.campaigns.acceptApplication(leoApp.id, 'Please feature the grey mug.', await payTotal(total), key());
-    expect(res).toMatchObject({ status: 'PENDING_ACCEPTANCE', priceCents: leoApp.priceCents, totalCents: leoApp.priceCents + Math.floor((leoApp.priceCents * 1000 + 5000) / 10000) });
+    expect(res).toMatchObject({ status: 'PENDING_ACCEPTANCE', priceCents: leoApp.priceCents, totalCents: total });
     const order = await api.orders.get(res.orderId);
     expect(order).toMatchObject({ kind: 'CAMPAIGN', campaignId: spring.id, title: 'Spring home refresh', payment: { status: 'AUTHORIZED' } });
     expect(order.brief.requirements).toContain('Please feature the grey mug.');
@@ -197,7 +199,7 @@ describe('brand dashboard (FR-71)', () => {
     await asBrand();
     const s = await api.brands.stats();
     const mine = getDb().orders.filter((o) => o.brandUserId === getDb().users.find((u) => u.email === 'brand@demo.test')!.id);
-    const total = (o: (typeof mine)[number]) => o.priceCents + o.brandFeeCents;
+    const total = (o: (typeof mine)[number]) => brandTotalCents(o);
     const charged = mine.filter((o) => o.payment.status === 'CAPTURED' || o.payment.status === 'REFUNDED').reduce((sum, o) => sum + total(o) - o.payment.refundedCents, 0);
     expect(s.spentCents).toBe(charged);
     expect(s.authorisedCents).toBe(mine.filter((o) => o.status === 'PENDING_ACCEPTANCE').reduce((sum, o) => sum + total(o), 0));

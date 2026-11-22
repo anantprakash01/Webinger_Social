@@ -3,6 +3,8 @@
  * into problem+json exactly like the Spring Boot API. The API client calls `handle()` instead of
  * `fetch()` when VITE_API_MODE=mock.
  */
+import * as retention from './handlers/retention';
+import * as collab from './handlers/collab';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
 import { HttpError, type Handler, type MockRequest, type MockResponse } from './http';
@@ -19,6 +21,7 @@ import * as files from './handlers/files';
 import * as orders from './handlers/orders';
 import * as payouts from './handlers/payouts';
 import * as payments from './handlers/payments';
+import * as account from './handlers/account';
 import * as dev from './handlers/dev';
 import * as me from './handlers/me';
 import { authenticate, impersonatorOf } from './handlers/session';
@@ -58,9 +61,16 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/creators/me/submit-for-review', auth: true, handler: creatorMe.submitMyProfileForReview },
   { method: 'GET', path: '/creators/me/stats', auth: true, handler: creatorMe.getMyCreatorStats },
   { method: 'GET', path: '/creators', auth: false, handler: creators.searchCreators },
+  { method: 'GET', path: '/creators/suggestions', auth: false, handler: creators.suggestSearch },
   { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
   { method: 'PUT', path: '/me/avatar', auth: true, handler: me.updateMyAvatar },
+  { method: 'POST', path: '/me/password', auth: true, handler: account.changePassword },
+  { method: 'POST', path: '/me/email', auth: true, handler: account.changeEmail },
+  { method: 'POST', path: '/me/sessions/revoke-others', auth: true, handler: account.signOutOtherDevices },
+  { method: 'GET', path: '/me/export', auth: true, handler: account.exportMyData },
+  { method: 'POST', path: '/me/deletion', auth: true, handler: account.requestDeletion },
+  { method: 'DELETE', path: '/me/deletion', auth: true, handler: account.cancelDeletion },
   // Orders (Week 4). /orders/quote before /orders/:id, which would otherwise match "quote".
   { method: 'GET', path: '/orders/quote', auth: true, handler: orders.quoteOrder },
   { method: 'POST', path: '/orders', auth: true, handler: orders.createOrder, idempotent: true },
@@ -70,6 +80,26 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/orders/:id/decline', auth: true, handler: orders.declineOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/deliver', auth: true, handler: orders.deliverOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/brief', auth: true, handler: orders.updateOrderBrief },
+  { method: 'POST', path: '/orders/:id/drafts', auth: true, handler: collab.shareDraft },
+  { method: 'POST', path: '/orders/:id/brand-review', auth: true, handler: retention.reviewBrand },
+  { method: 'GET', path: '/lists', auth: true, handler: retention.listSavedLists },
+  { method: 'POST', path: '/lists', auth: true, handler: retention.createSavedList },
+  { method: 'GET', path: '/lists/:listId', auth: true, handler: retention.getSavedList },
+  { method: 'PATCH', path: '/lists/:listId', auth: true, handler: retention.renameSavedList },
+  { method: 'DELETE', path: '/lists/:listId', auth: true, handler: retention.deleteSavedList },
+  { method: 'PUT', path: '/lists/:listId/creators/:username', auth: true, handler: retention.addToSavedList },
+  { method: 'DELETE', path: '/lists/:listId/creators/:username', auth: true, handler: retention.removeFromSavedList },
+  { method: 'PUT', path: '/creators/me/availability', auth: true, handler: retention.saveAvailability },
+  { method: 'GET', path: '/me/notification-preferences', auth: true, handler: retention.getNotificationPreferences },
+  { method: 'PUT', path: '/me/notification-preferences', auth: true, handler: retention.saveNotificationPreferences },
+  { method: 'POST', path: '/campaigns/:id/invites', auth: true, handler: retention.inviteToCampaign },
+  { method: 'POST', path: '/invites/:id/decline', auth: true, handler: retention.declineInvite },
+  { method: 'POST', path: '/orders/:id/drafts/:draftId/review', auth: true, handler: collab.reviewDraft },
+  { method: 'PUT', path: '/orders/:id/shipment', auth: true, handler: collab.saveShipment },
+  { method: 'POST', path: '/orders/:id/shipment/received', auth: true, handler: collab.markReceived },
+  { method: 'POST', path: '/orders/:id/extension', auth: true, handler: collab.requestExtension },
+  { method: 'POST', path: '/orders/:id/extension/review', auth: true, handler: collab.reviewExtension },
+  { method: 'PUT', path: '/orders/:id/deliveries/:deliveryId/metrics', auth: true, handler: collab.savePostMetrics },
   { method: 'POST', path: '/orders/:id/approve', auth: true, handler: orders.approveOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/request-revision', auth: true, handler: orders.requestRevision, idempotent: true },
   { method: 'POST', path: '/orders/:id/dispute', auth: true, handler: orders.disputeOrder, idempotent: true },
@@ -100,6 +130,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/admin/creators/:id/reject', auth: true, handler: admin.rejectCreator },
   { method: 'GET', path: '/admin/disputes', auth: true, handler: admin.listDisputes },
   { method: 'POST', path: '/admin/disputes/:id/resolve', auth: true, handler: admin.resolveDispute, idempotent: true },
+  { method: 'POST', path: '/admin/orders/:id/cancel', auth: true, handler: admin.cancelOrderAsAdmin, idempotent: true },
   { method: 'GET', path: '/admin/users', auth: true, handler: admin.listUsers },
   { method: 'PATCH', path: '/admin/users/:id', auth: true, handler: admin.updateUserStatus },
   { method: 'POST', path: '/admin/users/:id/impersonate', auth: true, handler: admin.impersonateUser },

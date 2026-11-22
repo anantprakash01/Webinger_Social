@@ -22,6 +22,10 @@ const admin = () => import('./pages/admin');
 const LandingPage = area(() => import('@/features/landing/pages/LandingPage'), 'LandingPage');
 const SearchPage = area(() => import('@/features/search/pages/SearchPage'), 'SearchPage');
 const CreatorProfilePage = area(() => import('@/features/creators/pages/CreatorProfilePage'), 'CreatorProfilePage');
+const legal = () => import('@/features/legal/pages/LegalPages');
+const TermsPage = area(legal, 'TermsPage');
+const PrivacyPage = area(legal, 'PrivacyPage');
+const RefundsPage = area(legal, 'RefundsPage');
 
 const BrandDashboard = area(() => import('@/features/brands/pages/BrandDashboardPage'), 'BrandDashboardPage');
 const OrdersListPage = area(() => import('@/features/orders/pages/OrdersListPage'), 'OrdersListPage');
@@ -30,6 +34,9 @@ const brandCampaigns = () => import('@/features/campaigns/pages/BrandCampaignsPa
 const BrandCampaigns = area(brandCampaigns, 'BrandCampaignsPage');
 const BrandCampaignDetail = area(brandCampaigns, 'BrandCampaignDetailPage');
 const ApplicationCheckoutPage = area(() => import('@/features/campaigns/pages/ApplicationCheckoutPage'), 'ApplicationCheckoutPage');
+const savedLists = () => import('@/features/retention/pages/SavedListsPages');
+const SavedListsPage = area(savedLists, 'SavedListsPage');
+const SavedListPage = area(savedLists, 'SavedListPage');
 const BrandProfile = area(() => import('@/features/brands/pages/BrandProfilePage'), 'BrandProfilePage');
 const CheckoutPage = area(() => import('@/features/orders/pages/CheckoutPage'), 'CheckoutPage');
 
@@ -53,6 +60,7 @@ const AdminAudit = area(admin, 'AdminAudit');
 const AdminOrders = area(admin, 'AdminOrders');
 
 const MessagesPage = area(() => import('@/features/chat/pages/MessagesPage'), 'MessagesPage');
+const SettingsPage = area(() => import('@/features/account/pages/SettingsPage'), 'SettingsPage');
 const NotificationsPage = area(() => import('@/features/chat/pages/NotificationsPage'), 'NotificationsPage');
 
 export function AppRoutes() {
@@ -63,6 +71,9 @@ export function AppRoutes() {
         <Route index element={<LandingPage />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="u/:username" element={<CreatorProfilePage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="refunds" element={<RefundsPage />} />
       </Route>
 
       {/* Auth */}
@@ -86,6 +97,8 @@ export function AppRoutes() {
             <Route path="campaigns" element={<BrandCampaigns />} />
             <Route path="campaigns/:id" element={<BrandCampaignDetail />} />
             <Route path="profile" element={<BrandProfile />} />
+            <Route path="lists" element={<SavedListsPage />} />
+            <Route path="lists/:id" element={<SavedListPage />} />
             <Route path="payment-methods" element={<BrandPaymentMethods />} />
           </Route>
         </Route>
@@ -123,6 +136,7 @@ export function AppRoutes() {
           <Route path="messages" element={<MessagesPage />} />
           <Route path="messages/:conversationId" element={<MessagesPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
 

@@ -3,9 +3,10 @@
  * small menu with name and email, Change photo, the profile and money pages for the role, and Sign out.
  * Sidebar on desktop (opens upwards), top bar on phones (opens downwards).
  */
+import { useT } from '@/lib/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LuCamera, LuCreditCard, LuExternalLink, LuLogOut, LuUserRound, LuWallet, LuBuilding2 } from 'react-icons/lu';
+import { LuCamera, LuCreditCard, LuExternalLink, LuLogOut, LuSettings, LuUserRound, LuWallet, LuBuilding2 } from 'react-icons/lu';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { toast } from '@/components/feedback';
@@ -14,6 +15,7 @@ import { ImagePicker } from '@/features/files/components/ImagePicker';
 import { ROLE_LABEL, type Me } from '@/types';
 
 export function AccountMenu({ user, onSignOut, placement, showName }: { user: Me; onSignOut: () => void; placement: 'up' | 'down'; showName?: boolean }) {
+  const { t } = useT();
   const [changing, setChanging] = useState(false);
   const menuId = useId();
   const wrap = useRef<HTMLDivElement>(null);
@@ -89,7 +91,7 @@ export function AccountMenu({ user, onSignOut, placement, showName }: { user: Me
             {live && (
               <li>
                 <Link to={`/u/${user.creator!.username}`}>
-                  <LuExternalLink aria-hidden /> View public profile
+                  <LuExternalLink aria-hidden /> {t('View public profile')}
                 </Link>
               </li>
             )}
@@ -97,12 +99,12 @@ export function AccountMenu({ user, onSignOut, placement, showName }: { user: Me
               <>
                 <li>
                   <Link to="/creator/onboarding?step=profile">
-                    <LuUserRound aria-hidden /> Edit profile
+                    <LuUserRound aria-hidden /> {t('Edit profile')}
                   </Link>
                 </li>
                 <li>
                   <Link to="/creator/payouts">
-                    <LuWallet aria-hidden /> Payouts
+                    <LuWallet aria-hidden /> {t('Payouts')}
                   </Link>
                 </li>
               </>
@@ -111,19 +113,24 @@ export function AccountMenu({ user, onSignOut, placement, showName }: { user: Me
               <>
                 <li>
                   <Link to="/brand/profile">
-                    <LuBuilding2 aria-hidden /> Company profile
+                    <LuBuilding2 aria-hidden /> {t('Company profile')}
                   </Link>
                 </li>
                 <li>
                   <Link to="/brand/payment-methods">
-                    <LuCreditCard aria-hidden /> Payment methods
+                    <LuCreditCard aria-hidden /> {t('Payment methods')}
                   </Link>
                 </li>
               </>
             )}
+            <li>
+              <Link to="/settings">
+                <LuSettings aria-hidden /> {t('Account settings')}
+              </Link>
+            </li>
             <li className="account__sep">
               <button type="button" onClick={onSignOut}>
-                <LuLogOut aria-hidden /> Sign out
+                <LuLogOut aria-hidden /> {t('Sign out')}
               </button>
             </li>
           </ul>

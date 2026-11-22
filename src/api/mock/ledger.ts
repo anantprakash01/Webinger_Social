@@ -7,8 +7,12 @@
  */
 import { assertCents } from '@/lib/money';
 
-/** BRAND_CHARGE: money taken from the brand's payment method (Razorpay). Everything else as in section 4.1. */
-export type LedgerAccount = 'BRAND_CHARGE' | 'ESCROW' | 'PLATFORM_REVENUE' | 'CREATOR_BALANCE' | 'PAYOUT';
+/**
+ * BRAND_CHARGE: money taken from the brand's payment method (Razorpay). GST_PAYABLE: GST on the platform's fees,
+ * owed to the government. TAX_WITHHELD: TDS (194-O) and TCS (s.52) withheld from creators, deposited with the
+ * government. Everything else as in section 4.1.
+ */
+export type LedgerAccount = 'BRAND_CHARGE' | 'ESCROW' | 'PLATFORM_REVENUE' | 'GST_PAYABLE' | 'TAX_WITHHELD' | 'CREATOR_BALANCE' | 'PAYOUT';
 
 export interface LedgerEntry {
   txnId: string;
@@ -55,15 +59,23 @@ const move = (from: LedgerAccount, to: LedgerAccount, cents: number): LedgerLine
 /** Step 2 — creator accepts, payment captured: BRAND_CHARGE → ESCROW (price + brand fee). */
 export const captureLines = (brandTotalCents: number) => move('BRAND_CHARGE', 'ESCROW', brandTotalCents);
 
-/** Step 4 — approval or auto-approval: ESCROW → PLATFORM_REVENUE (both fees) + CREATOR_BALANCE (price − creator fee). */
-export function releaseLines(o: { escrowCents: number; creatorPayoutCents: number }): LedgerLine[] {
-  const platform = o.escrowCents - o.creatorPayoutCents;
-  if (platform < 0) throw new LedgerImbalanceError('Creator payout exceeds escrow');
-  return [
+/**
+ * Step 4 — approval or auto-approval: ESCROW → CREATOR_BALANCE (their share), GST_PAYABLE (GST on both fees),
+ * TAX_WITHHELD (TDS + TCS) and PLATFORM_REVENUE (both fees: whatever is left).
+ */
+export function releaseLines(o: { escrowCents: number; creatorPayoutCents: number; gstCents?: number; withheldCents?: number }): LedgerLine[] {
+  const gst = o.gstCents ?? 0;
+  const withheld = o.withheldCents ?? 0;
+  const platform = o.escrowCents - o.creatorPayoutCents - gst - withheld;
+  if (platform < 0) throw new LedgerImbalanceError('Creator payout and taxes exceed escrow');
+  const lines: LedgerLine[] = [
     { account: 'ESCROW', debitCents: 0, creditCents: o.escrowCents },
     { account: 'PLATFORM_REVENUE', debitCents: platform, creditCents: 0 },
+    { account: 'GST_PAYABLE', debitCents: gst, creditCents: 0 },
+    { account: 'TAX_WITHHELD', debitCents: withheld, creditCents: 0 },
     { account: 'CREATOR_BALANCE', debitCents: o.creatorPayoutCents, creditCents: 0 },
   ];
+  return lines.filter((l) => l.debitCents !== 0 || l.creditCents !== 0 || l.account === 'CREATOR_BALANCE');
 }
 
 /** Step 6 — dispute ruled for the brand: ESCROW → BRAND_CHARGE (refunded to the original payment method). */

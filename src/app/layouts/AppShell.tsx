@@ -2,9 +2,10 @@
  * Logged-in layout, ported from the Webinger AppShell: sidebar on desktop, bottom nav (4 items +
  * More) under 900 px, and a demo bar with "View as" + "Reset demo data" in mock mode.
  */
+import { useT } from '@/lib/i18n';
 import { useConfirm } from '@/components/feedback';
 import { Suspense, useState } from 'react';
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LuBell, LuChevronDown, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-icons/lu';
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
@@ -23,6 +24,7 @@ import { AccountMenu } from './AccountMenu';
 import './shell.css';
 
 export function AppShell() {
+  const { t } = useT();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,7 +40,7 @@ export function AppShell() {
   useRealtimeSync(!!user);
 
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
-  const items = NAV[user.role];
+  const items = NAV[user.role].map((i) => ({ ...i, label: t(i.label) }));
   const primary = items.filter((i) => i.primary).slice(0, 4);
   const hasMore = items.length > primary.length;
 
@@ -50,7 +52,7 @@ export function AppShell() {
   return (
     <div className="shell">
       <a href="#content" className="skip-link">
-        Skip to content
+        {t('Skip to content')}
       </a>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar__brand">
@@ -58,7 +60,7 @@ export function AppShell() {
             <Logo height={24} />
             <Bell count={counts.notifications} />
           </div>
-          <div className="sidebar__area">{AREA_TITLE[user.role]}</div>
+          <div className="sidebar__area">{t(AREA_TITLE[user.role])}</div>
         </div>
         <nav className="sidebar__nav">
           {items.map(({ to, label, icon: Icon, badge }) => (
@@ -71,7 +73,7 @@ export function AppShell() {
         <div className="sidebar__foot">
           <AccountMenu user={user} onSignOut={() => void signOut()} placement="up" showName />
           <Button variant="ghost" size="sm" onClick={() => void signOut()}>
-            <LuLogOut aria-hidden /> Sign out
+            <LuLogOut aria-hidden /> {t('Sign out')}
           </Button>
         </div>
       </aside>
@@ -85,6 +87,18 @@ export function AppShell() {
           <AccountMenu user={user} onSignOut={() => void signOut()} placement="down" />
         </header>
         {user.impersonatedBy && <ImpersonationBanner name={user.name} admin={user.impersonatedBy} />}
+        {user.deletionScheduledFor && !location.pathname.startsWith('/settings') && (
+          <div className="shell-banner">
+            <div className="vetting vetting--warn" role="status">
+              <div>
+                <strong>Your account will be deleted on {new Date(user.deletionScheduledFor).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}.</strong>{' '}
+                <Link to="/settings" className="link">
+                  Keep my account
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         <VerifyEmailBanner />
         {user.role === 'CREATOR' && user.creator && !location.pathname.startsWith('/creator/onboarding') && !location.pathname.startsWith('/creator/dashboard') && (
           <div className="shell-banner">
@@ -114,7 +128,7 @@ export function AppShell() {
               <LuEllipsis size={22} aria-hidden />
               <CountBadge n={items.filter((i) => !i.primary && i.badge).reduce((s, i) => s + counts[i.badge!], 0)} dot />
             </span>
-            More
+            {t('More')}
           </button>
         )}
       </nav>
@@ -124,7 +138,7 @@ export function AppShell() {
           <div className="sheet-backdrop" onClick={() => setMoreOpen(false)} />
           <div className="sheet" role="dialog" aria-modal="true" aria-label="More pages">
             <div className="row" style={{ marginBottom: 8 }}>
-              <strong>{AREA_TITLE[user.role]}</strong>
+              <strong>{t(AREA_TITLE[user.role])}</strong>
               <span className="spacer" />
               <Button variant="ghost" icon onClick={() => setMoreOpen(false)} aria-label="Close">
                 <LuX size={20} />
@@ -137,7 +151,7 @@ export function AppShell() {
               </NavLink>
             ))}
             <Button variant="secondary" onClick={() => void signOut()} style={{ marginTop: 12 }}>
-              <LuLogOut aria-hidden /> Sign out
+              <LuLogOut aria-hidden /> {t('Sign out')}
             </Button>
           </div>
         </>

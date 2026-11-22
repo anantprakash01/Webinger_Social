@@ -95,7 +95,27 @@ const packageFields = {
     .max(60, { error: 'Delivery must be 1 to 60 days.' }),
 };
 
-export const packageInputSchema = z.object({ ...packageFields, active: z.boolean().default(true) });
+/** Phase C: optional extras a brand can add at checkout. One of each kind. */
+export const MAX_ADDONS = 5;
+export const MIN_ADDON_CENTS = 10_000; // ₹100
+export const ADDON_KINDS = ['USAGE_RIGHTS', 'RUSH', 'EXTRA_REVISION'] as const;
+export const addonSchema = z
+  .object({
+    id: z.string().max(40).optional(),
+    kind: z.enum(ADDON_KINDS),
+    title: z.string().trim().min(3, { error: 'Name the add-on.' }).max(80),
+    priceCents: z.number().int().min(MIN_ADDON_CENTS, { error: 'Add-ons start at ₹100.' }).max(MAX_PRICE_CENTS),
+    usageDays: z.number().int().min(7, { error: 'Usage rights run 7 to 365 days.' }).max(365, { error: 'Usage rights run 7 to 365 days.' }).nullable().optional(),
+    rushDays: z.number().int().min(1, { error: 'Rush delivery is 1 to 59 days.' }).max(59, { error: 'Rush delivery is 1 to 59 days.' }).nullable().optional(),
+  })
+  .refine((a) => a.kind !== 'USAGE_RIGHTS' || !!a.usageDays, { error: 'Say for how many days the brand may run ads.', path: ['usageDays'] })
+  .refine((a) => a.kind !== 'RUSH' || !!a.rushDays, { error: 'Say how fast rush delivery is.', path: ['rushDays'] });
+const addonsField = z
+  .array(addonSchema)
+  .max(MAX_ADDONS, { error: `Up to ${MAX_ADDONS} add-ons.` })
+  .refine((l) => new Set(l.map((a) => a.kind)).size === l.length, { error: 'Offer each kind of add-on once.' });
+
+export const packageInputSchema = z.object({ ...packageFields, active: z.boolean().default(true), addons: addonsField.default([]) });
 export const packagePatchSchema = z
   .object({
     platform: packageFields.platform.optional(),
@@ -105,6 +125,7 @@ export const packagePatchSchema = z
     priceCents: packageFields.priceCents.optional(),
     deliveryDays: packageFields.deliveryDays.optional(),
     active: z.boolean().optional(),
+    addons: addonsField.optional(),
   })
   .refine((p) => Object.keys(p).length > 0, { error: 'Nothing to change.' });
 
@@ -135,6 +156,12 @@ export const packageFormSchema = z
     price: z.string().trim().min(1, { error: 'Enter a price.' }),
     deliveryDays: z.string().trim().min(1, { error: 'Enter the number of days.' }),
     active: z.boolean(),
+    /** Phase C add-ons: empty price = not offered. */
+    usagePrice: z.string().trim(),
+    usageDays: z.string().trim(),
+    rushPrice: z.string().trim(),
+    rushDays: z.string().trim(),
+    revisionPrice: z.string().trim(),
   })
   .transform((v, ctx) => {
     const priceCents = parseAmount(v.price);
@@ -148,11 +175,28 @@ export const packageFormSchema = z
       priceCents: priceCents ?? 0,
       deliveryDays: days,
       active: v.active,
+      addons: [] as Array<z.input<typeof addonSchema>>,
     };
+    const int = (s: string) => (/^\d+$/.test(s) ? Number(s) : NaN);
+    const addon = (kind: (typeof ADDON_KINDS)[number], priceText: string, priceKey: string, extra: { key: string; text: string } | null, title: (n: number) => string) => {
+      if (!priceText) return;
+      const p = parseAmount(priceText);
+      if (p === null || p < MIN_ADDON_CENTS) return void ctx.addIssue({ code: 'custom', path: [priceKey], message: 'Enter at least ₹100, or leave empty.' });
+      const n = extra ? int(extra.text) : 0;
+      if (extra && Number.isNaN(n)) return void ctx.addIssue({ code: 'custom', path: [extra.key], message: 'Enter a whole number of days.' });
+      out.addons.push({ kind, title: title(n), priceCents: p, usageDays: kind === 'USAGE_RIGHTS' ? n : null, rushDays: kind === 'RUSH' ? n : null });
+    };
+    addon('USAGE_RIGHTS', v.usagePrice, 'usagePrice', { key: 'usageDays', text: v.usageDays }, (n) => `Paid ad usage for ${n} days`);
+    addon('RUSH', v.rushPrice, 'rushPrice', { key: 'rushDays', text: v.rushDays }, (n) => `Rush delivery in ${n} day${n === 1 ? '' : 's'}`);
+    addon('EXTRA_REVISION', v.revisionPrice, 'revisionPrice', null, () => 'One extra revision');
+    if (out.addons.some((a) => a.kind === 'RUSH' && (a.rushDays ?? 0) >= days))
+      ctx.addIssue({ code: 'custom', path: ['rushDays'], message: 'Rush must be faster than the normal delivery.' });
     const checked = packageInputSchema.safeParse(out);
     if (!checked.success) {
       for (const i of checked.error.issues) {
-        const key = i.path[0] === 'priceCents' ? 'price' : i.path[0] === 'deliverables' ? 'deliverablesText' : String(i.path[0]);
+        const a = i.path[0] === 'addons' ? out.addons[Number(i.path[1])] : null;
+        const addonKey = a ? ({ USAGE_RIGHTS: i.path[2] === 'usageDays' ? 'usageDays' : 'usagePrice', RUSH: i.path[2] === 'rushDays' ? 'rushDays' : 'rushPrice', EXTRA_REVISION: 'revisionPrice' } as const)[a.kind] : null;
+        const key = addonKey ?? (i.path[0] === 'priceCents' ? 'price' : i.path[0] === 'deliverables' ? 'deliverablesText' : String(i.path[0]));
         if (key === 'price' && priceCents === null) continue;
         ctx.addIssue({ code: 'custom', path: [key], message: Number.isNaN(days) && key === 'deliveryDays' ? 'Enter a whole number of days.' : i.message });
       }

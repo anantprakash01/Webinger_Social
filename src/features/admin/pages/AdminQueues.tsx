@@ -272,7 +272,7 @@ export function AdminDisputeDetailPage() {
             </p>
             <p className="small muted">Opened {timeAgo(d.openedAt)}</p>
           </Card>
-          <Deliveries o={o} />
+          <Deliveries o={o} role="ADMIN" />
           <BriefCard o={o} />
           <Card title="Chat between brand and creator">
             {chat.isPending ? (

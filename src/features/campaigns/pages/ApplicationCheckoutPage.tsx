@@ -3,6 +3,7 @@
  * the brand's payment is authorised for the applied price plus the brand fee, and the creator then has
  * 72 hours to accept the order. The campaign brief becomes the order brief.
  */
+import { BrandMoneyLines } from '@/features/orders/components/TaxLines';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -112,12 +113,7 @@ function Checkout() {
                 </div>
               </div>
               <dl className="money">
-                <dt>Their price</dt>
-                <dd>{formatMoney(q.priceCents, q.currency)}</dd>
-                <dt>Service fee ({q.brandFeeBps / 100}%)</dt>
-                <dd>{formatMoney(q.brandFeeCents, q.currency)}</dd>
-                <dt className="money__total">Total</dt>
-                <dd className="money__total">{formatMoney(q.totalCents, q.currency)}</dd>
+                <BrandMoneyLines priceLabel="Their price" priceCents={q.priceCents} brandFeeCents={q.brandFeeCents} brandFeeBps={q.brandFeeBps} totalCents={q.totalCents} taxes={q.taxes} currency={q.currency} />
               </dl>
             </div>
           </Card>

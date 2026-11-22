@@ -2,12 +2,14 @@
  * /search (FR-20 – FR-24). All filters live in the URL so a search can be shared or bookmarked.
  * Desktop: filter sidebar. Under 900 px: a "Filters" button opens the same panel in a drawer.
  */
+import { SearchSuggest } from '../components/SearchSuggest';
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { TabRow } from '@/components/feedback';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LuSearchX, LuSlidersHorizontal, LuX } from 'react-icons/lu';
 import { PlatformIcon } from '@/components/creator';
-import { Button, Drawer, ErrorState, Pagination, SearchInput, Select, cx } from '@/components/ui';
+import { Button, Drawer, ErrorState, Pagination, Select, cx } from '@/components/ui';
 import { AGE_BUCKETS, COUNTRY_LABEL, FOLLOWER_BUCKETS, GENDERS, LANGUAGE_LABEL, NICHE_LABEL, PLATFORMS, SORTS } from '@/lib/catalog';
 import { CreatorCard, CreatorCardSkeleton, CreatorGrid } from '../components/CreatorCard';
 import { FilterPanel } from '../components/FilterPanel';
@@ -16,6 +18,8 @@ import { activeFilterCount, PAGE_SIZE, parseSearchUrl, toApiQuery, toSearchUrl, 
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams();
+  useDocumentTitle('Find creators');
+  const navigate = useNavigate();
   const state = useMemo(() => parseSearchUrl(params), [params]);
   const query = useMemo(() => toApiQuery(state), [state]);
   const { data, isPending, isError, error, refetch, isPlaceholderData } = useCreatorSearch(query);
@@ -59,7 +63,22 @@ export function SearchPage() {
           <p className="muted small">Vetted creators with prices up front. Payment is held until you approve the work.</p>
         </div>
         <div className="search-top__bar">
-          <SearchInput label="Search creators" value={text} onChange={setText} placeholder="Name, niche or keyword" />
+          <SearchSuggest
+            value={text}
+            onChange={setText}
+            onPick={(s) => {
+              if (s.kind === 'CREATOR') navigate(`/u/${s.value}`);
+              else if (s.kind === 'NICHE') {
+                setText('');
+                update({ q: undefined, niche: s.value as SearchState['niche'] });
+              } else {
+                const [country, city] = s.value.split(':');
+                setText('');
+                update({ q: undefined, country, city });
+              }
+            }}
+            onSearch={(q) => update({ q: q || undefined })}
+          />
           <Select label="Sort by" hideLabel value={state.sort ?? 'relevance'} onChange={(v) => update({ sort: v as SearchState['sort'] })} options={[...SORTS]} />
           <Button variant="secondary" className="search-top__filters-btn" onClick={() => setDrawerOpen(true)} aria-haspopup="dialog">
             <LuSlidersHorizontal aria-hidden /> Filters{filters > 0 && ` (${filters})`}
@@ -171,11 +190,12 @@ function activeChips(s: SearchState): Array<{ key: string; label: string; clear:
   if (s.country) out.push({ key: 'country', label: s.city ? `${s.city}, ${COUNTRY_LABEL[s.country] ?? s.country}` : (COUNTRY_LABEL[s.country] ?? s.country), clear: { country: undefined, city: undefined } });
   if (s.followers) out.push({ key: 'followers', label: `${FOLLOWER_BUCKETS.find((b) => b.value === s.followers)?.label} followers`, clear: { followers: undefined } });
   if (s.priceMin !== undefined || s.priceMax !== undefined) {
-    const label = s.priceMin !== undefined && s.priceMax !== undefined ? `$${s.priceMin} – $${s.priceMax}` : s.priceMin !== undefined ? `From $${s.priceMin}` : `Up to $${s.priceMax}`;
+    const label = s.priceMin !== undefined && s.priceMax !== undefined ? `₹${s.priceMin.toLocaleString('en-IN')} – ₹${s.priceMax.toLocaleString('en-IN')}` : s.priceMin !== undefined ? `From ₹${s.priceMin.toLocaleString('en-IN')}` : `Up to ₹${s.priceMax!.toLocaleString('en-IN')}`;
     out.push({ key: 'price', label, clear: { priceMin: undefined, priceMax: undefined } });
   }
   if (s.language) out.push({ key: 'language', label: LANGUAGE_LABEL[s.language] ?? s.language, clear: { language: undefined } });
   if (s.gender) out.push({ key: 'gender', label: GENDERS.find((g) => g.value === s.gender)?.label ?? s.gender, clear: { gender: undefined } });
+  if (s.fast) out.push({ key: 'fast', label: 'Accepts within 24 h', clear: { fast: undefined } });
   if (s.age) out.push({ key: 'age', label: `Age ${AGE_BUCKETS.find((b) => b.value === s.age)?.label}`, clear: { age: undefined } });
   return out;
 }

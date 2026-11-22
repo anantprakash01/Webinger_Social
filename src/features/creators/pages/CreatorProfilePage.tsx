@@ -1,12 +1,14 @@
 /**
  * /u/:username — public creator profile (FR-15). Works logged out; buying asks to log in as a brand.
  */
+import { InviteToCampaign, SaveToList } from '@/features/retention/components/BrandTools';
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { formatWhen } from '@/lib/dates';
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { StickyBar } from '@/components/StickyBar';
 import { TabRow } from '@/components/feedback';
-import { LuBadgeCheck, LuCalendar, LuCheck, LuClock, LuExternalLink, LuEye, LuLanguages, LuMapPin, LuPlay, LuSend, LuShieldCheck, LuTimer } from 'react-icons/lu';
+import { LuTreePalm, LuBadgeCheck, LuCalendar, LuCheck, LuClock, LuExternalLink, LuEye, LuLanguages, LuMapPin, LuPlay, LuSend, LuShieldCheck, LuTimer } from 'react-icons/lu';
 import { CreatorPhoto, PlatformIcon, PlatformLabel, Rating, Stars, VerifiedBadge, placeLabel } from '@/components/creator';
 import { VettingBadge } from '@/components/status';
 import { useAuth } from '@/app/AuthContext';
@@ -51,7 +53,8 @@ export function CreatorProfilePage() {
 }
 
 function Profile({ p }: { p: CreatorProfile }) {
-  const actions = usePurchaseActions(p.username);
+  useDocumentTitle(`${p.displayName} (@${p.username})`);
+  const actions = usePurchaseActions(p.username, p.availability);
   const { user } = useAuth();
   // FR-85: any signed-in brand or other creator can report a profile.
   const canReport = !!user && user.role !== 'ADMIN' && user.creator?.username !== p.username;
@@ -119,12 +122,26 @@ function Profile({ p }: { p: CreatorProfile }) {
               <Rating avg={p.ratingAvg} count={p.ratingCount} />
             </div>
           </div>
-          {canReport && (
+          {(canReport || user?.role === 'BRAND') && (
             <div className="profile__cta">
-              <ReportButton targetType="CREATOR" targetId={p.username} what="this profile" />
+              <SaveToList username={p.username} name={p.displayName} />
+              <InviteToCampaign username={p.username} name={p.displayName} away={p.availability.away} />
+              {canReport && <ReportButton targetType="CREATOR" targetId={p.username} what="this profile" />}
             </div>
           )}
         </header>
+
+        {p.availability.away && (
+          <div className="note note--warn" role="status">
+            <LuTreePalm aria-hidden />
+            <div>
+              <strong>
+                {p.displayName.split(' ')[0]} is away{p.availability.until ? ` until ${new Date(`${p.availability.until}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+              </strong>{' '}
+              and not taking new orders right now.{p.availability.message ? ` “${p.availability.message}”` : ''} Save them to a list to come back later.
+            </div>
+          </div>
+        )}
 
         <div className="profile__grid">
           <div className="profile__main">
@@ -261,6 +278,11 @@ function PackageCard({ pkg, canBuy, onBuy }: { pkg: Package; canBuy: boolean; on
             </li>
           ))}
         </ul>
+      )}
+      {(pkg.addons?.length ?? 0) > 0 && (
+        <p className="small muted package__addons">
+          Add-ons: {pkg.addons!.map((a) => `${a.title} +${formatMoney(a.priceCents, pkg.currency)}`).join(' · ')}
+        </p>
       )}
       <div className="package__foot">
         <span className="package__price">{formatMoney(pkg.priceCents, pkg.currency)}</span>

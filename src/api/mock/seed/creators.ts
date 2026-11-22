@@ -56,11 +56,15 @@ const SEED_EPOCH = Date.UTC(2026, 10, 1);
 /* ---------- Vocabulary (all invented) ---------- */
 
 const FIRST: Record<Gender, string[]> = {
-  FEMALE: ['Mira', 'Ana', 'Priya', 'Chloe', 'Zara', 'Nadia', 'Elena', 'Ines', 'Keira', 'Lola', 'Asha', 'Rosa', 'Talia', 'Wren', 'Yara', 'Bea'],
-  MALE: ['Jonah', 'Arjun', 'Mateo', 'Felix', 'Omar', 'Rafael', 'Kian', 'Dev', 'Hugo', 'Tomas', 'Idris', 'Caleb', 'Ravi', 'Luca'],
-  NON_BINARY: ['Rowan', 'Sage', 'Ari', 'Quinn', 'Remy', 'Jules'],
+  FEMALE: ['Ananya', 'Priya', 'Meera', 'Ishita', 'Kavya', 'Nandini', 'Riya', 'Sneha', 'Tanvi', 'Aditi', 'Pooja', 'Zoya', 'Diya', 'Sana', 'Lakshmi', 'Anjali', 'Shruti', 'Mehak'],
+  MALE: ['Arjun', 'Rohan', 'Kabir', 'Vikram', 'Aditya', 'Karthik', 'Siddharth', 'Rahul', 'Imran', 'Nikhil', 'Varun', 'Harsh', 'Aman', 'Dev', 'Ravi', 'Yash'],
+  NON_BINARY: ['Noor', 'Kiran', 'Sasha', 'Ashu', 'Rumi', 'Jai'],
 };
-const LAST = ['Calloway', 'Varela', 'Nair', 'Okonkwo', 'Brandt', 'Quill', 'Moreau', 'Haddad', 'Kestrel', 'Duarte', 'Lindholm', 'Sato', 'Rahman', 'Ferreira', 'Ashby', 'Iyer', 'Castell', 'Novak', 'Ember', 'Solano'];
+const LAST = ['Sharma', 'Iyer', 'Nair', 'Reddy', 'Kapoor', 'Menon', 'Bose', 'Chatterjee', 'Desai', 'Patel', 'Joshi', 'Kulkarni', 'Rao', 'Gill', 'Siddiqui', 'Khan', 'Fernandes', 'Mathew', 'Pillai', 'Banerjee', 'Shetty', 'Verma', 'Malhotra', 'Bhat'];
+
+/** ~85% of seeded creators are in India (launch market); the rest are diaspora creators abroad. */
+const INDIA = LOCATIONS.find((l) => l.country === 'IN')!;
+const ABROAD = LOCATIONS.filter((l) => ['AE', 'GB', 'US', 'SG'].includes(l.country));
 
 const NICHE_WORD: Record<Niche, string[]> = {
   BEAUTY: ['glow', 'blush', 'beauty'],
@@ -130,8 +134,8 @@ const PACKAGES: Record<Platform, Array<{ title: string; description: string; del
 const CENTS_PER_FOLLOWER: Record<Platform, number> = { INSTAGRAM: 0.35, TIKTOK: 0.25, YOUTUBE: 1.2, UGC: 0 };
 
 const BRANDS = [
-  'Copperleaf Candles', 'Moss & Marble', 'Tidewell Swim', 'Juniper Lane Bakery', 'Orbitfit Gear', 'Pebblestone Pets',
-  'Lumen & Lark Skincare', 'Harbor Hound Treats', 'Quillwave Audio', 'Sunmeadow Snacks', 'Saltbay Supply Co.', 'Fernhill Tea House',
+  'Copperleaf Candles', 'Kesar & Clay', 'Tidewell Swim', 'Tamarind Lane Bakes', 'Orbitfit Gear', 'Banyan Paws',
+  'Haldi & Honey Skincare', 'Monsoon Mutt Treats', 'Ragawave Audio', 'Masala Meadow Snacks', 'Saltbay Supply Co.', 'Fernhill Tea House',
 ];
 
 const REVIEWS: Record<number, string[]> = {
@@ -163,13 +167,23 @@ export interface SeedResult {
 
 function languagesFor(r: Rand, country: string): string[] {
   const base: Record<string, string[]> = {
-    US: ['en'], GB: ['en'], CA: ['en'], AU: ['en'], IN: ['en', chance(r, 0.6) ? 'hi' : 'ta'],
+    US: ['en'], GB: ['en'], CA: ['en'], AU: ['en'], SG: ['en'], IN: ['en', chance(r, 0.6) ? 'hi' : pick(r, ['ta', 'te', 'bn', 'mr', 'kn', 'ml', 'gu', 'pa'])],
     DE: ['de', 'en'], AE: ['ar', 'en'], BR: ['pt'], ES: ['es'],
   };
   const langs = base[country] ?? ['en'];
   if ((country === 'US' || country === 'CA') && chance(r, 0.25)) langs.push(country === 'US' ? 'es' : 'fr');
   if ((country === 'BR' || country === 'ES') && chance(r, 0.5)) langs.push('en');
   return [...new Set(langs)];
+}
+
+/** Small stable hash of a string (FNV-1a), for seed values that must not consume the PRNG. */
+function hashOf(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
 }
 
 function logFollowers(r: Rand, min: number, max: number) {
@@ -224,6 +238,7 @@ function build(spec: Spec, r: Rand, now: Date, out: SeedResult, opts: { photo: s
     // Profiles still in review were submitted recently; decided ones the day after sign-up.
     submittedAt: spec.vetting === 'DRAFT' ? null : new Date(t - (spec.vetting === 'PENDING_REVIEW' ? Math.min(spec.createdDaysAgo - 1, 2) : spec.createdDaysAgo - 1) * DAY).toISOString(),
     profileViews: spec.vetting === 'APPROVED' ? between(r, 40, 2_400) : 0,
+    historicAcceptHours: spec.vetting === 'APPROVED' && opts.reviewCount >= 3 ? 2 + (hashOf(spec.username) % 60) : null,
     // Payouts must be set up before a profile can be submitted (Week 3 rule).
     stripeAccountId: spec.vetting === 'DRAFT' ? null : `acct_demo${spec.username}`,
     payoutStatus: spec.vetting === 'DRAFT' ? 'NOT_STARTED' : 'ENABLED',
@@ -302,11 +317,11 @@ export function seedCreators(now: Date, ids: { leoId: string; newCreatorId: stri
     {
       userId: ids.leoId,
       username: 'leomakes',
-      displayName: 'Leo Marin',
+      displayName: 'Leo Fernandes',
       gender: 'MALE',
       birthYear: year - 31,
-      country: 'US',
-      city: 'Austin',
+      country: 'IN',
+      city: 'Mumbai',
       niches: ['TECH', 'LIFESTYLE'],
       platforms: [
         { platform: 'INSTAGRAM', followers: 84_200, verified: true },
@@ -326,7 +341,7 @@ export function seedCreators(now: Date, ids: { leoId: string; newCreatorId: stri
   out.creatorProfiles.push({
     userId: ids.newCreatorId,
     username: null,
-    displayName: 'Ivy Sandoval',
+    displayName: 'Ivy Mathew',
     bio: null,
     city: null,
     country: null,
@@ -359,7 +374,7 @@ export function seedCreators(now: Date, ids: { leoId: string; newCreatorId: stri
     while (used.has(username)) username += between(r, 1, 9);
     used.add(username);
 
-    const loc = pick(r, LOCATIONS);
+    const loc = chance(r, 0.85) ? INDIA : pick(r, ABROAD);
     const ugcOnly = chance(r, 0.12);
     const primary: Platform = ugcOnly ? 'UGC' : pick(r, ['INSTAGRAM', 'INSTAGRAM', 'TIKTOK', 'TIKTOK', 'YOUTUBE'] as const);
     const others = (['INSTAGRAM', 'TIKTOK', 'YOUTUBE'] as Platform[]).filter((p) => p !== primary);

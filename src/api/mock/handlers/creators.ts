@@ -2,6 +2,10 @@
  * Mock for the public Creators module: GET /creators (search, FR-20 – FR-24) and
  * GET /creators/{username} (profile, FR-15). Only APPROVED creators are visible (FR-16, rule 9.5.1).
  */
+import { LOCATIONS } from '@/lib/catalog';
+import type { SearchSuggestion } from '@/types';
+import { availabilityOf, isAway } from './retention';
+import { toAddon } from './orders';
 import { creatorSearchQuerySchema, type ValidSearchQuery } from '@/features/search/schemas';
 import { NICHE_LABEL } from '@/lib/catalog';
 import type { CreatorCard, CreatorProfile, CreatorSearchPage, Platform } from '@/types';
@@ -27,7 +31,7 @@ function ratingOf(creatorId: string) {
 }
 
 /** Builds the card for one creator, as seen through an optional platform filter. Null = not on that platform. */
-function cardFor(p: CreatorProfileRow & { username: string }, platform?: Platform): Facts | null {
+export function cardFor(p: CreatorProfileRow & { username: string }, platform?: Platform): Facts | null {
   const db = getDb();
   const socials = db.socialAccounts.filter((s) => s.creatorId === p.userId);
   const packages = db.packages.filter((k) => k.creatorId === p.userId && k.active && (!platform || k.platform === platform));
@@ -46,6 +50,7 @@ function cardFor(p: CreatorProfileRow & { username: string }, platform?: Platfor
     currency: CURRENCY,
     ...ratingOf(p.userId),
     verified: socials.some((s) => s.verifiedAt),
+    away: isAway(p),
   };
   return { profile: p, card, topFollowers: top?.followers ?? 0, createdAt: p.approvedAt ?? p.createdAt };
 }
@@ -75,6 +80,10 @@ function matches(f: Facts, q: ValidSearchQuery, year: number): boolean {
   if (q.city && p.city?.toLowerCase() !== q.city.toLowerCase()) return false;
   if (q.language && !p.languages.includes(q.language)) return false;
   if (q.gender && p.gender !== q.gender) return false;
+  if (q.fastAccept) {
+    const h = trackRecord(p.userId).typicalAcceptHours;
+    if (h === null || h > 24) return false;
+  }
   if (!inRange(f.card.reach?.followers, q.followersMin, q.followersMax)) return false;
   if (!inRange(f.card.startingPriceCents, q.priceMinCents, q.priceMaxCents)) return false;
   if (q.ageMin !== undefined || q.ageMax !== undefined) {
@@ -143,9 +152,26 @@ function trackRecord(creatorId: string): { completedOrders: number; typicalAccep
     .slice(0, 20)
     .map((x) => x.h)
     .sort((a, b) => a - b);
-  const median = waits.length >= 3 ? waits[Math.floor((waits.length - 1) / 2)] : null;
+  // Fewer than 3 orders in the mock: fall back to the seeded history (like historic reviews).
+  const median = waits.length >= 3 ? waits[Math.floor((waits.length - 1) / 2)] : (getDb().creatorProfiles.find((p) => p.userId === creatorId)?.historicAcceptHours ?? null);
   return { completedOrders: mine.filter((o) => o.status === 'COMPLETED').length + historic, typicalAcceptHours: median === null ? null : Math.max(1, Math.ceil(median)) };
 }
+
+/** v2.6 search-box suggestions: creators (name or username), niches and cities. */
+export const suggestSearch: Handler = ({ req }) => {
+  const q = (req.query.get('q') ?? '').trim().toLowerCase().slice(0, 100);
+  if (!q) return ok({ suggestions: [] });
+  const out: SearchSuggestion[] = [];
+  for (const [code, label] of Object.entries(NICHE_LABEL)) if (label.toLowerCase().startsWith(q)) out.push({ kind: 'NICHE', label, value: code, detail: 'Niche' });
+  for (const l of LOCATIONS) for (const c of l.cities) if (c.toLowerCase().startsWith(q)) out.push({ kind: 'CITY', label: c, value: `${l.country}:${c}`, detail: l.label });
+  const people = getDb()
+    .creatorProfiles.filter((p) => p.vettingStatus === 'APPROVED' && p.username && isActive(p.userId))
+    .filter((p) => p.displayName.toLowerCase().split(/\s+/).some((w) => w.startsWith(q)) || p.displayName.toLowerCase().startsWith(q) || p.username!.startsWith(q))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    .slice(0, 5)
+    .map((p): SearchSuggestion => ({ kind: 'CREATOR', label: p.displayName, value: p.username!, detail: `@${p.username}` }));
+  return ok({ suggestions: [...out.slice(0, 3), ...people].slice(0, 8) });
+};
 
 export const getCreatorProfile: Handler = ({ params, user }) => {
   const db = getDb();
@@ -163,6 +189,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
   const body: CreatorProfile = {
     ...facts.card,
     ...trackRecord(p.userId),
+    availability: availabilityOf(p),
     bio: p.bio,
     languages: p.languages,
     coverUrls: p.coverUrls.slice(0, 3),
@@ -173,7 +200,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
     packages: db.packages
       .filter((k) => k.creatorId === p.userId && k.active)
       .sort((a, b) => a.priceCents - b.priceCents)
-      .map((k) => ({ id: k.id, platform: k.platform, title: k.title, description: k.description, deliverables: k.deliverables, priceCents: k.priceCents, currency: CURRENCY, deliveryDays: k.deliveryDays })),
+      .map((k) => ({ id: k.id, platform: k.platform, title: k.title, description: k.description, deliverables: k.deliverables, priceCents: k.priceCents, currency: CURRENCY, deliveryDays: k.deliveryDays, addons: (k.addons ?? []).map(toAddon) })),
     portfolio: db.portfolioItems
       .filter((i) => i.creatorId === p.userId)
       .sort((a, b) => a.sortOrder - b.sortOrder)

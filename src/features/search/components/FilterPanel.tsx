@@ -58,6 +58,10 @@ export function FilterPanel({ state, onChange, onClear }: { state: SearchState; 
         options={AGE_BUCKETS.map((b) => ({ value: b.value, label: b.label }))}
         allLabel="Any age"
       />
+      <label className="check small">
+        <input type="checkbox" checked={!!state.fast} onChange={(e) => onChange({ fast: e.target.checked || undefined })} />
+        <span>Usually accepts within 24 h</span>
+      </label>
       <Button variant="ghost" size="sm" onClick={onClear}>
         Clear filters
       </Button>

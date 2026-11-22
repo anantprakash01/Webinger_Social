@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney, parseAmount } from './money';
+import { formatMoney, formatMoneyShort, parseAmount } from './money';
 
 describe('formatMoney', () => {
   it('formats integer paise as rupees with Indian grouping', () => {
@@ -33,5 +33,15 @@ describe('parseAmount', () => {
     expect(parseAmount('12.345')).toBeNull();
     expect(parseAmount('-5')).toBeNull();
     expect(parseAmount('abc')).toBeNull();
+  });
+});
+
+describe('formatMoneyShort (phase E)', () => {
+  it('uses lakh and crore, never overstating', () => {
+    expect(formatMoneyShort(8_220_000)).toBe('₹82,200');
+    expect(formatMoneyShort(10_000_000)).toBe('₹1L');
+    expect(formatMoneyShort(12_990_000)).toBe('₹1.2L');
+    expect(formatMoneyShort(2_500_000_000)).toBe('₹2.5Cr');
+    expect(formatMoneyShort(99_999_900)).toBe('₹9.9L'); // ₹9,99,999 rounds down, never up to ₹10L
   });
 });

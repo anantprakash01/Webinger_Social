@@ -5,10 +5,12 @@
  * (standard or instant). CREATOR_BALANCE → PAYOUT (+ PLATFORM_REVENUE for an instant fee), referenced as
  * `payout_<id>`.
  */
+import { deliver } from './deliver';
 import { auditLedger } from './audit';
 import { getDb, now, ulid, type PayoutAccountRow, type PayoutRow, type UserRow } from './db';
 import { payoutLines, postTxn, type LedgerEntry } from './ledger';
 import { bankNameFor } from './seed/payments';
+import { creatorPayoutCents } from './orderMachine';
 
 const DAY = 86_400_000;
 
@@ -28,7 +30,7 @@ export function creatorMoney(creatorId: string) {
     paidOutCents: db.payouts.filter((p) => p.creatorId === creatorId).reduce((s, p) => s + p.amountCents, 0),
     inEscrowCents: db.orders
       .filter((o) => o.creatorUserId === creatorId && (o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED'))
-      .reduce((s, o) => s + o.priceCents - o.creatorFeeCents, 0),
+      .reduce((s, o) => s + creatorPayoutCents(o), 0),
   };
 }
 
@@ -67,16 +69,7 @@ export function sendPayout(creatorId: string, account: PayoutAccountRow, amountC
   db.ledgerEntries.push(...entries);
   auditLedger(entries, actor);
   const when = speed === 'INSTANT' ? 'in a few minutes' : 'by the next working day';
-  db.notifications.unshift({
-    id: ulid(t.getTime()),
-    userId: creatorId,
-    type: 'PAYOUT_SENT',
-    title: speed === 'SCHEDULED' ? 'Weekly payout on its way' : 'Withdrawal on its way',
-    body: `Sent to ${payout.destinationLabel}; it arrives ${when}.`,
-    link: '/creator/payouts',
-    readAt: null,
-    createdAt: t.toISOString(),
-  });
+  deliver(creatorId, { type: 'PAYOUT_SENT', title: speed === 'SCHEDULED' ? 'Weekly payout on its way' : 'Withdrawal on its way', body: `Sent to ${payout.destinationLabel}; it arrives ${when}.`, link: '/creator/payouts' }, 'PAYOUTS');
   return payout;
 }
 

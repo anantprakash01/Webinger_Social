@@ -1,4 +1,5 @@
 /** Mock for the brand workspace: company profile (FR-05). Brand role only. */
+import { brandTotalCents } from '../orderMachine';
 import { brandProfileInputSchema } from '@/features/brands/schemas';
 import type { BrandProfile, BrandStats } from '@/types';
 import { getDb, now, type BrandProfileRow, type UserRow } from '../db';
@@ -18,6 +19,8 @@ const toBrandProfile = (b: BrandProfileRow): BrandProfile => ({
   industry: b.industry,
   country: b.country,
   plan: b.plan,
+  state: b.state ?? null,
+  gstin: b.gstin ?? null,
 });
 
 export const getMyBrandProfile: Handler = ({ user }) => ok(toBrandProfile(myBrand(user)));
@@ -31,6 +34,8 @@ export const updateMyBrandProfile: Handler = ({ req, user }) => {
     logoUrl: body.logoUrl ?? null,
     industry: body.industry,
     country: body.country,
+    state: body.country === 'IN' ? (body.state ?? null) : null,
+    gstin: body.country === 'IN' ? (body.gstin ?? null) : null,
   });
   user.updatedAt = now().toISOString();
   return ok(toBrandProfile(b));
@@ -60,7 +65,7 @@ export const getMyBrandStats: Handler = ({ user }) => {
   myBrand(user);
   const db = getDb();
   const orders = db.orders.filter((o) => o.brandUserId === user.id);
-  const total = (o: (typeof orders)[number]) => o.priceCents + o.brandFeeCents;
+  const total = (o: (typeof orders)[number]) => brandTotalCents(o);
   const captured = orders.filter((o) => o.payment.status === 'CAPTURED' || o.payment.status === 'REFUNDED');
   const statuses = ['PENDING_ACCEPTANCE', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'REFUNDED', 'CLOSED'] as const;
   const ids = new Set(orders.map((o) => o.id));
@@ -85,6 +90,7 @@ export const getMyBrandStats: Handler = ({ user }) => {
               creatorName: db.creatorProfiles.find((p) => p.userId === o.creatorUserId)?.displayName ?? 'Creator',
               url: i.url,
               deliveredAt: d.submittedAt,
+              metrics: i.metrics ?? null,
             };
           }),
       )

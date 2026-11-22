@@ -4,6 +4,8 @@
  * charged, until the creator accepts. Methods: UPI, card, netbanking, wallet app via Razorpay (v2.0).
  * The fee summary comes from the server's quote, so it always matches what is charged.
  */
+import { useT } from '@/lib/i18n';
+import { BrandMoneyLines } from '../components/TaxLines';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,6 +33,7 @@ export function CheckoutPage() {
 }
 
 function Checkout() {
+  const { t } = useT();
   const { packageId, username } = useParams();
   const offerMode = !!username;
   const navigate = useNavigate();
@@ -39,6 +42,8 @@ function Checkout() {
   const [pay, setPay] = useState<PayChoice>(emptyChoice());
   const [payErrors, setPayErrors] = useState<PayErrors>({});
   const [paying, setPaying] = useState(false);
+  // Phase C: package add-ons ticked by the brand; the server prices them into the quote and the order.
+  const [addonIds, setAddonIds] = useState<string[]>([]);
 
   const form = useForm<CheckoutFormValues, unknown, CheckoutFormOutput>({
     resolver: zodResolver(makeCheckoutSchema({ offer: offerMode, card: false })),
@@ -58,7 +63,10 @@ function Checkout() {
     }, 300);
     return () => clearTimeout(t);
   }, [price, offerMode]);
-  const quote = useOrderQuote(offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId }, offerMode ? !!username : !!packageId);
+  const quote = useOrderQuote(
+    offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId, addonIds: addonIds.length ? [...addonIds].sort().join(',') : undefined },
+    offerMode ? !!username : !!packageId,
+  );
 
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
@@ -70,7 +78,7 @@ function Checkout() {
     try {
       // Pay first (authorise only); the server verifies the payment before the order exists.
       const payment = await collectOrderPayment(pay, quote.data.totalCents);
-      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment } : { packageId, brief: v.brief!, payment });
+      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment } : { packageId, brief: v.brief!, payment, addonIds });
       navigate(`/brand/orders/${res.orderId}`, { replace: true, state: { placed: true } });
     } catch (e) {
       let placed = false;
@@ -102,10 +110,10 @@ function Checkout() {
         {gone ? (
           <Card>
             <div className="state">
-              <div className="state__title">This offer is no longer available</div>
+              <div className="state__title">{t('This offer is no longer available')}</div>
               <div className="small">{quote.error.message}</div>
               <Link to="/search" className="btn btn--secondary btn--sm">
-                Find other creators
+                {t('Find other creators')}
               </Link>
             </div>
           </Card>
@@ -119,19 +127,19 @@ function Checkout() {
 
   return (
     <div className="page checkout">
-      <PageHeader eyebrow={offerMode ? 'Custom offer' : 'Checkout'} title={offerMode ? `Send ${q.creator.name.split(' ')[0]} an offer` : 'Book this package'} />
+      <PageHeader eyebrow={t(offerMode ? 'Custom offer' : 'Checkout')} title={offerMode ? t('Send {name} an offer', { name: q.creator.name.split(' ')[0] }) : t('Book this package')} />
       <form className="checkout__layout" onSubmit={(e) => {
           setPayErrors(validateChoice(pay));
           void onSubmit(e);
         }} noValidate>
         <div className="checkout__main">
           {offerMode && (
-            <Card title="1. Your offer">
+            <Card title={`1. ${t('Your offer')}`}>
               <div className="form-stack">
-                <Input label="Title" placeholder="e.g. Two TikToks for our summer launch" error={errors.title?.message} {...register('title')} />
+                <Input label={t('Title')} placeholder="e.g. Two TikToks for our summer launch" error={errors.title?.message} {...register('title')} />
                 <div className="field">
                   <label className="field__label" htmlFor="offer-platform">
-                    Platform
+                    {t('Platform')}
                   </label>
                   <select id="offer-platform" className="field__input" {...register('platform')}>
                     {PLATFORMS.map((p) => (
@@ -141,41 +149,43 @@ function Checkout() {
                     ))}
                   </select>
                 </div>
-                <TextArea label="Deliverables" rows={3} hint="One per line, e.g. “2 TikTok videos (30–60 s)”." error={errors.deliverablesText?.message} {...register('deliverablesText')} />
+                <TextArea label={t('Deliverables')} rows={3} hint="One per line, e.g. “2 TikTok videos (30–60 s)”." error={errors.deliverablesText?.message} {...register('deliverablesText')} />
                 <div className="form-row">
-                  <Input label="Price (₹)" inputMode="decimal" placeholder="20000" hint="At least ₹500." error={errors.price?.message} {...register('price')} />
-                  <Input label="Delivery (days after acceptance)" inputMode="numeric" hint="1 to 60 days." error={errors.deliveryDays?.message} {...register('deliveryDays')} />
+                  <Input label={t('Price (₹)')} inputMode="decimal" placeholder="20000" hint={t('At least ₹500.')} error={errors.price?.message} {...register('price')} />
+                  <Input label={t('Delivery (days after acceptance)')} inputMode="numeric" hint={t('1 to 60 days.')} error={errors.deliveryDays?.message} {...register('deliveryDays')} />
                 </div>
               </div>
             </Card>
           )}
 
-          <Card title={`${offerMode ? '2' : '1'}. Brief`}>
+          <Card title={`${offerMode ? '2' : '1'}. ${t('Brief')}`}>
             <BriefFields form={form} />
           </Card>
 
-          <Card title={`${offerMode ? '3' : '2'}. Payment`}>
+          <Card title={`${offerMode ? '3' : '2'}. ${t('Payment')}`}>
             <PaymentPicker value={pay} onChange={setPay} errors={payErrors} />
           </Card>
         </div>
 
         <aside className="checkout__side">
-          <Summary q={q} offerMode={offerMode} priceReady={!offerMode || quotedPrice !== undefined} />
+          <Summary q={q} offerMode={offerMode} priceReady={!offerMode || quotedPrice !== undefined} addonIds={addonIds} onAddons={setAddonIds} />
           <FormError>{formError}</FormError>
           {/* On phones this sticks above the bottom nav, so paying never needs a scroll back (UX pass, item 4). */}
           <div className="checkout__pay">
             <span className="checkout__pay-total" aria-hidden>
-              <span className="small muted">Total</span>
+              <span className="small muted">{t('Total')}</span>
               <strong>{!offerMode || quotedPrice !== undefined ? formatMoney(q.totalCents, q.currency) : '—'}</strong>
             </span>
             <Button type="submit" block loading={paying || create.isPending} disabled={offerMode && quotedPrice === undefined}>
-              {offerMode ? 'Send offer and pay ' : 'Pay '}
-              {(!offerMode || quotedPrice !== undefined) && formatMoney(q.totalCents, q.currency)}
+              {(!offerMode || quotedPrice !== undefined) ? t(offerMode ? 'Send offer and pay {amount}' : 'Pay {amount}', { amount: formatMoney(q.totalCents, q.currency) }) : t('Send offer and pay')}
             </Button>
           </div>
           <p className="small muted checkout__fine">
-            <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} /> Your payment is held now and <strong>charged only when {q.creator.name.split(' ')[0]} accepts</strong>. If they
-            decline or don't respond within {q.acceptWindowHours} hours, the hold is released. Money stays in escrow until you approve the work.
+            <LuShieldCheck aria-hidden style={{ verticalAlign: 'middle' }} />{' '}
+            {t('Your payment is held now and charged only when {name} accepts. If they decline or don’t respond within {hours} hours, the hold is released. Money stays in escrow until you approve the work.', { name: q.creator.name.split(' ')[0], hours: q.acceptWindowHours })}{' '}
+            <Link to="/refunds" className="link" target="_blank" rel="noopener">
+              {t('Refund policy')}
+            </Link>
           </p>
         </aside>
       </form>
@@ -183,7 +193,10 @@ function Checkout() {
   );
 }
 
-function Summary({ q, offerMode, priceReady }: { q: OrderQuote; offerMode: boolean; priceReady: boolean }) {
+function Summary({ q, offerMode, priceReady, addonIds, onAddons }: { q: OrderQuote; offerMode: boolean; priceReady: boolean; addonIds: string[]; onAddons: (ids: string[]) => void }) {
+  const { t } = useT();
+  const addons = q.package?.addons ?? [];
+  const rush = addons.find((a) => a.kind === 'RUSH' && addonIds.includes(a.id));
   return (
     <Card>
       <div className="form-stack">
@@ -210,17 +223,33 @@ function Summary({ q, offerMode, priceReady }: { q: OrderQuote; offerMode: boole
               ))}
             </ul>
             <span className="small muted">
-              <LuClock aria-hidden style={{ verticalAlign: 'middle' }} /> Delivered within {q.package.deliveryDays} days of acceptance
+              <LuClock aria-hidden style={{ verticalAlign: 'middle' }} /> {t('Delivered within {days} days of acceptance', { days: rush?.rushDays ?? q.package.deliveryDays })}
             </span>
           </div>
         )}
+        {addons.length > 0 && (
+          <fieldset className="addons">
+            <legend className="small">
+              <strong>{t('Add-ons')}</strong> <span className="muted">{t('(optional)')}</span>
+            </legend>
+            {addons.map((a) => (
+              <label key={a.id} className="check small addon">
+                <input
+                  type="checkbox"
+                  checked={addonIds.includes(a.id)}
+                  onChange={(e) => onAddons(e.target.checked ? [...addonIds, a.id] : addonIds.filter((x) => x !== a.id))}
+                />
+                <span className="addon__title">{a.title}</span>
+                <span className="addon__price">+{formatMoney(a.priceCents, q.currency)}</span>
+              </label>
+            ))}
+            {!addons.some((a) => a.kind === 'USAGE_RIGHTS' && addonIds.includes(a.id)) && (
+              <p className="small muted">{t('Without usage rights, the content is for organic posting only, not paid ads.')}</p>
+            )}
+          </fieldset>
+        )}
         <dl className="money">
-          <dt>{offerMode ? 'Offer price' : 'Package price'}</dt>
-          <dd>{priceReady ? formatMoney(q.priceCents, q.currency) : '—'}</dd>
-          <dt>Service fee ({q.brandFeeBps / 100}%)</dt>
-          <dd>{priceReady ? formatMoney(q.brandFeeCents, q.currency) : '—'}</dd>
-          <dt className="money__total">Total</dt>
-          <dd className="money__total">{priceReady ? formatMoney(q.totalCents, q.currency) : 'Enter a price'}</dd>
+          <BrandMoneyLines priceLabel={t(offerMode ? 'Offer price' : addonIds.length ? 'Package + add-ons' : 'Package price')} priceCents={q.priceCents} brandFeeCents={q.brandFeeCents} brandFeeBps={q.brandFeeBps} totalCents={q.totalCents} taxes={q.taxes} currency={q.currency} ready={priceReady} />
         </dl>
       </div>
     </Card>

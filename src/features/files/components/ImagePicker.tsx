@@ -18,6 +18,7 @@ const DEMO_IMAGES: Record<PresignRequest['purpose'], string[]> = {
   PORTFOLIO: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
   BRIEF_REFERENCE: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
   DELIVERABLE: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
+  MESSAGE_ATTACHMENT: Array.from({ length: 36 }, (_, i) => `/demo/work-${pad(i + 1)}.svg`),
 };
 
 interface Props {

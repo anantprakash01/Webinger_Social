@@ -2,13 +2,15 @@
  * Mock for the admin console (FR-80 – FR-85) and the public report endpoint. Admin role only, except
  * POST /reports. Every admin action writes an audit entry (FR-84).
  */
+import { deliver } from '../deliver';
 import { feeUpdateSchema, reportInputSchema, reportResolveSchema, requiredReasonSchema, resolveDisputeSchema, userStatusChangeSchema } from '@/features/admin/schemas';
 import { formatMoney } from '@/lib/money';
 import type { AdminDispute, AdminSummary, AdminUser, AdminUserPage, AuditPage, FeeSettings, Report, VettingItem } from '@/types';
 import { audit } from '../audit';
 import { getDb, now, ulid, type DisputeRow, type FeeConfigRow, type ReportRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
-import { brandTotalCents } from '../orderMachine';
+import { brandTotalCents, creatorPayoutCents } from '../orderMachine';
+import { NO_TAXES } from '../tax';
 import { decideVetting, toCreatorMe } from './creatorMe';
 import { applyTransition } from './orders';
 import { issueSession, revokeAllSessions } from './session';
@@ -27,10 +29,7 @@ function party(userId: string) {
 }
 
 function notify(userId: string, type: 'PROFILE_APPROVED' | 'PROFILE_REJECTED', title: string, body: string, link: string) {
-  const db = getDb();
-  db.notifications.unshift({ id: ulid(now().getTime()), userId, type, title, body, link, readAt: null, createdAt: now().toISOString() });
-  const to = db.users.find((u) => u.id === userId)?.email;
-  if (to) db.outbox.unshift({ id: ulid(now().getTime()), to, subject: title, body, link, createdAt: now().toISOString() });
+  deliver(userId, { type, title, body, link }, 'ACCOUNT');
 }
 
 /* ---------- Summary ---------- */
@@ -125,7 +124,8 @@ function toDispute(d: DisputeRow): AdminDispute {
       brandFeeCents: o.brandFeeCents,
       totalCents: brandTotalCents(o),
       creatorFeeCents: o.creatorFeeCents,
-      creatorPayoutCents: o.priceCents - o.creatorFeeCents,
+      creatorPayoutCents: creatorPayoutCents(o),
+      taxes: o.taxes ?? NO_TAXES,
     },
     reason: d.reason,
     status: d.status,
@@ -372,4 +372,25 @@ export const resolveReport: Handler = ({ req, params, user }) => {
   Object.assign(r, { status: body.status, resolutionNote: body.note, resolvedAt: now().toISOString(), resolvedBy: user.id });
   audit(user, { action: 'REPORT_RESOLVED', entityType: 'REPORT', entityId: r.id, summary: `Report ${body.status === 'DISMISSED' ? 'dismissed' : 'actioned'}: ${body.note}`, before: { status: 'OPEN' }, after: { status: body.status } });
   return ok(toReport(r));
+};
+
+/* ---------- FR-37: cancel an accepted order ---------- */
+
+export const cancelOrderAsAdmin: Handler = ({ req, params, user }) => {
+  requireAdmin(user);
+  const { reason } = parseBody(requiredReasonSchema, req.body);
+  const db = getDb();
+  const order = db.orders.find((o) => o.id === params.id);
+  if (!order) fail(404, 'No such order.', 'ORDER_NOT_FOUND');
+  const before = order.status;
+  const next = applyTransition(order, { type: 'ADMIN_CANCEL', note: reason }, actor(user));
+  audit(user, {
+    action: 'ORDER_CANCELLED',
+    entityType: 'ORDER',
+    entityId: order.id,
+    summary: `Order cancelled after acceptance, ${formatMoney(next.payment.refundedCents)} refunded`,
+    before: { status: before },
+    after: { status: next.status, refundedCents: next.payment.refundedCents, reason },
+  });
+  return ok({ orderId: next.id, status: next.status, refundedCents: next.payment.refundedCents });
 };

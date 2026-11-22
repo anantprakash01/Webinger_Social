@@ -4,6 +4,7 @@
  */
 import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { LuChevronLeft, LuChevronRight, LuCircleAlert, LuInbox, LuSearch, LuX } from 'react-icons/lu';
 
 export const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
@@ -231,6 +232,8 @@ export function Stat({ label, value, hint, accent }: { label: string; value: Rea
 
 /* ---------- Page header ---------- */
 export function PageHeader({ eyebrow, title, actions }: { eyebrow?: ReactNode; title: ReactNode; actions?: ReactNode }) {
+  // The tab title follows the page title (WCAG 2.4.2).
+  useDocumentTitle(typeof title === 'string' ? title : null);
   return (
     <div className="page__head">
       <div>

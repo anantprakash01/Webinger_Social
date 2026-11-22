@@ -32,6 +32,7 @@ const toAccount = (a: PayoutAccountRow): PayoutAccount => ({
   status: a.status,
   failureReason: a.failureReason,
   updatedAt: a.updatedAt,
+  gstin: a.gstin ?? null,
 });
 
 export const getPayoutAccount: Handler = ({ user }) => {
@@ -54,6 +55,7 @@ export const savePayoutAccount: Handler = ({ req, user }) => {
     accountNumber: body.method === 'BANK_ACCOUNT' ? body.accountNumber! : null,
     ifsc: body.method === 'BANK_ACCOUNT' ? body.ifsc! : null,
     vpa: body.method === 'UPI' ? body.vpa! : null,
+    gstin: body.gstin ?? null,
     status: failed ? 'FAILED' : 'VERIFIED',
     failureReason: failed
       ? body.method === 'BANK_ACCOUNT'
@@ -69,6 +71,24 @@ export const savePayoutAccount: Handler = ({ req, user }) => {
   p.payoutStatus = failed ? 'PENDING' : 'ENABLED';
   return ok(toAccount(row));
 };
+
+/** Indian financial year (1 April – 31 March) of a date, e.g. "2026-27". */
+export function financialYear(d: Date): { label: string; start: Date } {
+  const y = d.getUTCMonth() >= 3 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
+  return { label: `${y}-${String((y + 1) % 100).padStart(2, '0')}`, start: new Date(Date.UTC(y, 3, 1)) };
+}
+
+/** TDS (194-O) and TCS (s.52) withheld from this creator on orders released this financial year. */
+function taxWithheldThisYear(creatorId: string) {
+  const db = getDb();
+  const fy = financialYear(now());
+  const released = db.orders.filter((o) => o.creatorUserId === creatorId && (o.status === 'COMPLETED' || (o.status === 'REFUNDED' && o.payment.refundedCents < o.payment.amountCents)) && new Date(o.updatedAt) >= fy.start);
+  return {
+    financialYear: fy.label,
+    tdsWithheldCents: released.reduce((s, o) => s + (o.taxes?.tdsCents ?? 0), 0),
+    tcsWithheldCents: released.reduce((s, o) => s + (o.taxes?.tcsCents ?? 0), 0),
+  };
+}
 
 function overview(user: UserRow): PayoutOverview {
   const p = myProfile(user);
@@ -107,6 +127,7 @@ function overview(user: UserRow): PayoutOverview {
     minWithdrawalCents: MIN_WITHDRAWAL_CENTS,
     instantFeeBps: INSTANT_FEE_BPS,
     instantFeeMinCents: INSTANT_FEE_MIN_CENTS,
+    ...taxWithheldThisYear(p.userId),
   };
 }
 

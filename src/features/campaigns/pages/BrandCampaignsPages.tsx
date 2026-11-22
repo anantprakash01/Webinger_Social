@@ -1,11 +1,12 @@
 /** Brand side of campaigns: /brand/campaigns (list + new) and /brand/campaigns/:id (applications). */
+import { formatWhen } from '@/lib/dates';
 import { toast, useConfirm } from '@/components/feedback';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuPlus } from 'react-icons/lu';
 import { RequireVerified } from '@/app/guards';
 import { CreatorPhoto, PlatformIcon, Rating } from '@/components/creator';
-import { Button, Card, Drawer, EmptyState, ErrorState, FormError, PageHeader, PageSkeleton } from '@/components/ui';
+import { Button, Card, Drawer, EmptyState, ErrorState, FormError, PageHeader, PageSkeleton, Badge } from '@/components/ui';
 import { formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { ApiError, type Application } from '@/types';
@@ -123,6 +124,35 @@ export function BrandCampaignDetailPage() {
           ) : (
             c.applications.map((a) => <ApplicationCard key={a.id} a={a} campaignId={c.id} budget={c.budgetPerCreatorCents} open={c.status === 'OPEN'} />)
           )}
+          <Card title={`Invited (${c.invites.length})`}>
+            {c.invites.length === 0 ? (
+              <p className="small muted">
+                Invite creators you like from their profile or your{' '}
+                <Link to="/brand/lists" className="link">
+                  saved lists
+                </Link>
+                . They still apply with their own pitch and price.
+              </p>
+            ) : (
+              <ul className="list">
+                {c.invites.map((i) => (
+                  <li key={i.id} className="list__item">
+                    <div className="list__main">
+                      {i.creator.username ? (
+                        <Link to={`/u/${i.creator.username}`} className="list__title link">
+                          {i.creator.name}
+                        </Link>
+                      ) : (
+                        <div className="list__title">{i.creator.name}</div>
+                      )}
+                      <div className="list__meta">Invited {formatWhen(i.createdAt)}</div>
+                    </div>
+                    <Badge tone={i.status === 'APPLIED' ? 'ok' : i.status === 'DECLINED' ? 'neutral' : 'info'}>{i.status === 'APPLIED' ? 'Applied' : i.status === 'DECLINED' ? 'Declined' : 'Invited'}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
         </section>
         <aside className="order__side">
           <Card title="Brief">

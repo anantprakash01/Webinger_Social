@@ -39,10 +39,10 @@ describe('search page', () => {
   it('puts the keyword in the URL after typing stops (shareable links)', async () => {
     renderAt('/search');
     const user = userEvent.setup();
-    await user.type(await screen.findByRole('searchbox', { name: 'Search creators' }), 'leomakes');
+    await user.type(await screen.findByRole('combobox', { name: 'Search creators' }), 'leomakes');
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('leomakes'));
     expect(await screen.findByText('1 creator', { selector: 'h2' })).toBeInTheDocument();
-    expect(within(cards()[0]).getByText('Leo Marin')).toBeInTheDocument();
+    expect(within(cards()[0]).getByText('Leo Fernandes')).toBeInTheDocument();
   });
 
   it('changing a filter goes back to page 1', async () => {
@@ -65,7 +65,7 @@ describe('search page', () => {
 describe('creator profile', () => {
   it('works logged out and shows packages, portfolio and reviews (FR-15)', async () => {
     renderAt('/u/leomakes');
-    expect(await screen.findByRole('heading', { level: 1, name: /Leo Marin/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /Leo Fernandes/ })).toBeInTheDocument();
     const leoPackages = getDb().packages.filter((k) => k.creatorId === getDb().creatorProfiles.find((p) => p.username === 'leomakes')!.userId);
     expect(screen.getAllByRole('button', { name: /^Buy / })).toHaveLength(leoPackages.length);
     expect(screen.getByRole('heading', { name: 'Portfolio' })).toBeInTheDocument();
@@ -102,8 +102,8 @@ describe('creator profile', () => {
   it('a search card links to the profile', async () => {
     renderAt('/search?q=leomakes');
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('link', { name: /Leo Marin/ }));
-    expect(await screen.findByRole('heading', { level: 1, name: /Leo Marin/ })).toBeInTheDocument();
+    await user.click(await screen.findByRole('link', { name: /Leo Fernandes/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: /Leo Fernandes/ })).toBeInTheDocument();
   });
 });
 

@@ -217,6 +217,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change password (v2.2); other devices are signed out */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change the sign-in email (v2.2); the new address must be verified again */
+        post: operations["changeEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign out every other device (v2.2) */
+        post: operations["signOutOtherDevices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download my data (DPDP right of access, v2.2)
+         * @description Everything held about the user as JSON. Card numbers are never held; bank account numbers are masked.
+         */
+        get: operations["exportMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notification channels per category (FR-53, v2.5) */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Save notification channels (FR-53, v2.5)
+         * @description In-app notifications are always on. SMS and WhatsApp need a verified Indian mobile number; security emails (verification, password reset) are always sent.
+         */
+        put: operations["saveNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete my account (DPDP right to erasure, FR-06, v2.2)
+         * @description Schedules erasure in 30 days. Refused while orders are open (409 OPEN_ORDERS) or a creator has an available balance (409 BALANCE_REMAINING). Invoices and payment records are kept as tax law requires; the person is anonymised.
+         */
+        post: operations["requestAccountDeletion"];
+        /** Cancel a scheduled account deletion (v2.2) */
+        delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators": {
         parameters: {
             query?: never;
@@ -699,6 +812,268 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a draft for approval before posting (v2.4)
+         * @description Creator, while IN_PROGRESS. The brand approves it or asks for changes; money does not move. Then the creator posts and delivers as usual.
+         */
+        post: operations["shareDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/drafts/{draftId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a draft or ask for changes (v2.4) */
+        post: operations["reviewDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/shipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add or update the product shipment to the creator (v2.4)
+         * @description Brand, when the brief needs shipping, while PENDING_ACCEPTANCE or IN_PROGRESS.
+         */
+        put: operations["saveShipment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/shipment/received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The creator received the product (v2.4) */
+        post: operations["markShipmentReceived"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/extension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for more time (v2.4)
+         * @description Creator, while IN_PROGRESS, one pending request at a time, 1–14 extra days. The brand accepts (the due date moves) or declines.
+         */
+        post: operations["requestExtension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/extension/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept or decline a request for more time (v2.4) */
+        post: operations["reviewExtension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/deliveries/{deliveryId}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record a post's results (manual metrics, v2.4)
+         * @description Creator, once DELIVERED or later. Shown to the brand on the order and the dashboard.
+         */
+        put: operations["savePostMetrics"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My saved lists of creators (FR-25, v2.5) */
+        get: operations["listSavedLists"];
+        put?: never;
+        /** Create a list (max 20) */
+        post: operations["createSavedList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        /** A list with its creators as search cards */
+        get: operations["getSavedList"];
+        put?: never;
+        post?: never;
+        /** Delete a list */
+        delete: operations["deleteSavedList"];
+        options?: never;
+        head?: never;
+        /** Rename a list */
+        patch: operations["renameSavedList"];
+        trace?: never;
+    };
+    "/lists/{listId}/creators/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Save a creator to a list (max 200 per list; idempotent) */
+        put: operations["addToSavedList"];
+        post?: never;
+        /** Remove a creator from a list */
+        delete: operations["removeFromSavedList"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/creators/me/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Vacation mode (v2.5)
+         * @description While away, the profile shows a notice, new orders and invites are refused (409 CREATOR_AWAY) and search cards show "Away". It switches off by itself after `until`.
+         */
+        put: operations["saveAvailability"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite a creator to apply (FR-43, v2.5) */
+        post: operations["inviteToCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invites/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline an invitation (creator) */
+        post: operations["declineInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/brand-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The creator rates the brand once the order is completed (v2.5) */
+        post: operations["reviewBrand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}/review": {
         parameters: {
             query?: never;
@@ -1068,6 +1443,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an accepted order and refund the brand in full (FR-37, v2.2)
+         * @description For IN_PROGRESS or DELIVERED orders (e.g. the creator stopped responding). Refunds the full amount to the original payment method; the creator receives nothing. Audited as ORDER_CANCELLED.
+         */
+        post: operations["cancelOrderAsAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/disputes/{id}/resolve": {
         parameters: {
             query?: never;
@@ -1395,6 +1790,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/creators/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search-box suggestions (v2.6)
+         * @description Up to 8 matches for what is typed so far — approved creators by name or username, niches and cities. Public.
+         */
+        get: operations["suggestSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators/{username}": {
         parameters: {
             query?: never;
@@ -1502,8 +1917,27 @@ export interface components {
             impersonatedBy?: string | null;
             /** @description Picture for the account menu (v2.1): creator photo, brand logo or admin avatar; null shows initials. */
             avatarUrl?: string | null;
+            /**
+             * Format: date-time
+             * @description Account deletion requested (v2.2); erased after this date unless cancelled.
+             */
+            deletionScheduledFor?: string | null;
             creator?: components["schemas"]["CreatorSummary"];
             brand?: components["schemas"]["BrandSummary"];
+        };
+        ChangePasswordRequest: {
+            /** @description Not needed for Google-only accounts. */
+            currentPassword?: string;
+            newPassword: string;
+        };
+        ChangeEmailRequest: {
+            /** Format: email */
+            newEmail: string;
+            currentPassword?: string;
+        };
+        DeletionRequest: {
+            currentPassword?: string;
+            reason?: string | null;
         };
         AvatarUpdate: {
             /** @description Uploaded image URL; null removes it (not allowed for creators). */
@@ -1551,6 +1985,90 @@ export interface components {
             ratingCount: number;
             /** @description At least one social account was verified by our team (badge). */
             verified: boolean;
+            /** @description Vacation mode is on: not taking new orders (v2.5). */
+            away: boolean;
+        };
+        SearchSuggestion: {
+            /** @enum {string} */
+            kind: "CREATOR" | "NICHE" | "CITY";
+            label: string;
+            /** @description CREATOR: username; NICHE: niche code; CITY: "IN:Mumbai". */
+            value: string;
+            detail: string | null;
+        };
+        SavedListInput: {
+            name: string;
+        };
+        SavedList: {
+            id: string;
+            name: string;
+            usernames: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SavedListDetail: components["schemas"]["SavedList"] & {
+            /** @description Creators still visible to brands; hidden or suspended ones are left out. */
+            creators: components["schemas"]["CreatorCard"][];
+        };
+        CreatorAvailability: {
+            away: boolean;
+            /**
+             * Format: date
+             * @description Last day away (inclusive); null = until switched off.
+             */
+            until?: string | null;
+            message?: string | null;
+        };
+        CampaignInviteInput: {
+            username: string;
+            message?: string | null;
+        };
+        CampaignInvite: {
+            id: string;
+            campaignId: string;
+            campaignTitle: string;
+            creator: components["schemas"]["OrderParty"];
+            message: string | null;
+            /** @enum {string} */
+            status: "INVITED" | "APPLIED" | "DECLINED";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Creators' ratings of a brand (v2.5). */
+        BrandRating: {
+            ratingAvg: number | null;
+            ratingCount: number;
+        };
+        BrandReview: {
+            id: string;
+            rating: number;
+            comment: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @enum {string} */
+        NotificationCategory: "ORDERS" | "CAMPAIGNS" | "PAYOUTS" | "ACCOUNT" | "PRODUCT_NEWS";
+        NotificationPreferences: {
+            /**
+             * @description Indian mobile number, +91 followed by 10 digits starting 6–9. Needed for SMS and WhatsApp.
+             * @example +919876543210
+             */
+            phone: string | null;
+            categories: {
+                category: components["schemas"]["NotificationCategory"];
+                email: boolean;
+                sms: boolean;
+                whatsapp: boolean;
+            }[];
+        };
+        MessageAttachment: {
+            url: string;
+            name: string;
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+            sizeBytes: number;
         };
         CreatorSearchPage: components["schemas"]["PageMeta"] & {
             content: components["schemas"]["CreatorCard"][];
@@ -1579,6 +2097,101 @@ export interface components {
             /** @example USD */
             currency: string;
             deliveryDays: number;
+            /** @description Optional extras (v2.4). */
+            addons?: components["schemas"]["PackageAddon"][];
+        };
+        /** @description Optional extra on a package (v2.4): paid ad usage rights, rush delivery or an extra revision. */
+        PackageAddon: {
+            id: string;
+            /** @enum {string} */
+            kind: "USAGE_RIGHTS" | "RUSH" | "EXTRA_REVISION";
+            title: string;
+            /** Format: int64 */
+            priceCents: number;
+            /** @description USAGE_RIGHTS: days the brand may run the content as paid ads. */
+            usageDays: number | null;
+            /** @description RUSH: delivery days instead of the package's. */
+            rushDays: number | null;
+        };
+        PackageAddonInput: {
+            /** @description Keep an existing add-on's id. */
+            id?: string;
+            /** @enum {string} */
+            kind: "USAGE_RIGHTS" | "RUSH" | "EXTRA_REVISION";
+            title: string;
+            /** Format: int64 */
+            priceCents: number;
+            usageDays?: number | null;
+            rushDays?: number | null;
+        };
+        DraftReview: {
+            /** @enum {string} */
+            decision: "APPROVE" | "CHANGES";
+            /** @description Required (10+ characters) when asking for changes. */
+            note?: string | null;
+        };
+        Draft: {
+            id: string;
+            items: components["schemas"]["DeliveryItem"][];
+            note: string | null;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "CHANGES_REQUESTED";
+            feedback: string | null;
+            /** Format: date-time */
+            submittedAt: string;
+            /** Format: date-time */
+            reviewedAt: string | null;
+        };
+        ShipmentInput: {
+            /** @example Delhivery */
+            courier: string;
+            trackingNumber: string;
+        };
+        Shipment: {
+            courier: string;
+            trackingNumber: string;
+            /** Format: date-time */
+            shippedAt: string;
+            /** Format: date-time */
+            receivedAt: string | null;
+        };
+        ExtensionRequest: {
+            extraDays: number;
+            reason: string;
+        };
+        ExtensionReview: {
+            /** @enum {string} */
+            decision: "ACCEPT" | "DECLINE";
+        };
+        Extension: {
+            extraDays: number;
+            reason: string;
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "DECLINED";
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            decidedAt: string | null;
+            /** Format: date-time */
+            newDueAt: string;
+        };
+        PostMetricsInput: {
+            /** @description Index of the POST_URL item in the delivery. */
+            itemIndex: number;
+            views: number;
+            likes: number;
+            comments: number;
+            shares?: number | null;
+            reach?: number | null;
+        };
+        PostMetrics: {
+            views: number;
+            likes: number;
+            comments: number;
+            shares: number | null;
+            reach: number | null;
+            /** Format: date-time */
+            recordedAt: string;
         };
         PortfolioItem: {
             id: components["schemas"]["Ulid"];
@@ -1615,6 +2228,7 @@ export interface components {
             reviews: components["schemas"]["Review"][];
             /** Format: date-time */
             memberSince: string;
+            availability: components["schemas"]["CreatorAvailability"];
             /** @description Always APPROVED for the public; other values only in an owner or admin preview. */
             vettingStatus: components["schemas"]["VettingStatus"];
         };
@@ -1649,6 +2263,8 @@ export interface components {
             deliveryDays: number;
             /** @default true */
             active: boolean;
+            /** @description v2.4; one of each kind. */
+            addons?: components["schemas"]["PackageAddonInput"][];
         };
         /** @description Any subset of PackageInput fields. */
         PackagePatch: {
@@ -1660,6 +2276,8 @@ export interface components {
             priceCents?: number;
             deliveryDays?: number;
             active?: boolean;
+            /** @description v2.4: replaces the add-ons. */
+            addons?: components["schemas"]["PackageAddonInput"][];
         };
         OwnPackage: components["schemas"]["Package"] & {
             active: boolean;
@@ -1686,6 +2304,7 @@ export interface components {
             payouts: boolean;
         };
         CreatorMe: {
+            availability: components["schemas"]["CreatorAvailability"];
             username: string | null;
             displayName: string;
             bio: string | null;
@@ -1734,6 +2353,10 @@ export interface components {
         /** @enum {string} */
         BrandIndustry: "BEAUTY" | "FASHION" | "FOOD" | "HEALTH" | "HOME" | "TECH" | "TRAVEL" | "FINANCE" | "EDUCATION" | "PETS" | "AGENCY" | "OTHER";
         BrandProfile: {
+            /** @description Indian state code (place of supply for GST), e.g. KA (v2.3). */
+            state: string | null;
+            /** @description GSTIN for input tax credit on our invoices (v2.3). */
+            gstin: string | null;
             companyName: string | null;
             website: string | null;
             logoUrl: string | null;
@@ -1752,13 +2375,20 @@ export interface components {
             logoUrl?: string | null;
             industry: components["schemas"]["BrandIndustry"];
             country: string;
+            /** @description Indian state code; required when country is IN (v2.3). */
+            state?: string | null;
+            /** @description Optional; its first two digits must match the state (v2.3). */
+            gstin?: string | null;
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE";
+            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE" | "MESSAGE_ATTACHMENT";
             fileName: string;
-            /** @enum {string} */
-            contentType: "image/jpeg" | "image/png" | "image/webp";
+            /**
+             * @description PDF only for MESSAGE_ATTACHMENT (v2.5).
+             * @enum {string}
+             */
+            contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
             sizeBytes: number;
         };
         PresignResponse: {
@@ -1885,7 +2515,13 @@ export interface components {
             creatorFeeBps: number;
         };
         /** @enum {string} */
-        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT";
+        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT" | "ORDER_CANCELLED" | "ACCOUNT_DELETION_REQUESTED";
+        AdminCancelResult: {
+            orderId: components["schemas"]["Ulid"];
+            status: components["schemas"]["OrderStatus"];
+            /** Format: int64 */
+            refundedCents: number;
+        };
         AuditEntry: {
             id: components["schemas"]["Ulid"];
             /** @description SYSTEM for scheduled jobs. */
@@ -2020,6 +2656,21 @@ export interface components {
              * @example 1000
              */
             instantFeeMinCents: number;
+            /**
+             * @description Indian financial year (April to March) for the tax totals (v2.3).
+             * @example 2026-27
+             */
+            financialYear: string;
+            /**
+             * Format: int64
+             * @description TDS u/s 194-O withheld this financial year (v2.3).
+             */
+            tdsWithheldCents: number;
+            /**
+             * Format: int64
+             * @description TCS u/s 52 withheld this financial year (v2.3).
+             */
+            tcsWithheldCents: number;
         };
         /**
          * @description How the brand paid through Razorpay. WALLET_APP is a third-party wallet (Paytm, PhonePe, Amazon Pay, MobiKwik).
@@ -2090,6 +2741,8 @@ export interface components {
             ifsc?: string | null;
             /** @description UPI ID, e.g. name@okaxis. */
             vpa?: string | null;
+            /** @description Optional (v2.3). Registered creators charge 18% GST and have 0.5% TCS withheld; the GSTIN must contain the PAN. */
+            gstin?: string | null;
         };
         PayoutAccount: {
             /** @enum {string} */
@@ -2107,6 +2760,7 @@ export interface components {
             failureReason: string | null;
             /** Format: date-time */
             updatedAt: string;
+            gstin: string | null;
         };
         WithdrawalRequest: {
             /** Format: int64 */
@@ -2155,6 +2809,9 @@ export interface components {
             applicationCount: number;
             /** @description The creator's own application, if any. */
             myApplication: components["schemas"]["Application"] | null;
+            /** @description Creators: the invitation to this campaign, if any (v2.5). */
+            myInvite: components["schemas"]["CampaignInvite"] | null;
+            brandRating: components["schemas"]["BrandRating"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -2163,6 +2820,8 @@ export interface components {
             deliverables: string[];
             /** @description Owning brand only; empty for creators. */
             applications: components["schemas"]["Application"][];
+            /** @description Owning brand only (v2.5). */
+            invites: components["schemas"]["CampaignInvite"][];
         };
         CampaignPage: components["schemas"]["PageMeta"] & {
             content: components["schemas"]["CampaignSummary"][];
@@ -2207,6 +2866,8 @@ export interface components {
             body: string;
             /** @description Contact details were hidden (FR-51). */
             masked: boolean;
+            /** @description One image or PDF (v2.5). */
+            attachment: components["schemas"]["MessageAttachment"] | null;
             /** Format: date-time */
             createdAt: string;
             /**
@@ -2222,8 +2883,10 @@ export interface components {
             /** Format: date-time */
             serverTime: string;
         };
+        /** @description Text, an attachment, or both. */
         MessageInput: {
             body: string;
+            attachment?: components["schemas"]["MessageAttachment"] | null;
         };
         Conversation: {
             id: components["schemas"]["Ulid"];
@@ -2242,7 +2905,7 @@ export interface components {
             unreadTotal: number;
         };
         /** @enum {string} */
-        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT";
+        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT" | "CAMPAIGN_INVITE";
         Notification: {
             id: components["schemas"]["Ulid"];
             type: components["schemas"]["NotificationType"];
@@ -2270,6 +2933,7 @@ export interface components {
             url: string;
             /** Format: date-time */
             deliveredAt: string;
+            metrics?: components["schemas"]["PostMetrics"] | null;
         };
         BrandStats: {
             currency: string;
@@ -2316,7 +2980,7 @@ export interface components {
          * @description What the viewer may do now. The UI offers only these; the server checks again.
          * @enum {string}
          */
-        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY";
+        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY" | "ADMIN_CANCEL";
         /** @enum {string} */
         OrderKind: "PACKAGE" | "CUSTOM_OFFER" | "CAMPAIGN";
         ShippingAddress: {
@@ -2354,6 +3018,8 @@ export interface components {
             offer?: components["schemas"]["CustomOfferInput"];
             brief: components["schemas"]["OrderBrief"];
             payment: components["schemas"]["OrderPaymentInput"];
+            /** @description Package add-ons chosen at checkout (v2.4). */
+            addonIds?: string[];
         };
         OrderCreated: {
             orderId: components["schemas"]["Ulid"];
@@ -2386,6 +3052,43 @@ export interface components {
             currency: string;
             /** @example 72 */
             acceptWindowHours: number;
+            taxes: components["schemas"]["OrderTaxes"];
+        };
+        /**
+         * @description Indian taxes on the order (v2.3), fixed at checkout like the fees. GST 18% on the platform's fees
+         *     (CGST 9% + SGST 9% when intraState, else IGST 18%); 18% GST on the price for GST-registered creators;
+         *     TDS u/s 194-O 0.1% and, for GST-registered creators, TCS u/s 52 CGST Act 0.5%, both on the price and
+         *     withheld from the creator.
+         */
+        OrderTaxes: {
+            /** @description The brand's state is the platform's state. */
+            intraState: boolean;
+            creatorGstRegistered: boolean;
+            /**
+             * Format: int64
+             * @description GST on the creator's price (brand pays; passed to the creator).
+             */
+            creatorGstCents: number;
+            /**
+             * Format: int64
+             * @description GST on the brand's service fee.
+             */
+            brandFeeGstCents: number;
+            /**
+             * Format: int64
+             * @description GST on the creator's commission (deducted from the creator).
+             */
+            creatorFeeGstCents: number;
+            /**
+             * Format: int64
+             * @description TDS u/s 194-O withheld from the creator.
+             */
+            tdsCents: number;
+            /**
+             * Format: int64
+             * @description TCS u/s 52 CGST Act withheld from GST-registered creators.
+             */
+            tcsCents: number;
         };
         /** @description The other side of an order, as shown on it. */
         OrderParty: {
@@ -2403,16 +3106,17 @@ export interface components {
             brandFeeCents: number;
             /**
              * Format: int64
-             * @description What the brand pays.
+             * @description What the brand pays: price + creator GST + service fee + GST on it.
              */
             totalCents: number;
             /** Format: int64 */
             creatorFeeCents: number;
             /**
              * Format: int64
-             * @description What the creator receives (price − creator fee).
+             * @description What the creator receives: price + their GST − commission − GST on it − TDS − TCS.
              */
             creatorPayoutCents: number;
+            taxes: components["schemas"]["OrderTaxes"];
         };
         OrderPayment: {
             status: components["schemas"]["PaymentStatus"];
@@ -2476,6 +3180,8 @@ export interface components {
             /** @description FILE: a fileUrl from /files/presign. POST_URL: the live post (https). */
             url: string;
             name?: string | null;
+            /** @description Results entered by the creator (v2.4); POST_URL items only. */
+            metrics?: components["schemas"]["PostMetrics"] | null;
         };
         Delivery: {
             id: components["schemas"]["Ulid"];
@@ -2488,7 +3194,7 @@ export interface components {
         };
         OrderEventView: {
             /** @enum {string} */
-            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND";
+            type: "CREATE" | "ACCEPT" | "DECLINE" | "CANCEL" | "EXPIRE" | "DELIVER" | "REQUEST_REVISION" | "APPROVE" | "AUTO_APPROVE" | "DISPUTE" | "ADMIN_RELEASE" | "ADMIN_REFUND" | "ADMIN_CANCEL" | "DRAFT_SHARED" | "DRAFT_APPROVED" | "DRAFT_CHANGES_REQUESTED" | "SHIPPED" | "RECEIVED" | "EXTENSION_REQUESTED" | "EXTENSION_ACCEPTED" | "EXTENSION_DECLINED" | "METRICS_ADDED";
             fromStatus: components["schemas"]["OrderStatus"] | null;
             toStatus: components["schemas"]["OrderStatus"];
             /** @enum {string} */
@@ -2535,6 +3241,26 @@ export interface components {
             allowedActions: components["schemas"]["OrderAction"][];
             /** Format: date-time */
             serverTime: string;
+            /** @description The creator's rating of the brand (v2.5). */
+            brandReview: components["schemas"]["BrandReview"] | null;
+            brandRating: components["schemas"]["BrandRating"];
+            /** @description Add-ons bought with the package (v2.4). */
+            addons: components["schemas"]["PackageAddon"][];
+            /** @description Paid ad usage included, e.g. "Paid ads for 30 days" (v2.4). */
+            usageRights: string | null;
+            /** @description Newest first (v2.4). */
+            drafts: components["schemas"]["Draft"][];
+            shipment: components["schemas"]["Shipment"] | null;
+            /** @description The latest request for more time. */
+            extension: components["schemas"]["Extension"] | null;
+            /** @description For tax invoices (v2.3): GSTINs and the place of supply. */
+            taxParties: {
+                platformGstin: string;
+                platformState: string;
+                brandGstin: string | null;
+                brandState: string | null;
+                creatorGstin: string | null;
+            };
         };
         ReasonRequest: {
             reason?: string | null;
@@ -2937,6 +3663,190 @@ export interface operations {
             422: components["responses"]["ValidationFailed"];
         };
     };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    changeEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated user (emailVerified false). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    signOutOtherDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Number of other sessions ended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        signedOut: number;
+                    };
+                };
+            };
+        };
+    };
+    exportMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+        };
+    };
+    saveNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Scheduled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    cancelAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
     searchCreators: {
         parameters: {
             query?: {
@@ -2958,6 +3868,8 @@ export interface operations {
                 gender?: components["schemas"]["Gender"];
                 ageMin?: number;
                 ageMax?: number;
+                /** @description Only creators who usually accept within 24 hours (v2.6). */
+                fastAccept?: boolean;
                 sort?: "relevance" | "price_asc" | "followers_desc" | "rating_desc" | "newest";
                 page?: number;
                 /** @description FR-23: 24 per page. */
@@ -3320,6 +4232,8 @@ export interface operations {
                 packageId?: components["schemas"]["Ulid"];
                 creatorUsername?: string;
                 priceCents?: number;
+                /** @description Comma-separated package add-on ids (v2.4). */
+                addonIds?: string;
             };
             header?: never;
             path?: never;
@@ -3677,6 +4591,485 @@ export interface operations {
             422: components["responses"]["ValidationFailed"];
         };
     };
+    shareDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliverRequest"];
+            };
+        };
+        responses: {
+            /** @description Shared. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    reviewDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+                draftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftReview"];
+            };
+        };
+        responses: {
+            /** @description Reviewed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    saveShipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    markShipmentReceived: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked received. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    requestExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionRequest"];
+            };
+        };
+        responses: {
+            /** @description Requested. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    reviewExtension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionReview"];
+            };
+        };
+        responses: {
+            /** @description Decided. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    savePostMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+                deliveryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostMetricsInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    listSavedLists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedListInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedListDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renameSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedListInput"];
+            };
+        };
+        responses: {
+            /** @description Renamed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    addToSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeFromSavedList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatorAvailability"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatorAvailability"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    inviteToCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignInviteInput"];
+            };
+        };
+        responses: {
+            /** @description Invited. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignInvite"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    declineInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declined. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignInvite"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reviewBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Posted. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandReview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
     reviewOrder: {
         parameters: {
             query?: never;
@@ -3742,6 +5135,8 @@ export interface operations {
                 niche?: components["schemas"]["Niche"];
                 /** @description Creators only: campaigns they applied to, in any status. */
                 applied?: boolean;
+                /** @description Creators only: open campaigns they were invited to (v2.5). */
+                invited?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -4234,6 +5629,39 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    cancelOrderAsAdmin: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequiredReason"];
+            };
+        };
+        responses: {
+            /** @description Cancelled and refunded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCancelResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
     resolveDispute: {
         parameters: {
             query?: never;
@@ -4709,6 +6137,30 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    suggestSearch: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        suggestions: components["schemas"]["SearchSuggestion"][];
+                    };
+                };
+            };
         };
     };
     getCreatorProfile: {

@@ -64,7 +64,7 @@ describe('createOrder (checkout, FR-30)', () => {
     expect(o.creatorFeeCents).toBe(150_000);
     expect(o.brandFeeBps).toBe(1000);
     expect(o.creatorFeeBps).toBe(1500);
-    expect(o.payment).toMatchObject({ status: 'AUTHORIZED', amountCents: 1_100_000, refundedCents: 0, method: 'CARD' });
+    expect(o.payment).toMatchObject({ status: 'AUTHORIZED', amountCents: 1_118_000, refundedCents: 0, method: 'CARD' });
     expect(o.acceptBy).toBe(hours(72).toISOString());
   });
 
@@ -90,8 +90,8 @@ describe('PENDING_ACCEPTANCE', () => {
     expect(order.status).toBe('IN_PROGRESS');
     expect(order.payment.status).toBe('CAPTURED');
     expect(order.dueAt).toBe(hours(1 + 5 * 24).toISOString());
-    expect(accountBalance(ledger, 'ESCROW')).toBe(1_100_000);
-    expect(accountBalance(ledger, 'BRAND_CHARGE')).toBe(-1_100_000);
+    expect(accountBalance(ledger, 'ESCROW')).toBe(1_118_000);
+    expect(accountBalance(ledger, 'BRAND_CHARGE')).toBe(-1_118_000);
     expect(order.version).toBe(1);
   });
 
@@ -145,7 +145,7 @@ describe('IN_PROGRESS and DELIVERED', () => {
     const { order, ledger } = run([...delivered(), [{ type: 'APPROVE' }, brand, 50]]);
     expect(order.status).toBe('COMPLETED');
     expect(accountBalance(ledger, 'ESCROW')).toBe(0);
-    expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(850_000);
+    expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(822_000);
     expect(accountBalance(ledger, 'PLATFORM_REVENUE')).toBe(250_000);
     expect(findUnbalancedTxns(ledger)).toEqual([]);
   });
@@ -156,7 +156,7 @@ describe('IN_PROGRESS and DELIVERED', () => {
     const r = transition(order, { type: 'AUTO_APPROVE' }, system, ctx(hours(48 + 72)));
     order = r.order;
     expect(order.status).toBe('COMPLETED');
-    expect(accountBalance(r.ledger, 'CREATOR_BALANCE')).toBe(850_000);
+    expect(accountBalance(r.ledger, 'CREATOR_BALANCE')).toBe(822_000);
   });
 
   it('brand cannot approve, dispute or ask for revision after the window', () => {
@@ -199,7 +199,7 @@ describe('IN_PROGRESS and DELIVERED', () => {
   it('DISPUTE → DISPUTED, money stays in escrow', () => {
     const { order, ledger } = run([...delivered(), [{ type: 'DISPUTE', note: 'Wrong product shown' }, brand, 50]]);
     expect(order.status).toBe('DISPUTED');
-    expect(accountBalance(ledger, 'ESCROW')).toBe(1_100_000);
+    expect(accountBalance(ledger, 'ESCROW')).toBe(1_118_000);
   });
 });
 
@@ -213,13 +213,13 @@ describe('DISPUTED (admin)', () => {
   it('ADMIN_RELEASE → COMPLETED and pays the creator', () => {
     const { order, ledger } = run([...disputed(), [{ type: 'ADMIN_RELEASE' }, admin, 60]]);
     expect(order.status).toBe('COMPLETED');
-    expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(850_000);
+    expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(822_000);
   });
 
   it('ADMIN_REFUND full → REFUNDED, everything back to the brand', () => {
-    const { order, ledger } = run([...disputed(), [{ type: 'ADMIN_REFUND', refundCents: 1_100_000 }, admin, 60]]);
+    const { order, ledger } = run([...disputed(), [{ type: 'ADMIN_REFUND', refundCents: 1_118_000 }, admin, 60]]);
     expect(order.status).toBe('REFUNDED');
-    expect(order.payment).toMatchObject({ status: 'REFUNDED', refundedCents: 1_100_000 });
+    expect(order.payment).toMatchObject({ status: 'REFUNDED', refundedCents: 1_118_000 });
     expect(accountBalance(ledger, 'ESCROW')).toBe(0);
     expect(accountBalance(ledger, 'BRAND_CHARGE')).toBe(0);
     expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(0);
@@ -230,15 +230,15 @@ describe('DISPUTED (admin)', () => {
     const { order, ledger } = run([...disputed(), [{ type: 'ADMIN_REFUND', refundCents: 350_000 }, admin, 60]]);
     expect(order.status).toBe('REFUNDED');
     expect(accountBalance(ledger, 'ESCROW')).toBe(0);
-    expect(accountBalance(ledger, 'BRAND_CHARGE')).toBe(-750_000);
-    expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(500_000);
+    expect(accountBalance(ledger, 'BRAND_CHARGE')).toBe(-768_000);
+    expect(accountBalance(ledger, 'CREATOR_BALANCE')).toBe(472_000);
     expect(accountBalance(ledger, 'PLATFORM_REVENUE')).toBe(250_000);
     expect(findUnbalancedTxns(ledger)).toEqual([]);
   });
 
   it('rejects refund amounts outside the allowed range', () => {
     const { order } = run(disputed());
-    for (const refundCents of [0, -1, 850_001, 1_099_999, 1_100_001, 100.5]) {
+    for (const refundCents of [0, -1, 822_001, 1_117_999, 1_118_001, 100.5]) {
       expectError(() => transition(order, { type: 'ADMIN_REFUND', refundCents }, admin, ctx(hours(60))), 422, 'INVALID_REFUND_AMOUNT');
     }
   });
@@ -270,7 +270,7 @@ describe('invalid transitions return 409', () => {
       [{ type: 'ACCEPT' }, creator, 1],
       [{ type: 'DELIVER' }, creator, 2],
       [{ type: 'DISPUTE' }, brand, 3],
-      [{ type: 'ADMIN_REFUND', refundCents: 1_100_000 }, admin, 4],
+      [{ type: 'ADMIN_REFUND', refundCents: 1_118_000 }, admin, 4],
     ],
     CLOSED: [[{ type: 'DECLINE' }, creator, 1]],
   };

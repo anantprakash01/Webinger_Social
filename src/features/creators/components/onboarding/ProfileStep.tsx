@@ -185,7 +185,7 @@ export function ProfileStep({ me, onSaved, showOptional = false }: { me: Creator
   );
 }
 
-/** "Ivy Sandoval" → "ivysandoval": a starting point the creator can change. */
+/** "Ivy Mathew" → "ivymathew": a starting point the creator can change. */
 function suggestUsername(name: string) {
   const base = name
     .normalize('NFKD')

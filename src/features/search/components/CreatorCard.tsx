@@ -1,13 +1,14 @@
+import { ShortMoney } from '@/components/Money';
+import { SaveToList } from '@/features/retention/components/BrandTools';
 import { Link } from 'react-router-dom';
 import { CreatorPhoto, PlatformIcon, Rating, VerifiedBadge, placeLabel } from '@/components/creator';
 import { COUNTRY_LABEL, formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
-import { formatMoney } from '@/lib/money';
 import type { CreatorCard as Card } from '@/types';
 
 /** Search result card (FR-24): photo, name, top platform, followers, starting price, rating. */
 /** Why a card matched a keyword search, when it isn't obvious from the name (UX pass, item 10). */
 function matchReason(c: Card, q: string | undefined): string | null {
-  const words = (q ?? '').toLowerCase().split(/s+/).filter(Boolean);
+  const words = (q ?? '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return null;
   const nameHit = words.every((w) => `${c.displayName} ${c.username}`.toLowerCase().includes(w));
   if (nameHit) return null;
@@ -27,6 +28,7 @@ export function CreatorCard({ creator: c, q }: { creator: Card; q?: string }) {
       <Link to={`/u/${c.username}`} className="ccard__link">
         <div className="ccard__media">
           <CreatorPhoto name={c.displayName} url={c.photoUrl} seed={c.username} className="ccard__photo" pattern />
+          {c.away && <span className="ccard__away">Away</span>}
           {c.reach && (
             <span className="ccard__reach">
               <PlatformIcon platform={c.reach.platform} size={14} />
@@ -49,7 +51,7 @@ export function CreatorCard({ creator: c, q }: { creator: Card; q?: string }) {
             <span className="ccard__price">
               {c.startingPriceCents !== null ? (
                 <>
-                  From <strong>{formatMoney(c.startingPriceCents, c.currency, { whole: true })}</strong>
+                  From <strong><ShortMoney cents={c.startingPriceCents} currency={c.currency} /></strong>
                 </>
               ) : (
                 <span className="muted">No packages yet</span>
@@ -59,6 +61,9 @@ export function CreatorCard({ creator: c, q }: { creator: Card; q?: string }) {
           </div>
         </div>
       </Link>
+      <div className="ccard__save">
+        <SaveToList username={c.username} name={c.displayName} compact />
+      </div>
     </article>
   );
 }

@@ -1,4 +1,6 @@
 /** /brand/orders/:id, /creator/orders/:id and /admin/orders/:id — one order, as the viewer sees it. */
+import { BrandReviewCard } from '@/features/retention/components/Panels';
+import { useDocumentTitle } from '@/lib/documentTitle';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuCircleCheck, LuMessageSquare, LuReceipt } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
@@ -7,6 +9,8 @@ import { OrderStatusBadge } from '@/components/status';
 import { Badge, Card, ErrorState, PageSkeleton } from '@/components/ui';
 import { ApiError } from '@/types';
 import { ActionPanel } from '../components/ActionPanel';
+import { OrderStepper } from '../components/OrderStepper';
+import { DraftsCard, ExtensionCard, ShippingCard } from '../components/Collaboration';
 import { BriefCard, Deliveries, MoneyCard, OrderedCard, ReviewCard, Timeline } from '../components/OrderParts';
 import { shortId } from '../format';
 import { useOrder } from '../hooks';
@@ -18,6 +22,7 @@ export function OrderDetailPage() {
   const location = useLocation();
   const placed = (location.state as { placed?: boolean } | null)?.placed;
   const { data: o, isPending, isError, error, refetch, dataUpdatedAt } = useOrder(id);
+  useDocumentTitle(o ? `Order: ${o.title}` : 'Order');
   const role = user?.role ?? 'BRAND';
   const listPath = role === 'CREATOR' ? '/creator/orders' : role === 'ADMIN' ? '/admin/orders' : '/brand/orders';
 
@@ -95,11 +100,17 @@ export function OrderDetailPage() {
         </div>
       </header>
 
+      <OrderStepper o={o} />
+
       <div className="order__layout">
         <div className="order__main">
           <ActionPanel o={o} role={role} fetchedAt={dataUpdatedAt} />
           <ReviewCard o={o} role={role} />
-          <Deliveries o={o} />
+          <BrandReviewCard o={o} role={role} />
+          <ExtensionCard o={o} role={role} />
+          <ShippingCard o={o} role={role} />
+          <DraftsCard o={o} role={role} />
+          <Deliveries o={o} role={role} />
           <BriefCard o={o} />
           <OrderedCard o={o} />
         </div>

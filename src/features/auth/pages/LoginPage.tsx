@@ -1,3 +1,4 @@
+import { useT } from '@/lib/i18n';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,6 +17,7 @@ import { useGoogleAuth, useLogin } from '../hooks';
 import { loginFormSchema, type LoginForm } from '../schemas';
 
 export function LoginPage() {
+  const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as { from?: string; notice?: string } | null;
@@ -66,12 +68,12 @@ export function LoginPage() {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout pageTitle={t('Log in')}>
       <form className="auth__form" onSubmit={onSubmit} noValidate>
         <div>
-          <h2>Log in</h2>
+          <h2>{t('Log in')}</h2>
           <p className="muted small">
-            New here? <Link to="/signup" className="link">Create an account</Link>
+            {t('New here?')} <Link to="/signup" className="link">{t('Create an account')}</Link>
           </p>
         </div>
         {notice && (
@@ -85,20 +87,20 @@ export function LoginPage() {
             <>
               {' '}
               <Link to="/signup" className="link">
-                Sign up
+                {t('Sign up')}
               </Link>
             </>
           )}
         </FormError>
         <GoogleButton onClick={() => void onGoogle()} loading={google.isPending} />
-        <div className="divider">or with email</div>
-        <Input label="Email" type="email" autoComplete="email" inputMode="email" error={errors.email?.message} {...register('email')} />
-        <PasswordField label="Password" autoComplete="current-password" error={errors.password?.message} {...register('password')} />
+        <div className="divider">{t('or with email')}</div>
+        <Input label={t('Email')} type="email" autoComplete="email" inputMode="email" error={errors.email?.message && t(errors.email.message)} {...register('email')} />
+        <PasswordField label={t('Password')} autoComplete="current-password" error={errors.password?.message && t(errors.password.message)} {...register('password')} />
         <div className="auth__links">
-          <Link to="/forgot-password">Forgot password?</Link>
+          <Link to="/forgot-password">{t('Forgot password?')}</Link>
         </div>
         <Button type="submit" block loading={login.isPending}>
-          Log in
+          {t('Log in')}
         </Button>
 
         {isMock && (

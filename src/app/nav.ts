@@ -1,6 +1,7 @@
 import type { IconType } from 'react-icons';
 import {
   LuBadgeCheck,
+  LuBookmark,
   LuBell,
   LuBuilding2,
   LuCreditCard,
@@ -37,6 +38,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/search', label: 'Find creators', icon: LuSearch, primary: true },
     { to: '/brand/orders', label: 'Orders', icon: LuShoppingBag, primary: true },
     { to: '/brand/campaigns', label: 'Campaigns', icon: LuMegaphone },
+    { to: '/brand/lists', label: 'Saved lists', icon: LuBookmark },
     { to: '/brand/payment-methods', label: 'Payment methods', icon: LuCreditCard },
     { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true, badge: 'messages' },
     { to: '/notifications', label: 'Notifications', icon: LuBell, badge: 'notifications' },

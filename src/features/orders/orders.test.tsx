@@ -36,6 +36,12 @@ async function useNewCard(user: ReturnType<typeof userEvent.setup>, card: string
   await user.type(screen.getByLabelText('CVC'), '123');
 }
 
+/** Price − 15% commission − 18% GST on it − 0.1% TDS (creator not GST-registered). */
+function creatorShare(p: number) {
+  const fee = Math.floor((p * 1500 + 5000) / 10000);
+  return p - fee - Math.floor((fee * 1800 + 5000) / 10000) - Math.floor((p * 10 + 5000) / 10000);
+}
+
 beforeEach(async () => {
   await api.dev.reset();
 });
@@ -49,7 +55,8 @@ describe('checkout (FR-30, FR-33, FR-60)', () => {
 
     // Summary comes from the server quote: price + 10% fee.
     expect(await screen.findByRole('heading', { name: 'Book this package' })).toBeInTheDocument();
-    const total = pkg.priceCents + Math.floor((pkg.priceCents * 1000 + 5000) / 10000);
+    const fee = Math.floor((pkg.priceCents * 1000 + 5000) / 10000);
+    const total = pkg.priceCents + fee + Math.floor((fee * 1800 + 5000) / 10000); // + 18% GST on the fee
     const totalText = formatMoney(total);
     expect(screen.getAllByText(totalText).length).toBeGreaterThan(0);
 
@@ -86,7 +93,7 @@ describe('checkout (FR-30, FR-33, FR-60)', () => {
     await user.type(screen.getByLabelText('Comment (optional)'), 'Fantastic, on time.');
     await user.click(screen.getByRole('button', { name: 'Post review' }));
     expect(await screen.findByText('Fantastic, on time.')).toBeInTheDocument();
-    expect(getDb().ledgerEntries.filter((e) => e.orderId === orderId && e.account === 'CREATOR_BALANCE')[0].debitCents).toBe(pkg.priceCents - Math.floor((pkg.priceCents * 1500 + 5000) / 10000));
+    expect(getDb().ledgerEntries.filter((e) => e.orderId === orderId && e.account === 'CREATOR_BALANCE')[0].debitCents).toBe(creatorShare(pkg.priceCents));
   }, 60_000);
 
   it('shows a decline for the decline test card and creates no order', async () => {
@@ -141,7 +148,7 @@ describe('custom offer (FR-31)', () => {
     await user.type(screen.getByLabelText('Title'), 'Desk tour feature');
     await user.type(screen.getByLabelText('Deliverables'), '1 YouTube integration');
     await user.type(screen.getByLabelText('Price (₹)'), '10000');
-    expect(await screen.findByRole('button', { name: /₹11,000\.00/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /₹11,180\.00/ })).toBeInTheDocument();
     await fillBrief(user);
     await user.click(screen.getByRole('button', { name: /Send offer and pay/ }));
     expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();

@@ -1,3 +1,4 @@
+import type { MessageAttachment } from '@/types';
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -22,7 +23,7 @@ export const useMessages = (id: string) => useQuery({ queryKey: chatKeys.message
 export function useSendMessage(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: string) => api.chat.send(id, body),
+    mutationFn: (v: { body: string; attachment?: MessageAttachment | null }) => api.chat.send(id, v.body, v.attachment ?? null),
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
   });
 }

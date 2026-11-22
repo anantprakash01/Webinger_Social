@@ -45,6 +45,13 @@ export const LANGUAGES = [
   { value: 'pt', label: 'Portuguese' },
   { value: 'ar', label: 'Arabic' },
   { value: 'ta', label: 'Tamil' },
+  { value: 'te', label: 'Telugu' },
+  { value: 'bn', label: 'Bengali' },
+  { value: 'mr', label: 'Marathi' },
+  { value: 'kn', label: 'Kannada' },
+  { value: 'ml', label: 'Malayalam' },
+  { value: 'gu', label: 'Gujarati' },
+  { value: 'pa', label: 'Punjabi' },
 ];
 export const LANGUAGE_LABEL: Record<string, string> = Object.fromEntries(LANGUAGES.map((l) => [l.value, l.label]));
 
@@ -56,13 +63,19 @@ export const GENDERS: Array<{ value: Gender; label: string }> = [
 
 /** ISO 3166-1 alpha-2 country codes with the cities the prototype knows. */
 export const LOCATIONS: Array<{ country: string; label: string; cities: string[] }> = [
-  { country: 'US', label: 'United States', cities: ['New York', 'Los Angeles', 'Austin', 'Miami', 'Chicago'] },
+  // India first (launch market, decided 22 Nov 2026); the rest for diaspora and global brands.
+  {
+    country: 'IN',
+    label: 'India',
+    cities: ['Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Kochi', 'Chandigarh', 'Lucknow', 'Indore', 'Goa', 'Guwahati'],
+  },
+  { country: 'AE', label: 'United Arab Emirates', cities: ['Dubai', 'Abu Dhabi'] },
   { country: 'GB', label: 'United Kingdom', cities: ['London', 'Manchester', 'Bristol'] },
-  { country: 'IN', label: 'India', cities: ['Mumbai', 'Bengaluru', 'Delhi', 'Chennai'] },
+  { country: 'US', label: 'United States', cities: ['New York', 'Los Angeles', 'Austin', 'Miami', 'Chicago'] },
+  { country: 'SG', label: 'Singapore', cities: ['Singapore'] },
   { country: 'CA', label: 'Canada', cities: ['Toronto', 'Vancouver', 'Montreal'] },
   { country: 'AU', label: 'Australia', cities: ['Sydney', 'Melbourne'] },
   { country: 'DE', label: 'Germany', cities: ['Berlin', 'Munich'] },
-  { country: 'AE', label: 'United Arab Emirates', cities: ['Dubai', 'Abu Dhabi'] },
   { country: 'BR', label: 'Brazil', cities: ['São Paulo', 'Rio de Janeiro'] },
   { country: 'ES', label: 'Spain', cities: ['Madrid', 'Barcelona'] },
 ];

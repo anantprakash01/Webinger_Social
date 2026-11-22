@@ -31,7 +31,7 @@ describe('onboarding wizard (FR-10 – FR-16, FR-62)', () => {
     // 1. Profile
     expect(await screen.findByRole('heading', { name: '1. Profile' })).toBeInTheDocument();
     await pickDemoImage(user, 'Profile photo');
-    expect(screen.getByLabelText('Username')).toHaveValue('ivysandoval');
+    expect(screen.getByLabelText('Username')).toHaveValue('ivymathew');
     await user.type(screen.getByLabelText('Bio'), 'Weeknight recipes and honest kitchen gadget reviews from a tiny flat.');
     await user.selectOptions(screen.getByLabelText('Country'), 'CA');
     await user.type(screen.getByLabelText('City'), 'Toronto');
@@ -85,7 +85,7 @@ describe('onboarding wizard (FR-10 – FR-16, FR-62)', () => {
     // Demo bar stands in for the admin queue
     await user.click(within(screen.getByRole('group', { name: 'Simulate review' })).getByRole('button', { name: 'Approve' }));
     expect(await screen.findByRole('heading', { name: 'Edit your profile' })).toBeInTheDocument();
-    expect((await api.creators.search({ q: 'ivysandoval' })).totalElements).toBe(1);
+    expect((await api.creators.search({ q: 'ivymathew' })).totalElements).toBe(1);
   }, 60_000); // six steps and ~30 interactions in jsdom
 
   it('shows field errors from the package rules (FR-12 acceptance)', async () => {
