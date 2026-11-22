@@ -27,7 +27,7 @@ export function MoneyCard({ o, role }: { o: OrderDetail; role: Role }) {
           <CreatorMoneyLines priceCents={m.priceCents} creatorFeeCents={m.creatorFeeCents} creatorPayoutCents={m.creatorPayoutCents} taxes={m.taxes} currency={m.currency} />
         ) : (
           <>
-            <BrandMoneyLines priceLabel="Price" priceCents={m.priceCents} brandFeeCents={m.brandFeeCents} totalCents={m.totalCents} taxes={m.taxes} currency={m.currency} />
+            <BrandMoneyLines priceLabel="Price" priceCents={m.priceCents} brandFeeCents={m.brandFeeCents} totalCents={m.totalCents} taxes={m.taxes} currency={m.currency} discount={m.discount} />
             <dt className="muted">Creator receives</dt>
             <dd className="muted">{formatMoney(m.creatorPayoutCents, m.currency)}</dd>
             <dt className="muted">Paid with</dt>

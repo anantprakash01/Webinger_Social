@@ -9,10 +9,9 @@ import type { AdminDispute, AdminSummary, AdminUser, AdminUserPage, AuditPage, F
 import { audit } from '../audit';
 import { getDb, now, ulid, type DisputeRow, type ReportRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
-import { brandTotalCents, creatorPayoutCents } from '../orderMachine';
-import { NO_TAXES } from '../tax';
+import { brandPaidCents } from '../orderMachine';
 import { decideVetting, toCreatorMe } from './creatorMe';
-import { applyTransition } from './orders';
+import { applyTransition, moneyOf } from './orders';
 import { toDisputeView } from './disputes';
 import { feeConfigFor, toFeeEntry } from './plans';
 import { PLAN_ORDER, PLANS } from '@/lib/plans';
@@ -121,15 +120,7 @@ function toDispute(d: DisputeRow): AdminDispute {
     orderTitle: info.title,
     brand: party(o.brandUserId),
     creator: party(o.creatorUserId),
-    money: {
-      currency: o.currency,
-      priceCents: o.priceCents,
-      brandFeeCents: o.brandFeeCents,
-      totalCents: brandTotalCents(o),
-      creatorFeeCents: o.creatorFeeCents,
-      creatorPayoutCents: creatorPayoutCents(o),
-      taxes: o.taxes ?? NO_TAXES,
-    },
+    money: moneyOf(o),
     ...toDisputeView(d),
     resolvedAt: d.resolvedAt,
     brandPlan: db.brandProfiles.find((b) => b.userId === o.brandUserId)?.plan ?? 'FREE',
@@ -159,8 +150,8 @@ export const resolveDispute: Handler = ({ req, params, user }) => {
   if (d.status !== 'OPEN') fail(409, 'This dispute is already resolved.', 'DISPUTE_RESOLVED');
   const body = parseBody(resolveDisputeSchema, req.body);
   const order = db.orders.find((o) => o.id === d.orderId)!;
-  const total = brandTotalCents(order);
-  const refund = body.resolution === 'FULL_REFUND' ? total : body.resolution === 'PARTIAL_REFUND' ? body.refundCents! : 0;
+  // A full refund returns what the brand paid (after any promo or credit, v3.3).
+  const refund = body.resolution === 'FULL_REFUND' ? brandPaidCents(order) : body.resolution === 'PARTIAL_REFUND' ? body.refundCents! : 0;
   // The state machine validates the amount (1 cent .. creator payout, or the full total).
   if (body.resolution === 'RELEASE') applyTransition(order, { type: 'ADMIN_RELEASE', note: body.note }, actor(user));
   else applyTransition(order, { type: 'ADMIN_REFUND', refundCents: refund, note: body.note }, actor(user));

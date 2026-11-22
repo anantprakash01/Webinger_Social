@@ -108,6 +108,31 @@ describe('checkout (FR-30, FR-33, FR-60)', () => {
     expect(getDb().orders.length).toBe(before);
   });
 
+  it('applies a promo code and referral credit; the order is paid at the discounted amount (v3.3)', async () => {
+    const user = userEvent.setup();
+    await api.auth.login('brand@demo.test', DEMO_PASSWORD);
+    const leo = getDb().users.find((u) => u.email === 'creator@demo.test')!.id;
+    const pkg = getDb().packages.filter((k) => k.creatorId === leo && k.active && k.priceCents >= 5_000_00).sort((a, b) => a.priceCents - b.priceCents)[0];
+    renderAt(`/checkout/${pkg.id}`);
+    await fillBrief(user);
+    await user.click(await screen.findByRole('button', { name: 'Have a promo code?' }));
+    await user.type(screen.getByLabelText('Promo code'), 'nope');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(await screen.findByText('That code doesn’t exist. Check the spelling.')).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('Promo code'));
+    await user.type(screen.getByLabelText('Promo code'), 'diwali10');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(await screen.findByText(/10% off \(up to ₹2,000\)/)).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/Use my referral credit/));
+    await screen.findByText('Referral credit');
+    const due = Number(screen.getByText('You pay').nextElementSibling!.textContent!.replace(/[^\d]/g, ''));
+    await user.click(screen.getByRole('button', { name: /^Pay / }));
+    expect(await screen.findByText(/Order placed\./)).toBeInTheDocument();
+    const o = getDb().orders.at(-1)!;
+    expect(o.discount).toMatchObject({ promoCode: 'DIWALI10', creditCents: 1_000_00 });
+    expect(o.payment.amountCents).toBe(due);
+  });
+
   it('a failed UPI payment creates no order; netbanking then works', async () => {
     const user = userEvent.setup();
     await api.auth.login('brand@demo.test', DEMO_PASSWORD);

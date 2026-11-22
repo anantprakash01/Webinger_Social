@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 3.2.0
+  version: 3.3.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -543,12 +543,72 @@ paths:
         - { name: creatorUsername, in: query, schema: { type: string } }
         - { name: priceCents, in: query, schema: { type: integer, minimum: 1000 } }
         - { name: addonIds, in: query, description: 'Comma-separated package add-on ids (v2.4).', schema: { type: string } }
+        - { name: promoCode, in: query, description: 'A promo code to apply (v3.3). An invalid code answers 422 with a field error on promoCode.', schema: { type: string } }
+        - { name: useCredits, in: query, description: 'Apply the brand''s referral credits (v3.3).', schema: { type: boolean } }
       responses:
         '200': { description: The quote., content: { application/json: { schema: { $ref: '#/components/schemas/OrderQuote' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /referrals/{code}:
+    get:
+      tags: [Referrals]
+      summary: Who invited you (public, for the sign-up page) (v3.3)
+      operationId: getReferralInvite
+      parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ReferralInvite' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /me/referrals:
+    get:
+      tags: [Referrals]
+      summary: Your referral code, the people you invited, and (brands) your credits (v3.3)
+      description: |
+        Brands invite brands: the new brand gets ₹500 credit at sign-up; you get ₹1,000 credit when their first order is completed.
+        Creators invite creators: you get a ₹500 bonus in your balance when their first order is completed.
+        Credits are promotional: they only reduce the price of orders, cannot be bought, withdrawn or transferred.
+      operationId: getMyReferrals
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ReferralOverview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/promo-codes:
+    get:
+      tags: [Admin]
+      summary: Promo codes with their use (v3.3)
+      operationId: listPromoCodes
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { type: object, required: [content], properties: { content: { type: array, items: { $ref: '#/components/schemas/PromoCode' } } } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admin]
+      summary: Create a promo code (platform-funded discount for brands) (v3.3)
+      operationId: createPromoCode
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PromoCodeInput' } } } }
+      responses:
+        '201': { description: Created., content: { application/json: { schema: { $ref: '#/components/schemas/PromoCode' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /admin/promo-codes/{id}:
+    patch:
+      tags: [Admin]
+      summary: Turn a promo code on or off (v3.3)
+      operationId: updatePromoCode
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [active], properties: { active: { type: boolean } } } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/PromoCode' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /orders:
     post:
@@ -2694,7 +2754,78 @@ components:
 
     AuditAction:
       type: string
-      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT, ORDER_CANCELLED, ACCOUNT_DELETION_REQUESTED]
+      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT, ORDER_CANCELLED, ACCOUNT_DELETION_REQUESTED, PROMO_CHANGED, PAYOUT_RETRIED]
+
+    PromoCodeInput:
+      type: object
+      required: [code, description, kind]
+      properties:
+        code: { type: string, pattern: '^[A-Z0-9]{4,20}$' }
+        description: { type: string, minLength: 3, maxLength: 120 }
+        kind: { type: string, enum: [PERCENT, FLAT] }
+        percentBps: { type: [integer, 'null'], minimum: 100, maximum: 5000, description: 'PERCENT: share of the order price.' }
+        flatCents: { type: [integer, 'null'], format: int64, minimum: 1000 }
+        maxDiscountCents: { type: [integer, 'null'], format: int64 }
+        minOrderCents: { type: [integer, 'null'], format: int64, description: Minimum order price (before fees). }
+        firstOrderOnly: { type: boolean }
+        maxRedemptions: { type: [integer, 'null'], minimum: 1, description: 'Total uses across all brands; null = no cap.' }
+        validUntil: { type: [string, 'null'], format: date, description: 'Last day the code works (inclusive).' }
+
+    PromoCode:
+      allOf:
+        - $ref: '#/components/schemas/PromoCodeInput'
+        - type: object
+          required: [id, active, redemptions, discountGivenCents, createdAt, status]
+          properties:
+            id: { type: string }
+            active: { type: boolean }
+            status: { type: string, enum: [ACTIVE, PAUSED, EXPIRED, USED_UP] }
+            redemptions: { type: integer, description: Orders that used it (not counting released ones). }
+            discountGivenCents: { type: integer, format: int64 }
+            createdAt: { type: string, format: date-time }
+
+    ReferralInvite:
+      type: object
+      required: [code, referrerName, role, welcomeCreditCents]
+      properties:
+        code: { type: string }
+        referrerName: { type: string }
+        role: { $ref: '#/components/schemas/SignupRole' }
+        welcomeCreditCents: { type: integer, format: int64, description: Credit the new account gets (brands); 0 for creators. }
+
+    CreditEntry:
+      type: object
+      required: [id, deltaCents, reason, note, orderId, createdAt]
+      properties:
+        id: { type: string }
+        deltaCents: { type: integer, format: int64, description: '+ granted, − used.' }
+        reason: { type: string, enum: [REFERRAL_WELCOME, REFERRAL_REWARD, ORDER_USED, ORDER_RETURNED, ADMIN_GRANT] }
+        note: { type: string }
+        orderId: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    ReferralOverview:
+      type: object
+      required: [code, shareUrl, role, refereeRewardCents, referrerRewardCents, referred, creditBalanceCents, credits, earnedCents]
+      properties:
+        code: { type: string, examples: [MAYA7K2Q] }
+        shareUrl: { type: string }
+        role: { $ref: '#/components/schemas/SignupRole' }
+        refereeRewardCents: { type: integer, format: int64 }
+        referrerRewardCents: { type: integer, format: int64 }
+        referred:
+          type: array
+          items:
+            type: object
+            required: [name, joinedAt, status, rewardCents]
+            properties:
+              name: { type: string }
+              joinedAt: { type: string, format: date-time }
+              status: { type: string, enum: [JOINED, REWARDED] }
+              rewardCents: { type: [integer, 'null'], format: int64 }
+        creditBalanceCents: { type: integer, format: int64, description: Brands only; 0 for creators. }
+        credits: { type: array, description: Newest first (brands)., items: { $ref: '#/components/schemas/CreditEntry' } }
+        earnedCents: { type: integer, format: int64, description: Total referral rewards so far. }
 
     AdminCancelResult:
       type: object
@@ -3220,11 +3351,23 @@ components:
         brief: { $ref: '#/components/schemas/OrderBrief' }
         payment: { $ref: '#/components/schemas/OrderPaymentInput' }
         addonIds: { type: array, items: { type: string }, description: 'Package add-ons chosen at checkout (v2.4).' }
+        promoCode: { type: [string, 'null'], description: 'v3.3. The payment must then be for amountDueCents from the quote.' }
+        useCredits: { type: boolean, description: 'v3.3: apply referral credits.' }
+
+    OrderDiscount:
+      type: object
+      description: "Platform-funded discount fixed at checkout (v3.3): the brand pays totalCents − promoCents − creditCents; the creator's payout and the fees are unchanged."
+      required: [promoCode, promoCents, creditCents]
+      properties:
+        promoCode: { type: [string, 'null'] }
+        promoCents: { type: integer, format: int64 }
+        creditCents: { type: integer, format: int64 }
 
     OrderCreated:
       type: object
-      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy]
+      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy, paidCents]
       properties:
+        paidCents: { type: integer, format: int64, description: What the brand was charged after discounts (v3.3). }
         orderId: { $ref: '#/components/schemas/Ulid' }
         status: { $ref: '#/components/schemas/OrderStatus' }
         priceCents: { type: integer, format: int64 }
@@ -3235,8 +3378,12 @@ components:
 
     OrderQuote:
       type: object
-      required: [kind, creator, package, priceCents, brandFeeCents, totalCents, brandFeeBps, currency, acceptWindowHours, taxes]
+      required: [kind, creator, package, priceCents, brandFeeCents, totalCents, brandFeeBps, currency, acceptWindowHours, taxes, discount, amountDueCents, creditBalanceCents, promoDescription]
       properties:
+        discount: { $ref: '#/components/schemas/OrderDiscount' }
+        amountDueCents: { type: integer, format: int64, description: 'What the brand pays now: totalCents minus discounts (at least ₹1).' }
+        creditBalanceCents: { type: integer, format: int64, description: "The brand's unused referral credit." }
+        promoDescription: { type: [string, 'null'], examples: ['₹500 off your first order'] }
         kind: { $ref: '#/components/schemas/OrderKind' }
         creator: { $ref: '#/components/schemas/OrderParty' }
         package: { oneOf: [{ $ref: '#/components/schemas/Package' }, { type: 'null' }] }
@@ -3277,8 +3424,10 @@ components:
     OrderMoney:
       type: object
       description: Copied onto the order at checkout; later fee changes never alter it.
-      required: [currency, priceCents, brandFeeCents, totalCents, creatorFeeCents, creatorPayoutCents, taxes]
+      required: [currency, priceCents, brandFeeCents, totalCents, creatorFeeCents, creatorPayoutCents, taxes, discount, paidCents]
       properties:
+        discount: { $ref: '#/components/schemas/OrderDiscount' }
+        paidCents: { type: integer, format: int64, description: 'What the brand paid: totalCents minus discounts (v3.3).' }
         currency: { type: string }
         priceCents: { type: integer, format: int64 }
         brandFeeCents: { type: integer, format: int64 }
@@ -3479,6 +3628,7 @@ components:
           maxLength: 128
           description: At least 8 characters with a letter and a number.
         acceptTerms: { type: boolean, const: true }
+        referralCode: { type: [string, 'null'], description: 'Someone else''s referral code, same role (v3.3).' }
 
     LoginRequest:
       type: object

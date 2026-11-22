@@ -70,6 +70,10 @@ import {
   type Conversation,
   type ConversationList,
   type DisputeEvidenceInput,
+  type PromoCode,
+  type PromoCodeInput,
+  type ReferralInvite,
+  type ReferralOverview,
   type DisputeReasonCode,
   type DisputeReport,
   type InquiryAllowance,
@@ -279,6 +283,16 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
 
 const enc = encodeURIComponent;
 
+/** GET /orders/quote parameters (v2.4 add-ons, v3.3 promo code and credits). */
+export type QuoteQuery = {
+  packageId?: string;
+  creatorUsername?: string;
+  priceCents?: number;
+  addonIds?: string;
+  promoCode?: string;
+  useCredits?: 'true';
+};
+
 /** Longest side per upload purpose, so demo images stay small enough for sessionStorage. */
 const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600, MESSAGE_ATTACHMENT: 1600, DISPUTE_EVIDENCE: 1600 };
 
@@ -397,7 +411,13 @@ export const api = {
       clearSession(null);
     },
   },
+  /** v3.3 referrals: who invited you (public, for the sign-up page). */
+  referrals: {
+    invite: (code: string) => request<ReferralInvite>('GET', `/referrals/${enc(code)}`, { auth: false }),
+  },
   me: {
+    /** v3.3: your referral code, invitees and credits. */
+    referrals: () => request<ReferralOverview>('GET', '/me/referrals'),
     async get(): Promise<Me> {
       const user = await request<Me>('GET', '/me');
       setUser(user);
@@ -506,7 +526,7 @@ export const api = {
   },
   /** Orders (Week 4). Money-moving calls send an Idempotency-Key; reuse it when retrying the same action. */
   orders: {
-    quote: (q: { packageId?: string; creatorUsername?: string; priceCents?: number; addonIds?: string }) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
+    quote: (q: QuoteQuery) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
     create: (body: OrderCreateRequest, idempotencyKey: string) =>
       request<OrderCreated>('POST', '/orders', { body, headers: { 'idempotency-key': idempotencyKey } }),
     list: (q: { status?: string; page?: number; size?: number } = {}) => request<OrderPage>('GET', '/orders', { query: q }),
@@ -588,6 +608,10 @@ export const api = {
     approveCreator: (id: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/approve`),
     rejectCreator: (id: string, reason: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/reject`, { body: { reason } }),
     disputes: (status?: string) => request<{ content: AdminDispute[] }>('GET', '/admin/disputes', { query: { status } }),
+    /** v3.3 promo codes. */
+    promos: () => request<{ content: PromoCode[] }>('GET', '/admin/promo-codes'),
+    createPromo: (body: PromoCodeInput) => request<PromoCode>('POST', '/admin/promo-codes', { body }),
+    setPromoActive: (id: string, active: boolean) => request<PromoCode>('PATCH', `/admin/promo-codes/${enc(id)}`, { body: { active } }),
     /** v3.1 refund-reason log. */
     disputeReport: (days = 90) => request<DisputeReport>('GET', '/admin/disputes/report', { query: { days } }),
     /** FR-37: cancel an accepted order with a full refund. */

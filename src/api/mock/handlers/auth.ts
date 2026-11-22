@@ -1,6 +1,7 @@
 /**
  * Mock for the Auth module (FR-01 to FR-04). Same behaviour as the backend auth package.
  */
+import { linkReferral, resolveReferral } from './promos';
 import {
   forgotPasswordRequestSchema,
   googleAuthRequestSchema,
@@ -111,7 +112,9 @@ export const register: Handler = ({ req }) => {
   if (findByEmail(body.email)) {
     fail(409, 'This email already has an account. Sign in instead.', 'EMAIL_TAKEN', [{ field: 'email', message: 'This email already has an account.' }]);
   }
+  const referrer = resolveReferral(body.referralCode, body.role);
   const user = createUser({ email: body.email, name: body.name, role: body.role, passwordHash: mockHash(body.password), verified: false });
+  linkReferral(user, referrer);
   sendVerification(user);
   return issueSession(user, 201);
 };

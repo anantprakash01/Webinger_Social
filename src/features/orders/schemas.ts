@@ -65,6 +65,9 @@ export const orderCreateRequestSchema = z
     payment: z.unknown(),
     /** Phase C: package add-ons chosen at checkout. */
     addonIds: z.array(z.string().min(1)).max(5).optional(),
+    /** v3.3: promo code and referral credits. */
+    promoCode: z.string().trim().max(20).nullable().optional(),
+    useCredits: z.boolean().optional(),
   })
   .refine((v) => (v.packageId ? !v.offer && !v.creatorUsername : !!v.offer && !!v.creatorUsername), {
     error: 'Send either a packageId, or a creatorUsername with an offer.',
@@ -155,6 +158,14 @@ export const disputeRequestSchema = noteRequestSchema.extend({
   reasonCode: z.enum(DISPUTE_REASONS.map((r) => r.value) as [DisputeReasonValue, ...DisputeReasonValue[]]).default('OTHER'),
 });
 
+/** v3.3: promo code as typed at checkout (case-insensitive). */
+export const promoCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .max(20, { error: 'Codes are at most 20 characters.' })
+  .regex(/^[A-Z0-9]*$/, { error: 'Use letters and numbers only.' });
+
 export const disputeResponseSchema = z.object({
   response: z.string().trim().min(20, { error: 'Explain your side in at least 20 characters.' }).max(2000, { error: 'Use at most 2000 characters.' }),
 });
@@ -183,6 +194,8 @@ export const quoteQuerySchema = z
     creatorUsername: z.string().trim().toLowerCase().min(1).optional(),
     priceCents: z.coerce.number().int().min(MIN_PRICE_CENTS, { error: 'The minimum price is ₹500.' }).max(MAX_PRICE_CENTS).optional(),
     addonIds: z.string().max(400).optional(),
+    promoCode: z.string().trim().max(20).optional(),
+    useCredits: z.enum(['true', 'false']).optional(),
   })
   .refine((q) => !!q.packageId || (!!q.creatorUsername && q.priceCents !== undefined), {
     error: 'Send a packageId, or a creatorUsername with a priceCents.',

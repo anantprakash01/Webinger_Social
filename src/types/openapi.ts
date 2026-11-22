@@ -605,6 +605,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/referrals/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who invited you (public, for the sign-up page) (v3.3) */
+        get: operations["getReferralInvite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your referral code, the people you invited, and (brands) your credits (v3.3)
+         * @description Brands invite brands: the new brand gets ₹500 credit at sign-up; you get ₹1,000 credit when their first order is completed.
+         *     Creators invite creators: you get a ₹500 bonus in your balance when their first order is completed.
+         *     Credits are promotional: they only reduce the price of orders, cannot be bought, withdrawn or transferred.
+         */
+        get: operations["getMyReferrals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/promo-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promo codes with their use (v3.3) */
+        get: operations["listPromoCodes"];
+        put?: never;
+        /** Create a promo code (platform-funded discount for brands) (v3.3) */
+        post: operations["createPromoCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/promo-codes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Turn a promo code on or off (v3.3) */
+        patch: operations["updatePromoCode"];
+        trace?: never;
+    };
     "/orders": {
         parameters: {
             query?: never;
@@ -2827,7 +2901,99 @@ export interface components {
             creatorFeeBps: number;
         };
         /** @enum {string} */
-        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT" | "ORDER_CANCELLED" | "ACCOUNT_DELETION_REQUESTED";
+        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT" | "ORDER_CANCELLED" | "ACCOUNT_DELETION_REQUESTED" | "PROMO_CHANGED" | "PAYOUT_RETRIED";
+        PromoCodeInput: {
+            code: string;
+            description: string;
+            /** @enum {string} */
+            kind: "PERCENT" | "FLAT";
+            /** @description PERCENT: share of the order price. */
+            percentBps?: number | null;
+            /** Format: int64 */
+            flatCents?: number | null;
+            /** Format: int64 */
+            maxDiscountCents?: number | null;
+            /**
+             * Format: int64
+             * @description Minimum order price (before fees).
+             */
+            minOrderCents?: number | null;
+            firstOrderOnly?: boolean;
+            /** @description Total uses across all brands; null = no cap. */
+            maxRedemptions?: number | null;
+            /**
+             * Format: date
+             * @description Last day the code works (inclusive).
+             */
+            validUntil?: string | null;
+        };
+        PromoCode: components["schemas"]["PromoCodeInput"] & {
+            id: string;
+            active: boolean;
+            /** @enum {string} */
+            status: "ACTIVE" | "PAUSED" | "EXPIRED" | "USED_UP";
+            /** @description Orders that used it (not counting released ones). */
+            redemptions: number;
+            /** Format: int64 */
+            discountGivenCents: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReferralInvite: {
+            code: string;
+            referrerName: string;
+            role: components["schemas"]["SignupRole"];
+            /**
+             * Format: int64
+             * @description Credit the new account gets (brands); 0 for creators.
+             */
+            welcomeCreditCents: number;
+        };
+        CreditEntry: {
+            id: string;
+            /**
+             * Format: int64
+             * @description + granted, − used.
+             */
+            deltaCents: number;
+            /** @enum {string} */
+            reason: "REFERRAL_WELCOME" | "REFERRAL_REWARD" | "ORDER_USED" | "ORDER_RETURNED" | "ADMIN_GRANT";
+            note: string;
+            orderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReferralOverview: {
+            /** @example MAYA7K2Q */
+            code: string;
+            shareUrl: string;
+            role: components["schemas"]["SignupRole"];
+            /** Format: int64 */
+            refereeRewardCents: number;
+            /** Format: int64 */
+            referrerRewardCents: number;
+            referred: {
+                name: string;
+                /** Format: date-time */
+                joinedAt: string;
+                /** @enum {string} */
+                status: "JOINED" | "REWARDED";
+                /** Format: int64 */
+                rewardCents: number | null;
+            }[];
+            /**
+             * Format: int64
+             * @description Brands only; 0 for creators.
+             */
+            creditBalanceCents: number;
+            /** @description Newest first (brands). */
+            credits: components["schemas"]["CreditEntry"][];
+            /**
+             * Format: int64
+             * @description Total referral rewards so far.
+             */
+            earnedCents: number;
+        };
         AdminCancelResult: {
             orderId: components["schemas"]["Ulid"];
             status: components["schemas"]["OrderStatus"];
@@ -3356,8 +3522,25 @@ export interface components {
             payment: components["schemas"]["OrderPaymentInput"];
             /** @description Package add-ons chosen at checkout (v2.4). */
             addonIds?: string[];
+            /** @description v3.3. The payment must then be for amountDueCents from the quote. */
+            promoCode?: string | null;
+            /** @description v3.3: apply referral credits. */
+            useCredits?: boolean;
+        };
+        /** @description Platform-funded discount fixed at checkout (v3.3): the brand pays totalCents − promoCents − creditCents; the creator's payout and the fees are unchanged. */
+        OrderDiscount: {
+            promoCode: string | null;
+            /** Format: int64 */
+            promoCents: number;
+            /** Format: int64 */
+            creditCents: number;
         };
         OrderCreated: {
+            /**
+             * Format: int64
+             * @description What the brand was charged after discounts (v3.3).
+             */
+            paidCents: number;
             orderId: components["schemas"]["Ulid"];
             status: components["schemas"]["OrderStatus"];
             /** Format: int64 */
@@ -3374,6 +3557,19 @@ export interface components {
             acceptBy: string;
         };
         OrderQuote: {
+            discount: components["schemas"]["OrderDiscount"];
+            /**
+             * Format: int64
+             * @description What the brand pays now: totalCents minus discounts (at least ₹1).
+             */
+            amountDueCents: number;
+            /**
+             * Format: int64
+             * @description The brand's unused referral credit.
+             */
+            creditBalanceCents: number;
+            /** @example ₹500 off your first order */
+            promoDescription: string | null;
             kind: components["schemas"]["OrderKind"];
             creator: components["schemas"]["OrderParty"];
             package: components["schemas"]["Package"] | null;
@@ -3435,6 +3631,12 @@ export interface components {
         };
         /** @description Copied onto the order at checkout; later fee changes never alter it. */
         OrderMoney: {
+            discount: components["schemas"]["OrderDiscount"];
+            /**
+             * Format: int64
+             * @description What the brand paid: totalCents minus discounts (v3.3).
+             */
+            paidCents: number;
             currency: string;
             /** Format: int64 */
             priceCents: number;
@@ -3648,6 +3850,8 @@ export interface components {
             password: string;
             /** @constant */
             acceptTerms: true;
+            /** @description Someone else's referral code, same role (v3.3). */
+            referralCode?: string | null;
         };
         LoginRequest: {
             /** Format: email */
@@ -4584,6 +4788,10 @@ export interface operations {
                 priceCents?: number;
                 /** @description Comma-separated package add-on ids (v2.4). */
                 addonIds?: string;
+                /** @description A promo code to apply (v3.3). An invalid code answers 422 with a field error on promoCode. */
+                promoCode?: string;
+                /** @description Apply the brand's referral credits (v3.3). */
+                useCredits?: boolean;
             };
             header?: never;
             path?: never;
@@ -4604,6 +4812,130 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getReferralInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralInvite"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMyReferrals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralOverview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listPromoCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        content: components["schemas"]["PromoCode"][];
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoCodeInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    updatePromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    active: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listOrders: {

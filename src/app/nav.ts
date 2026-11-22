@@ -6,6 +6,8 @@ import {
   LuBuilding2,
   LuCreditCard,
   LuCrown,
+  LuGift,
+  LuTicket,
   LuLayoutDashboard,
   LuMegaphone,
   LuMessageSquare,
@@ -41,6 +43,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/brand/campaigns', label: 'Campaigns', icon: LuMegaphone },
     { to: '/brand/lists', label: 'Saved lists', icon: LuBookmark },
     { to: '/brand/plan', label: 'Plan & billing', icon: LuCrown },
+    { to: '/referrals', label: 'Refer and earn', icon: LuGift },
     { to: '/brand/payment-methods', label: 'Payment methods', icon: LuCreditCard },
     { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true, badge: 'messages' },
     { to: '/notifications', label: 'Notifications', icon: LuBell, badge: 'notifications' },
@@ -54,6 +57,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/messages', label: 'Messages', icon: LuMessageSquare, primary: true, badge: 'messages' },
     { to: '/creator/payouts', label: 'Payouts', icon: LuWallet, primary: true },
     { to: '/notifications', label: 'Notifications', icon: LuBell, badge: 'notifications' },
+    { to: '/referrals', label: 'Refer and earn', icon: LuGift },
     { to: '/creator/onboarding', label: 'My profile', icon: LuUserRound },
   ],
   ADMIN: [
@@ -63,6 +67,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/orders', label: 'Orders', icon: LuReceipt, primary: true },
     { to: '/admin/users', label: 'Users', icon: LuUsers, primary: true },
     { to: '/admin/fees', label: 'Fees & plans', icon: LuPercent },
+    { to: '/admin/promos', label: 'Promo codes', icon: LuTicket },
     { to: '/admin/audit', label: 'Audit log', icon: LuScrollText },
   ],
 };

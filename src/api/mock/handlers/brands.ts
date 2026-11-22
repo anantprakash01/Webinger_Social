@@ -1,5 +1,5 @@
 /** Mock for the brand workspace: company profile (FR-05). Brand role only. */
-import { brandTotalCents } from '../orderMachine';
+import { brandPaidCents } from '../orderMachine';
 import { brandProfileInputSchema } from '@/features/brands/schemas';
 import type { BrandProfile, BrandStats } from '@/types';
 import { getDb, now, type BrandProfileRow, type UserRow } from '../db';
@@ -65,7 +65,8 @@ export const getMyBrandStats: Handler = ({ user }) => {
   myBrand(user);
   const db = getDb();
   const orders = db.orders.filter((o) => o.brandUserId === user.id);
-  const total = (o: (typeof orders)[number]) => brandTotalCents(o);
+  // What the brand actually pays (v3.3: after promo codes and credits).
+  const total = (o: (typeof orders)[number]) => brandPaidCents(o);
   const captured = orders.filter((o) => o.payment.status === 'CAPTURED' || o.payment.status === 'REFUNDED');
   const statuses = ['PENDING_ACCEPTANCE', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'REFUNDED', 'CLOSED'] as const;
   const ids = new Set(orders.map((o) => o.id));

@@ -2,7 +2,7 @@
 import { toast } from '@/components/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, newIdempotencyKey } from '@/api/client';
+import { api, newIdempotencyKey, type QuoteQuery } from '@/api/client';
 import type { DeliverRequest, DisputeEvidenceInput, DisputeReasonCode, OrderBrief, OrderCreateRequest, OrderDetail, PostMetricsInput, ReviewRequest } from '@/types';
 
 export const orderKeys = {
@@ -17,7 +17,7 @@ export const useOrders = (status: string, page: number) =>
 
 export const useOrder = (id: string) => useQuery({ queryKey: orderKeys.detail(id), queryFn: () => api.orders.get(id) });
 
-export const useOrderQuote = (q: { packageId?: string; creatorUsername?: string; priceCents?: number; addonIds?: string }, enabled = true) =>
+export const useOrderQuote = (q: QuoteQuery, enabled = true) =>
   useQuery({ queryKey: orderKeys.quote(q), queryFn: () => api.orders.quote(q), enabled, placeholderData: keepPreviousData, retry: false });
 
 /**

@@ -142,6 +142,28 @@ export function seedGrowth(db: Db, now: Date, ids: { brandId: string; leoId: str
   subscribe(copperleaf, 'PRO', 'MONTHLY', 55, 2, 'UPI · nisha@okaxis');
   subscribe(brandByName('Tidewell Swim'), 'PREMIUM', 'YEARLY', 100, 1, 'Visa •••• 4242');
 
+  // Promo codes (v3.3): a first-order welcome, a festive percentage, and one that has expired.
+  const day = (d: number) => new Date(now.getTime() + d * 24 * HOUR).toISOString().slice(0, 10);
+  db.promoCodes.push(
+    { id: 'promo_welcome500', code: 'WELCOME500', description: 'New brands: ₹500 off the first booking', kind: 'FLAT', percentBps: null, flatCents: 500_00, maxDiscountCents: null, minOrderCents: 2_000_00, firstOrderOnly: true, maxRedemptions: null, validUntil: null, active: true, createdBy: null, createdAt: ago(24 * 90) },
+    { id: 'promo_diwali10', code: 'DIWALI10', description: 'Festive season: 10% off, up to ₹2,000', kind: 'PERCENT', percentBps: 1000, flatCents: null, maxDiscountCents: 2_000_00, minOrderCents: 5_000_00, firstOrderOnly: false, maxRedemptions: 500, validUntil: day(40), active: true, createdBy: null, createdAt: ago(24 * 6) },
+    { id: 'promo_monsoon15', code: 'MONSOON15', description: 'Monsoon sale: 15% off, up to ₹3,000', kind: 'PERCENT', percentBps: 1500, flatCents: null, maxDiscountCents: 3_000_00, minOrderCents: null, firstOrderOnly: false, maxRedemptions: null, validUntil: day(-12), active: true, createdBy: null, createdAt: ago(24 * 70) },
+  );
+
+  // Referrals (v3.3): Maya invited Copperleaf (rewarded: ₹1,000 credit) and Theo (₹500 welcome credit);
+  // Leo invited Ivy (not rewarded yet: Ivy has no completed order).
+  const user = (id: string) => db.users.find((u) => u.id === id)!;
+  const maya = user(ids.brandId);
+  maya.referralCode = 'MAYA7K2Q';
+  user(ids.leoId).referralCode = 'LEO4XR8M';
+  Object.assign(user(copperleaf), { referredBy: maya.id, referralRewardedAt: ago(24 * 20) });
+  db.credits.push({ id: seedId('credit-maya-reward'), userId: maya.id, deltaCents: 1_000_00, reason: 'REFERRAL_REWARD', note: 'Copperleaf Candles completed their first order', orderId: null, createdAt: ago(24 * 20) });
+  const theo = db.users.find((u) => u.email === 'unverified@demo.test')!;
+  theo.referredBy = maya.id;
+  db.credits.push({ id: seedId('credit-theo-welcome'), userId: theo.id, deltaCents: 500_00, reason: 'REFERRAL_WELCOME', note: 'Welcome credit — invited by Maya', orderId: null, createdAt: theo.createdAt });
+  const ivy = db.users.find((u) => u.email === 'newcreator@demo.test')!;
+  ivy.referredBy = ids.leoId;
+
   db.notifications.push({
     id: seedId('note-inquiry-leo'),
     userId: ids.leoId,

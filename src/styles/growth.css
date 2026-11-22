@@ -45,3 +45,15 @@
 .plan-card__features li { display: flex; gap: 6px; align-items: flex-start; }
 .plan-card__features svg { flex: none; margin-top: 3px; color: var(--ok); }
 .brand-plan-badge { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Promo codes and referrals (v3.3) */
+.money__discount { color: var(--ok); }
+.promo { display: grid; gap: var(--s-2); }
+.promo__row { display: flex; gap: var(--s-2); align-items: flex-end; }
+.promo__row > .field { flex: 1 1 auto; min-width: 0; }
+.promo__applied { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px dashed var(--ok); border-radius: var(--radius-sm); background: var(--ok-soft); color: var(--ink); }
+.promo__applied > span { min-width: 0; overflow-wrap: anywhere; }
+.promo__toggle { justify-self: start; background: none; border: 0; padding: 0; cursor: pointer; }
+.referral-code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.referral-code__value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xl); font-weight: 800; letter-spacing: 0.08em; padding: var(--s-2) var(--s-3); border: 2px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--ink); }
+.referral-steps { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s-1); font-size: var(--fs-sm); }

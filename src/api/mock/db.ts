@@ -42,6 +42,51 @@ export interface UserRow {
   /** Account deletion requested (v2.2): erased after this date unless cancelled. */
   deletionScheduledFor?: string | null;
   deletedAt?: string | null;
+  /** v3.3 referrals: this user's code, who invited them, and when the inviter was rewarded. */
+  referralCode?: string | null;
+  referredBy?: string | null;
+  referralRewardedAt?: string | null;
+}
+
+/** v3.3: promotional credit (referrals). Not money held for the brand: it can only reduce order prices. */
+export interface CreditRow {
+  id: string;
+  userId: string;
+  deltaCents: number;
+  reason: 'REFERRAL_WELCOME' | 'REFERRAL_REWARD' | 'ORDER_USED' | 'ORDER_RETURNED' | 'ADMIN_GRANT';
+  note: string;
+  orderId: string | null;
+  createdAt: string;
+}
+
+/** v3.3: platform-funded promo codes for brands. */
+export interface PromoCodeRow {
+  id: string;
+  code: string;
+  description: string;
+  kind: 'PERCENT' | 'FLAT';
+  percentBps: number | null;
+  flatCents: number | null;
+  maxDiscountCents: number | null;
+  minOrderCents: number | null;
+  firstOrderOnly: boolean;
+  maxRedemptions: number | null;
+  /** Last valid day, YYYY-MM-DD (inclusive). */
+  validUntil: string | null;
+  active: boolean;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface PromoRedemptionRow {
+  id: string;
+  codeId: string;
+  brandUserId: string;
+  orderId: string;
+  discountCents: number;
+  /** RELEASED when the order closed unaccepted or was fully refunded. */
+  status: 'APPLIED' | 'RELEASED';
+  createdAt: string;
 }
 
 export interface CreatorProfileRow {
@@ -334,7 +379,7 @@ export interface AuditRow {
   id: string;
   actorId: string | null;
   actorName: string;
-  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT' | 'ORDER_CANCELLED' | 'ACCOUNT_DELETION_REQUESTED';
+  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT' | 'ORDER_CANCELLED' | 'ACCOUNT_DELETION_REQUESTED' | 'PROMO_CHANGED' | 'PAYOUT_RETRIED';
   entityType: string;
   entityId: string;
   summary: string;
@@ -561,6 +606,9 @@ export interface Db {
   notificationPrefs: NotificationPrefsRow[];
   subscriptions: SubscriptionRow[];
   subscriptionInvoices: SubscriptionInvoiceRow[];
+  credits: CreditRow[];
+  promoCodes: PromoCodeRow[];
+  promoRedemptions: PromoRedemptionRow[];
   /** Last weekly payout run (Mondays 00:00 UTC). */
   lastPayoutRunAt: string;
 }
@@ -607,7 +655,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -696,6 +744,9 @@ function seed(now: Date): Db {
     notificationPrefs: [],
     subscriptions: [],
     subscriptionInvoices: [],
+    credits: [],
+    promoCodes: [],
+    promoRedemptions: [],
     lastPayoutRunAt: now.toISOString(),
   };
   seedGrowth(out, now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator });

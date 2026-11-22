@@ -17,6 +17,8 @@ import { Button, Card, ErrorState, FormError, Input, PageHeader, PageSkeleton, T
 import { PLATFORMS } from '@/lib/catalog';
 import { formatMoney, parseAmount } from '@/lib/money';
 import { ApiError, type OrderQuote } from '@/types';
+import { api, type QuoteQuery } from '@/api/client';
+import { promoCodeSchema } from '../schemas';
 import { BriefFields } from '../components/BriefFields';
 import { useCreateOrder, useOrderQuote } from '../hooks';
 import { emptyCheckoutForm, formFieldFor, makeCheckoutSchema, type CheckoutFormOutput, type CheckoutFormValues } from '../schemas';
@@ -44,6 +46,9 @@ function Checkout() {
   const [paying, setPaying] = useState(false);
   // Phase C: package add-ons ticked by the brand; the server prices them into the quote and the order.
   const [addonIds, setAddonIds] = useState<string[]>([]);
+  // v3.3: a promo code that the server accepted, and whether to spend referral credit.
+  const [promoCode, setPromoCode] = useState<string | null>(null);
+  const [useCredits, setUseCredits] = useState(false);
 
   const form = useForm<CheckoutFormValues, unknown, CheckoutFormOutput>({
     resolver: zodResolver(makeCheckoutSchema({ offer: offerMode, card: false })),
@@ -63,10 +68,15 @@ function Checkout() {
     }, 300);
     return () => clearTimeout(t);
   }, [price, offerMode]);
-  const quote = useOrderQuote(
-    offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId, addonIds: addonIds.length ? [...addonIds].sort().join(',') : undefined },
-    offerMode ? !!username : !!packageId,
-  );
+  const base = offerMode ? { creatorUsername: username, priceCents: quotedPrice ?? MIN_PRICE_CENTS } : { packageId, addonIds: addonIds.length ? [...addonIds].sort().join(',') : undefined };
+  const enabled = offerMode ? !!username : !!packageId;
+  const withPromo = useOrderQuote({ ...base, promoCode: promoCode ?? undefined, useCredits: useCredits ? 'true' : undefined }, enabled);
+  // A code can stop applying when the order changes (e.g. the price drops below its minimum): quote without it.
+  const promoProblem =
+    withPromo.isError && !!promoCode && withPromo.error instanceof ApiError ? (withPromo.error.fieldErrors.find((f) => f.field === 'promoCode')?.message ?? null) : null;
+  const fallback = useOrderQuote({ ...base, useCredits: useCredits ? 'true' : undefined }, enabled && !!promoProblem);
+  const quote = promoProblem ? fallback : withPromo;
+  const appliedPromo = promoProblem ? null : promoCode;
 
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
@@ -77,8 +87,9 @@ function Checkout() {
     setPaying(true);
     try {
       // Pay first (authorise only); the server verifies the payment before the order exists.
-      const payment = await collectOrderPayment(pay, quote.data.totalCents);
-      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment } : { packageId, brief: v.brief!, payment, addonIds });
+      const payment = await collectOrderPayment(pay, quote.data.amountDueCents);
+      const discountReq = { promoCode: appliedPromo, useCredits };
+      const res = await create.mutateAsync(offerMode ? { creatorUsername: username, offer: v.offer!, brief: v.brief!, payment, ...discountReq } : { packageId, brief: v.brief!, payment, addonIds, ...discountReq });
       navigate(`/brand/orders/${res.orderId}`, { replace: true, state: { placed: true } });
     } catch (e) {
       let placed = false;
@@ -168,16 +179,23 @@ function Checkout() {
         </div>
 
         <aside className="checkout__side">
-          <Summary q={q} offerMode={offerMode} priceReady={!offerMode || quotedPrice !== undefined} addonIds={addonIds} onAddons={setAddonIds} />
+          <Summary
+            q={q}
+            offerMode={offerMode}
+            priceReady={!offerMode || quotedPrice !== undefined}
+            addonIds={addonIds}
+            onAddons={setAddonIds}
+            promo={{ applied: appliedPromo, problem: promoProblem && promoCode ? `${promoCode}: ${promoProblem}` : null, onApply: setPromoCode, useCredits, onUseCredits: setUseCredits, quoteBase: base }}
+          />
           <FormError>{formError}</FormError>
           {/* On phones this sticks above the bottom nav, so paying never needs a scroll back (UX pass, item 4). */}
           <div className="checkout__pay">
             <span className="checkout__pay-total" aria-hidden>
               <span className="small muted">{t('Total')}</span>
-              <strong>{!offerMode || quotedPrice !== undefined ? formatMoney(q.totalCents, q.currency) : '—'}</strong>
+              <strong>{!offerMode || quotedPrice !== undefined ? formatMoney(q.amountDueCents, q.currency) : '—'}</strong>
             </span>
             <Button type="submit" block loading={paying || create.isPending} disabled={offerMode && quotedPrice === undefined}>
-              {(!offerMode || quotedPrice !== undefined) ? t(offerMode ? 'Send offer and pay {amount}' : 'Pay {amount}', { amount: formatMoney(q.totalCents, q.currency) }) : t('Send offer and pay')}
+              {(!offerMode || quotedPrice !== undefined) ? t(offerMode ? 'Send offer and pay {amount}' : 'Pay {amount}', { amount: formatMoney(q.amountDueCents, q.currency) }) : t('Send offer and pay')}
             </Button>
           </div>
           <p className="small muted checkout__fine">
@@ -193,7 +211,17 @@ function Checkout() {
   );
 }
 
-function Summary({ q, offerMode, priceReady, addonIds, onAddons }: { q: OrderQuote; offerMode: boolean; priceReady: boolean; addonIds: string[]; onAddons: (ids: string[]) => void }) {
+interface PromoControls {
+  applied: string | null;
+  /** The code no longer applies to this order (shown until removed or replaced). */
+  problem: string | null;
+  onApply: (code: string | null) => void;
+  useCredits: boolean;
+  onUseCredits: (on: boolean) => void;
+  quoteBase: QuoteQuery;
+}
+
+function Summary({ q, offerMode, priceReady, addonIds, onAddons, promo }: { q: OrderQuote; offerMode: boolean; priceReady: boolean; addonIds: string[]; onAddons: (ids: string[]) => void; promo: PromoControls }) {
   const { t } = useT();
   const addons = q.package?.addons ?? [];
   const rush = addons.find((a) => a.kind === 'RUSH' && addonIds.includes(a.id));
@@ -249,9 +277,94 @@ function Summary({ q, offerMode, priceReady, addonIds, onAddons }: { q: OrderQuo
           </fieldset>
         )}
         <dl className="money">
-          <BrandMoneyLines priceLabel={t(offerMode ? 'Offer price' : addonIds.length ? 'Package + add-ons' : 'Package price')} priceCents={q.priceCents} brandFeeCents={q.brandFeeCents} brandFeeBps={q.brandFeeBps} totalCents={q.totalCents} taxes={q.taxes} currency={q.currency} ready={priceReady} />
+          <BrandMoneyLines
+            priceLabel={t(offerMode ? 'Offer price' : addonIds.length ? 'Package + add-ons' : 'Package price')}
+            priceCents={q.priceCents}
+            brandFeeCents={q.brandFeeCents}
+            brandFeeBps={q.brandFeeBps}
+            totalCents={q.totalCents}
+            taxes={q.taxes}
+            currency={q.currency}
+            ready={priceReady}
+            discount={q.discount}
+          />
         </dl>
+        <PromoField q={q} promo={promo} />
+        {q.brandFeeBps >= 1000 && (
+          <p className="small muted">
+            {t('Pro brands pay a 5% service fee.')}{' '}
+            <Link to="/brand/plan" className="link">
+              {t('See plans')}
+            </Link>
+          </p>
+        )}
       </div>
     </Card>
+  );
+}
+
+/** v3.3: promo code (checked by the server's quote before it is applied) and referral credit. */
+function PromoField({ q, promo }: { q: OrderQuote; promo: PromoControls }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const apply = async () => {
+    const v = promoCodeSchema.safeParse(code);
+    if (!v.success || !v.data) return setError(v.success ? t('Enter a code.') : v.error.issues[0].message);
+    setError(null);
+    setChecking(true);
+    try {
+      await api.orders.quote({ ...promo.quoteBase, promoCode: v.data });
+      promo.onApply(v.data);
+      setCode('');
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof ApiError ? (e.fieldErrors.find((f) => f.field === 'promoCode')?.message ?? e.message) : t('Could not check the code.'));
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="promo">
+      {promo.problem && (
+        <p className="field__error small" role="alert">
+          {promo.problem}{' '}
+          <button type="button" className="link small promo__toggle" onClick={() => promo.onApply(null)}>
+            {t('Remove')}
+          </button>
+        </p>
+      )}
+      {promo.applied ? (
+        <div className="promo__applied small">
+          <span>
+            <strong>{promo.applied}</strong> {q.promoDescription ? `· ${q.promoDescription}` : ''}
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => promo.onApply(null)}>
+            {t('Remove')}
+          </Button>
+        </div>
+      ) : open ? (
+        <div className="promo__row">
+          <Input label={t('Promo code')} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} error={error ?? undefined} autoComplete="off" maxLength={20} />
+          <Button variant="secondary" onClick={() => void apply()} loading={checking} disabled={!code.trim()}>
+            {t('Apply')}
+          </Button>
+        </div>
+      ) : (
+        <button type="button" className="link small promo__toggle" onClick={() => setOpen(true)}>
+          {t('Have a promo code?')}
+        </button>
+      )}
+      {(q.creditBalanceCents > 0 || promo.useCredits) && (
+        <label className="check small">
+          <input type="checkbox" checked={promo.useCredits} onChange={(e) => promo.onUseCredits(e.target.checked)} />
+          <span>{t('Use my referral credit ({amount} available)', { amount: formatMoney(q.creditBalanceCents, q.currency) })}</span>
+        </label>
+      )}
+    </div>
   );
 }
