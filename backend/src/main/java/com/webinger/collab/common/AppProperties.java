@@ -11,4 +11,6 @@ public record AppProperties(
         boolean cookieSecure,
         String googleClientId,
         boolean demo,
-        String webBaseUrl) {}
+        String webBaseUrl,
+        /** Where uploads are kept until S3 is wired in (local disk: dev, tests, single-instance demo). */
+        String uploadDir) {}

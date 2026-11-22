@@ -39,9 +39,35 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Some fields need your attention.", "VALIDATION_FAILED", errors);
     }
 
+    /**
+     * Unreadable body. A value of the wrong JSON type (text for a number, 1500.5 for whole cents) is reported on
+     * its field, like Zod's type errors; broken JSON on `body`.
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ProblemBody> unreadable(HttpMessageNotReadableException e) {
-        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Some fields need your attention.", "VALIDATION_FAILED", List.of(new FieldErrorDto("body", "The request body is not valid JSON.")));
+        String field = fieldOf(e.getCause());
+        FieldErrorDto error = field == null ? new FieldErrorDto("body", "The request body is not valid JSON.") : new FieldErrorDto(field, "Enter a valid value.");
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Some fields need your attention.", "VALIDATION_FAILED", List.of(error));
+    }
+
+    /** `addons.1.priceCents` from Jackson's path, or null when the JSON itself is broken. */
+    private static String fieldOf(Throwable cause) {
+        if (!(cause instanceof tools.jackson.databind.DatabindException je) || je.getPath().isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (tools.jackson.core.JacksonException.Reference r : je.getPath()) {
+            if (!sb.isEmpty()) sb.append('.');
+            sb.append(r.getPropertyName() != null ? r.getPropertyName() : String.valueOf(r.getIndex()));
+        }
+        return sb.toString();
+    }
+
+    /** A missing or malformed query parameter, e.g. an upload link without its signature. */
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ProblemBody> badParameter(Exception e) {
+        String name = e instanceof org.springframework.web.bind.MissingServletRequestParameterException m ? m.getParameterName()
+                : ((org.springframework.web.method.annotation.MethodArgumentTypeMismatchException) e).getName();
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Some fields need your attention.", "VALIDATION_FAILED", List.of(new FieldErrorDto(name, "Enter a valid value.")));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

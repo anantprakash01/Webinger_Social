@@ -1,6 +1,6 @@
 # Backend handover — Phase 0 → Phase 1
 
-> **Backend status (22 Nov 2026):** the API lives in `backend/` (repository root `README.md`). Built: foundation, Auth and `/me` (Weeks 7–8). Next: creators, search and vetting. Each section below is ported module by module; tick it here when it lands.
+> **Backend status (22 Nov 2026):** the API lives in `backend/` (repository root `README.md`). Built: foundation, Auth and `/me` (Weeks 7–8); creators, search, vetting, saved lists, brand profile, payout account and uploads (Weeks 9–11, branch `creator-supply`). Next: orders, payments and the rest of transactions (Weeks 12–15). Each section below is ported module by module; tick it here when it lands.
 
 
 For the Spring Boot engineers building the Phase 1 API (CLAUDE.md §11). The React prototype runs entirely on an in-browser mock that follows the same rules the backend must follow. This document lists, per module, what the API must do and where the mock shows the expected behaviour.

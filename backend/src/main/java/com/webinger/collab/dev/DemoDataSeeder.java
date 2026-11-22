@@ -1,9 +1,13 @@
 package com.webinger.collab.dev;
 
-import com.webinger.collab.brand.BrandProfile;
-import com.webinger.collab.brand.BrandProfileRepository;
-import com.webinger.collab.creator.CreatorProfile;
-import com.webinger.collab.creator.CreatorProfileRepository;
+import com.webinger.collab.brand.domain.BrandProfile;
+import com.webinger.collab.brand.repository.BrandProfileRepository;
+import com.webinger.collab.creator.domain.CreatorProfile;
+import com.webinger.collab.creator.repository.CreatorProfileRepository;
+import com.webinger.collab.creator.repository.PackageRepository;
+import com.webinger.collab.creator.repository.PayoutAccountRepository;
+import com.webinger.collab.creator.repository.PortfolioItemRepository;
+import com.webinger.collab.creator.repository.SocialAccountRepository;
 import com.webinger.collab.user.domain.Role;
 import com.webinger.collab.user.domain.User;
 import com.webinger.collab.user.domain.UserStatus;
@@ -36,13 +40,16 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final CreatorProfileRepository creators;
     private final PasswordEncoder passwords;
     private final Clock clock;
+    private final CreatorDemoData creatorData;
 
-    public DemoDataSeeder(UserRepository users, BrandProfileRepository brands, CreatorProfileRepository creators, PasswordEncoder passwords, Clock clock) {
+    public DemoDataSeeder(UserRepository users, BrandProfileRepository brands, CreatorProfileRepository creators, PasswordEncoder passwords, Clock clock,
+            SocialAccountRepository socials, PackageRepository packages, PortfolioItemRepository portfolio, PayoutAccountRepository payouts) {
         this.users = users;
         this.brands = brands;
         this.creators = creators;
         this.passwords = passwords;
         this.clock = clock;
+        this.creatorData = new CreatorDemoData(users, creators, socials, packages, portfolio, payouts);
     }
 
     @Override
@@ -57,11 +64,13 @@ public class DemoDataSeeder implements ApplicationRunner {
         User theo = user("01JD0000000000000000BRAND2", "unverified@demo.test", "Theo Pinto", Role.BRAND, false, hash, at);
         brand(theo, "Fernhill Tea House", null, "FOOD", "WB", null, at);
         User leo = user("01JD000000000000000CREATR1", "creator@demo.test", "Leo Fernandes", Role.CREATOR, true, hash, at);
-        creator(leo, "leomakes", "APPROVED", "ENABLED", at);
+        creatorData.leo(creator(leo, "leomakes", "APPROVED", "ENABLED", at), clock.instant());
         User ivy = user("01JD000000000000000CREATR2", "newcreator@demo.test", "Ivy Mathew", Role.CREATOR, true, hash, at);
         creator(ivy, null, "DRAFT", "NOT_STARTED", at);
         user("01JD0000000000000000ADMIN1", "admin@demo.test", "Sam Mehta", Role.ADMIN, true, hash, at);
-        log.info("Demo accounts created (password {}): brand@demo.test, unverified@demo.test, creator@demo.test, newcreator@demo.test, admin@demo.test", DEMO_PASSWORD);
+        creatorData.catalogue(hash, clock.instant());
+        log.info("Demo accounts created (password {}): brand@demo.test, unverified@demo.test, creator@demo.test, newcreator@demo.test, admin@demo.test, "
+                + "plus {} invented creators (<username>@creators.demo.test)", DEMO_PASSWORD, CreatorDemoData.PEOPLE.size());
     }
 
     private User user(String id, String email, String name, Role role, boolean verified, String hash, Instant at) {
@@ -92,7 +101,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         brands.save(b);
     }
 
-    private void creator(User u, String username, String vetting, String payout, Instant at) {
+    private CreatorProfile creator(User u, String username, String vetting, String payout, Instant at) {
         CreatorProfile p = new CreatorProfile();
         p.setUserId(u.getId());
         p.setUsername(username);
@@ -101,6 +110,6 @@ public class DemoDataSeeder implements ApplicationRunner {
         p.setPayoutStatus(payout);
         p.setCreatedAt(at);
         p.setUpdatedAt(at);
-        creators.save(p);
+        return creators.save(p);
     }
 }

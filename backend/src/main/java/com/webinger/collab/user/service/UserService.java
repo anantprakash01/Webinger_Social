@@ -1,11 +1,11 @@
 package com.webinger.collab.user.service;
 
-import com.webinger.collab.brand.BrandProfile;
-import com.webinger.collab.brand.BrandProfileRepository;
+import com.webinger.collab.brand.domain.BrandProfile;
+import com.webinger.collab.brand.repository.BrandProfileRepository;
 import com.webinger.collab.common.Ulid;
 import com.webinger.collab.common.web.ApiException;
-import com.webinger.collab.creator.CreatorProfile;
-import com.webinger.collab.creator.CreatorProfileRepository;
+import com.webinger.collab.creator.domain.CreatorProfile;
+import com.webinger.collab.creator.repository.CreatorProfileRepository;
 import com.webinger.collab.user.domain.Role;
 import com.webinger.collab.user.domain.User;
 import com.webinger.collab.user.domain.UserStatus;
@@ -13,7 +13,11 @@ import com.webinger.collab.user.repository.UserRepository;
 import com.webinger.collab.user.web.MeDto;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +47,24 @@ public class UserService {
 
     public User get(Long id) {
         return users.findById(id).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Please sign in.", "NOT_AUTHENTICATED"));
+    }
+
+    public Optional<User> findByPublicId(String publicId) {
+        return users.findByPublicId(publicId);
+    }
+
+    /** Several users by internal id, in one query. */
+    public Map<Long, User> getAll(Collection<Long> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return users.findAllById(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
+    }
+
+    /** The account name follows the creator's display name (FR-10). */
+    @Transactional
+    public void setName(Long userId, String name) {
+        User u = get(userId);
+        u.setName(name);
+        u.setUpdatedAt(clock.instant());
     }
 
     /** New brand or creator with an empty profile (creators start as DRAFT, FR-16). */

@@ -16,6 +16,9 @@ spring:
     enabled: true
   jackson:
     default-property-inclusion: always
+    deserialization:
+      # Money is whole paise: 1500.5 is an error (422 on the field), never silently rounded.
+      accept-float-as-int: false
 
 server:
   port: 8080
@@ -48,6 +51,8 @@ app:
   # Demo data and mock helpers (demo accounts, mock Google tokens, /dev/outbox). Never in production.
   demo: false
   web-base-url: ${WEB_BASE_URL:http://localhost:5173}
+  # Uploaded images (POST /files/presign). Local disk until S3 + CloudFront replace it.
+  upload-dir: ${UPLOAD_DIR:./data/uploads}
 
 ---
 spring:
@@ -72,6 +77,7 @@ spring:
     password:
 app:
   demo: true
+  upload-dir: ${java.io.tmpdir}/collab-test-uploads
 
 ---
 # Demo accounts and mock helpers on a real database: --spring.profiles.active=demo

@@ -31,6 +31,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/verify-email/resend").authenticated()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/dev/**").permitAll() // only registered in demo mode (DevController)
+                        // Public discovery (FR-15, FR-20): the workspace under /creators/me stays signed-in only.
+                        .requestMatchers("/creators/me", "/creators/me/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/creators", "/creators/*").permitAll()
+                        // Stand-ins for S3: the upload URL is signed, uploaded files are public (like CloudFront).
+                        .requestMatchers(HttpMethod.PUT, "/files/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/error").permitAll()
