@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.6.0
+  version: 3.0.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -1117,6 +1117,34 @@ paths:
       responses:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ConversationList' } } } }
 
+  /conversations/inquiries:
+    post:
+      tags: [Chat]
+      summary: Brand messages a creator before booking (v3.0)
+      description: |
+        Opens (or reuses) the brand's pre-booking conversation with an approved creator and sends the first message.
+        Contact details are always masked in inquiries. New inquiries per rolling 30 days are limited by the brand's
+        plan (FREE 5, PRO 50, PREMIUM unlimited); writing in an existing inquiry is not limited. 429 `INQUIRY_LIMIT`.
+      operationId: startInquiry
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InquiryInput' } } } }
+      responses:
+        '201': { description: Opened (or an existing inquiry, with the message added)., content: { application/json: { schema: { $ref: '#/components/schemas/Conversation' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { description: Monthly inquiry limit reached (INQUIRY_LIMIT)., content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+
+  /conversations/inquiries/allowance:
+    get:
+      tags: [Chat]
+      summary: How many new inquiries the brand can still start in the current 30 days
+      operationId: getInquiryAllowance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/InquiryAllowance' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /conversations/{id}/messages:
     get:
       tags: [Chat]
@@ -2102,6 +2130,7 @@ components:
             vettingStatus:
               $ref: '#/components/schemas/VettingStatus'
               description: Always APPROVED for the public; other values only in an owner or admin preview.
+            myInquiryId: { type: [string, 'null'], description: "The signed-in brand's pre-booking conversation with this creator, if any (v3.0)." }
 
     # ---------- Creator workspace (Week 3) ----------
     CreatorProfileInput:
@@ -2245,7 +2274,7 @@ components:
         logoUrl: { type: [string, 'null'] }
         industry: { oneOf: [{ $ref: '#/components/schemas/BrandIndustry' }, { type: 'null' }] }
         country: { type: [string, 'null'] }
-        plan: { type: string, enum: [FREE], description: Pro / Premium arrive in v2. }
+        plan: { $ref: '#/components/schemas/BrandPlan' }
 
     BrandProfileInput:
       type: object
@@ -2767,17 +2796,39 @@ components:
 
     Conversation:
       type: object
-      required: [id, orderId, orderTitle, orderStatus, counterparty, lastMessage, unreadCount, contactsHidden, updatedAt]
+      description: "One per order (FR-50), or a pre-booking inquiry between a brand and a creator (v3.0: kind INQUIRY, orderId and orderStatus null)."
+      required: [id, kind, orderId, orderTitle, orderStatus, counterparty, lastMessage, unreadCount, contactsHidden, updatedAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
-        orderId: { $ref: '#/components/schemas/Ulid' }
-        orderTitle: { type: string }
-        orderStatus: { $ref: '#/components/schemas/OrderStatus' }
+        kind: { type: string, enum: [ORDER, INQUIRY] }
+        orderId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
+        orderTitle: { type: string, description: 'The order title, or "Before booking" for inquiries.' }
+        orderStatus: { oneOf: [{ $ref: '#/components/schemas/OrderStatus' }, { type: 'null' }] }
         counterparty: { $ref: '#/components/schemas/OrderParty' }
         lastMessage: { oneOf: [{ $ref: '#/components/schemas/ChatMessage' }, { type: 'null' }] }
         unreadCount: { type: integer }
         contactsHidden: { type: boolean }
         updatedAt: { type: string, format: date-time }
+
+    InquiryInput:
+      type: object
+      required: [creatorUsername, body]
+      properties:
+        creatorUsername: { type: string }
+        body: { type: string, minLength: 10, maxLength: 2000 }
+
+    InquiryAllowance:
+      type: object
+      required: [plan, used, limit, resetsAt]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        used: { type: integer, description: New inquiries started in the last 30 days. }
+        limit: { type: [integer, 'null'], description: 'Null = unlimited.' }
+        resetsAt: { type: [string, 'null'], format: date-time, description: When the oldest counted inquiry stops counting. }
+
+    BrandPlan:
+      type: string
+      enum: [FREE, PRO, PREMIUM]
 
     ConversationList:
       type: object
@@ -2789,7 +2840,7 @@ components:
     # ---------- Notifications (Week 5) ----------
     NotificationType:
       type: string
-      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT, CAMPAIGN_INVITE]
+      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT, CAMPAIGN_INVITE, NEW_INQUIRY, DISPUTE_UPDATE, PLAN_CHANGED, REFERRAL_REWARD]
 
     Notification:
       type: object

@@ -2,6 +2,7 @@
  * /u/:username — public creator profile (FR-15). Works logged out; buying asks to log in as a brand.
  */
 import { InviteToCampaign, SaveToList } from '@/features/retention/components/BrandTools';
+import { MessageCreator } from '@/features/chat/components/MessageCreator';
 import { useDocumentTitle } from '@/lib/documentTitle';
 import { formatWhen } from '@/lib/dates';
 import { useRef, useState } from 'react';
@@ -124,6 +125,7 @@ function Profile({ p }: { p: CreatorProfile }) {
           </div>
           {(canReport || user?.role === 'BRAND') && (
             <div className="profile__cta">
+              <MessageCreator username={p.username} name={p.displayName} inquiryId={p.myInquiryId ?? null} />
               <SaveToList username={p.username} name={p.displayName} />
               <InviteToCampaign username={p.username} name={p.displayName} away={p.availability.away} />
               {canReport && <ReportButton targetType="CREATOR" targetId={p.username} what="this profile" />}

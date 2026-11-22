@@ -10,6 +10,7 @@ import { seedAddons, seedMetrics } from './seed/collab';
 import type { MessageAttachment, NotificationCategory, PackageAddon, PostMetrics } from '@/types';
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
+import type { BrandPlan } from '@/lib/plans';
 import type { LedgerEntry } from './ledger';
 import type { MockOrder, OrderEvent, PaymentMethod } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
@@ -18,6 +19,7 @@ import { seedOrders } from './seed/orders';
 import { seedEngagement } from './seed/engagement';
 import { seedAdmin } from './seed/admin';
 import { seedPayments } from './seed/payments';
+import { seedGrowth } from './seed/growth';
 
 /* ---------- Row types ---------- */
 
@@ -248,10 +250,13 @@ export interface ApplicationRow {
   decidedAt: string | null;
 }
 
-/** One per order (FR-50). */
+/** One per order (FR-50), or a pre-booking inquiry (v3.0: orderId null, brand and creator set). */
 export interface ConversationRow {
   id: string;
-  orderId: string;
+  orderId: string | null;
+  /** Inquiries only. */
+  brandUserId?: string;
+  creatorUserId?: string;
   createdAt: string;
 }
 
@@ -272,7 +277,7 @@ export interface MessageRow {
 export interface NotificationRow {
   id: string;
   userId: string;
-  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT' | 'CAMPAIGN_INVITE';
+  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT' | 'CAMPAIGN_INVITE' | 'NEW_INQUIRY' | 'DISPUTE_UPDATE' | 'PLAN_CHANGED' | 'REFERRAL_REWARD';
   title: string;
   body: string;
   link: string | null;
@@ -391,7 +396,7 @@ export interface BrandProfileRow {
   logoUrl: string | null;
   industry: BrandIndustry | null;
   country: string | null;
-  plan: 'FREE';
+  plan: BrandPlan;
   stripeCustomerId: string | null;
   /** Indian state code (GST place of supply) and optional GSTIN (v2.3). */
   state?: string | null;
@@ -562,7 +567,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -595,7 +600,7 @@ function seed(now: Date): Db {
   seedAddons(creators.packages, SEED_IDS.creator);
   seedMetrics(orders.orders, orders.deliveries, now.toISOString());
   const admin = seedAdmin(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators, orders, engagement);
-  return {
+  const out: Db = {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
     users: [
@@ -651,6 +656,8 @@ function seed(now: Date): Db {
     notificationPrefs: [],
     lastPayoutRunAt: now.toISOString(),
   };
+  seedGrowth(out, now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator });
+  return out;
 }
 
 /* ---------- Store ---------- */

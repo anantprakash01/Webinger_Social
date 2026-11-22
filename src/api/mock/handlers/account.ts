@@ -74,7 +74,7 @@ export const exportMyData: Handler = ({ user }) => {
   const db = getDb();
   const mine = db.orders.filter((o) => o.brandUserId === user.id || o.creatorUserId === user.id);
   const ids = new Set(mine.map((o) => o.id));
-  const conversations = new Set(db.conversations.filter((c) => ids.has(c.orderId)).map((c) => c.id));
+  const conversations = new Set(db.conversations.filter((c) => (c.orderId === null ? c.brandUserId === user.id || c.creatorUserId === user.id : ids.has(c.orderId))).map((c) => c.id));
   const { passwordHash: _ph, googleSub: _gs, ...account } = user;
   void _ph;
   void _gs;

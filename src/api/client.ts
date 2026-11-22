@@ -65,7 +65,9 @@ import {
   type CampaignInput,
   type CampaignPage,
   type ChatMessage,
+  type Conversation,
   type ConversationList,
+  type InquiryAllowance,
   type MarkReadRequest,
   type MessageList,
   type NotificationPage,
@@ -543,6 +545,9 @@ export const api = {
     messages: (id: string, after?: string) => request<MessageList>('GET', `/conversations/${enc(id)}/messages`, { query: { after } }),
     send: (id: string, body: string, attachment: MessageAttachment | null = null) => request<ChatMessage>('POST', `/conversations/${enc(id)}/messages`, { body: { body, attachment } }),
     markRead: (id: string) => request<void>('POST', `/conversations/${enc(id)}/read`),
+    /** v3.0: message a creator before booking (opens or reuses the inquiry). */
+    startInquiry: (body: { creatorUsername: string; body: string }) => request<Conversation>('POST', '/conversations/inquiries', { body }),
+    inquiryAllowance: () => request<InquiryAllowance>('GET', '/conversations/inquiries/allowance'),
   },
   /** Saved lists of creators (FR-25, v2.5). Brands only. */
   lists: {

@@ -2,6 +2,7 @@
  * Mock for the public Creators module: GET /creators (search, FR-20 – FR-24) and
  * GET /creators/{username} (profile, FR-15). Only APPROVED creators are visible (FR-16, rule 9.5.1).
  */
+import { inquiryBetween } from './chat';
 import { LOCATIONS } from '@/lib/catalog';
 import type { SearchSuggestion } from '@/types';
 import { availabilityOf, isAway } from './retention';
@@ -190,6 +191,7 @@ export const getCreatorProfile: Handler = ({ params, user }) => {
     ...facts.card,
     ...trackRecord(p.userId),
     availability: availabilityOf(p),
+    myInquiryId: viewer?.role === 'BRAND' ? (inquiryBetween(viewer.id, p.userId)?.id ?? null) : null,
     bio: p.bio,
     languages: p.languages,
     coverUrls: p.coverUrls.slice(0, 3),

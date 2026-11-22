@@ -164,3 +164,7 @@ export type NotificationCategory = S['NotificationCategory'];
 export type NotificationPreferences = S['NotificationPreferences'];
 export type MessageAttachment = S['MessageAttachment'];
 export type SearchSuggestion = S['SearchSuggestion'];
+
+/* v3.0 */
+export type InquiryAllowance = S['InquiryAllowance'];
+export type BrandPlanApi = S['BrandPlan'];

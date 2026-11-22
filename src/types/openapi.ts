@@ -1263,6 +1263,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand messages a creator before booking (v3.0)
+         * @description Opens (or reuses) the brand's pre-booking conversation with an approved creator and sends the first message.
+         *     Contact details are always masked in inquiries. New inquiries per rolling 30 days are limited by the brand's
+         *     plan (FREE 5, PRO 50, PREMIUM unlimited); writing in an existing inquiry is not limited. 429 `INQUIRY_LIMIT`.
+         */
+        post: operations["startInquiry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/inquiries/allowance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many new inquiries the brand can still start in the current 30 days */
+        get: operations["getInquiryAllowance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{id}/messages": {
         parameters: {
             query?: never;
@@ -2231,6 +2270,8 @@ export interface components {
             availability: components["schemas"]["CreatorAvailability"];
             /** @description Always APPROVED for the public; other values only in an owner or admin preview. */
             vettingStatus: components["schemas"]["VettingStatus"];
+            /** @description The signed-in brand's pre-booking conversation with this creator, if any (v3.0). */
+            myInquiryId?: string | null;
         };
         CreatorProfileInput: {
             username: string;
@@ -2362,11 +2403,7 @@ export interface components {
             logoUrl: string | null;
             industry: components["schemas"]["BrandIndustry"] | null;
             country: string | null;
-            /**
-             * @description Pro / Premium arrive in v2.
-             * @enum {string}
-             */
-            plan: "FREE";
+            plan: components["schemas"]["BrandPlan"];
         };
         BrandProfileInput: {
             companyName: string;
@@ -2888,11 +2925,15 @@ export interface components {
             body: string;
             attachment?: components["schemas"]["MessageAttachment"] | null;
         };
+        /** @description One per order (FR-50), or a pre-booking inquiry between a brand and a creator (v3.0: kind INQUIRY, orderId and orderStatus null). */
         Conversation: {
             id: components["schemas"]["Ulid"];
-            orderId: components["schemas"]["Ulid"];
+            /** @enum {string} */
+            kind: "ORDER" | "INQUIRY";
+            orderId: components["schemas"]["Ulid"] | null;
+            /** @description The order title, or "Before booking" for inquiries. */
             orderTitle: string;
-            orderStatus: components["schemas"]["OrderStatus"];
+            orderStatus: components["schemas"]["OrderStatus"] | null;
             counterparty: components["schemas"]["OrderParty"];
             lastMessage: components["schemas"]["ChatMessage"] | null;
             unreadCount: number;
@@ -2900,12 +2941,30 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        InquiryInput: {
+            creatorUsername: string;
+            body: string;
+        };
+        InquiryAllowance: {
+            plan: components["schemas"]["BrandPlan"];
+            /** @description New inquiries started in the last 30 days. */
+            used: number;
+            /** @description Null = unlimited. */
+            limit: number | null;
+            /**
+             * Format: date-time
+             * @description When the oldest counted inquiry stops counting.
+             */
+            resetsAt: string | null;
+        };
+        /** @enum {string} */
+        BrandPlan: "FREE" | "PRO" | "PREMIUM";
         ConversationList: {
             content: components["schemas"]["Conversation"][];
             unreadTotal: number;
         };
         /** @enum {string} */
-        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT" | "CAMPAIGN_INVITE";
+        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT" | "CAMPAIGN_INVITE" | "NEW_INQUIRY" | "DISPUTE_UPDATE" | "PLAN_CHANGED" | "REFERRAL_REWARD";
         Notification: {
             id: components["schemas"]["Ulid"];
             type: components["schemas"]["NotificationType"];
@@ -5363,6 +5422,63 @@ export interface operations {
                     "application/json": components["schemas"]["ConversationList"];
                 };
             };
+        };
+    };
+    startInquiry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InquiryInput"];
+            };
+        };
+        responses: {
+            /** @description Opened (or an existing inquiry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            /** @description Monthly inquiry limit reached (INQUIRY_LIMIT). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getInquiryAllowance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InquiryAllowance"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     listMessages: {

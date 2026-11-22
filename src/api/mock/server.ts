@@ -117,6 +117,9 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/applications/:id/withdraw', auth: true, handler: campaigns.withdrawApplication },
   // Chat and notifications (Week 5)
   { method: 'GET', path: '/conversations', auth: true, handler: chat.listConversations },
+  // /conversations/inquiries before /conversations/:id/… (v3.0).
+  { method: 'POST', path: '/conversations/inquiries', auth: true, handler: chat.startInquiry },
+  { method: 'GET', path: '/conversations/inquiries/allowance', auth: true, handler: chat.getInquiryAllowance },
   { method: 'GET', path: '/conversations/:id/messages', auth: true, handler: chat.listMessages },
   { method: 'POST', path: '/conversations/:id/messages', auth: true, handler: chat.sendMessage },
   { method: 'POST', path: '/conversations/:id/read', auth: true, handler: chat.markConversationRead },

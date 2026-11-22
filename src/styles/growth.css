@@ -1,0 +1,5 @@
+/* v3.0 growth features: pre-booking inquiries, disputes, plans, promos and referrals, finance. */
+
+/* Inquiry threads: "book now" strip under the header. */
+.thread__book { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; justify-content: space-between; padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.thread__book > .small { flex: 1 1 220px; min-width: 0; color: var(--ink-2); }

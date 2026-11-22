@@ -22,6 +22,16 @@ export const messageInputSchema = z
   })
   .refine((v) => v.body.length > 0 || !!v.attachment, { error: 'Write a message.', path: ['body'] });
 
+/** v3.0: the first message of a pre-booking inquiry. */
+export const inquiryInputSchema = z.object({
+  creatorUsername: z.string().trim().min(1, { error: 'Choose a creator.' }).max(60),
+  body: z
+    .string()
+    .trim()
+    .min(10, { error: 'Write at least 10 characters so the creator knows what you need.' })
+    .max(MAX_MESSAGE_LENGTH, { error: `Use at most ${MAX_MESSAGE_LENGTH} characters.` }),
+});
+
 export const markReadSchema = z
   .object({ ids: z.array(z.string().min(1)).max(100).optional(), all: z.boolean().optional() })
   .refine((v) => v.all === true || (v.ids?.length ?? 0) > 0, { error: 'Send ids, or all: true.', path: ['ids'] });
