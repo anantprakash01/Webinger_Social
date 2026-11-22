@@ -1,4 +1,4 @@
-# Each app has its own .gitignore (frontend/.gitignore, collab/.gitignore).
+# Each app has its own .gitignore (frontend/.gitignore, backend/.gitignore).
 .idea/
 .vscode/
 *.log
