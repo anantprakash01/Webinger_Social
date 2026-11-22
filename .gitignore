@@ -1,0 +1,5 @@
+# Each app has its own .gitignore (frontend/.gitignore, collab/.gitignore).
+.idea/
+.vscode/
+*.log
+.DS_Store
