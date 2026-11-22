@@ -10,6 +10,7 @@ import com.webinger.collab.creator.repository.PortfolioItemRepository;
 import com.webinger.collab.creator.repository.SocialAccountRepository;
 import com.webinger.collab.order.service.OrderService;
 import com.webinger.collab.payment.service.PaymentService;
+import com.webinger.collab.payout.service.PayoutService;
 import com.webinger.collab.user.domain.Role;
 import com.webinger.collab.user.domain.User;
 import com.webinger.collab.user.domain.UserStatus;
@@ -44,11 +45,13 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final Clock clock;
     private final CreatorDemoData creatorData;
     private final OrderDemoData orderData;
+    private final PayoutService payoutService;
     private final PackageRepository packages;
 
     public DemoDataSeeder(UserRepository users, BrandProfileRepository brands, CreatorProfileRepository creators, PasswordEncoder passwords, Clock clock,
             SocialAccountRepository socials, PackageRepository packages, PortfolioItemRepository portfolio, PayoutAccountRepository payouts, OrderService orders,
-            PaymentService payments) {
+            PaymentService payments, PayoutService payoutService) {
+        this.payoutService = payoutService;
         this.users = users;
         this.brands = brands;
         this.creators = creators;
@@ -78,6 +81,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         User sam = user("01JD0000000000000000ADMIN1", "admin@demo.test", "Sam Mehta", Role.ADMIN, true, hash, at);
         creatorData.catalogue(hash, clock.instant());
         orderData.seed(maya, leo, sam, leoProfile, packages.findByCreatorId(leoProfile.getId()), clock.instant());
+        payoutService.startWeeklySchedule(clock.instant());
         log.info("Demo accounts created (password {}): brand@demo.test, unverified@demo.test, creator@demo.test, newcreator@demo.test, admin@demo.test, "
                 + "plus {} invented creators (<username>@creators.demo.test)", DEMO_PASSWORD, CreatorDemoData.PEOPLE.size());
     }

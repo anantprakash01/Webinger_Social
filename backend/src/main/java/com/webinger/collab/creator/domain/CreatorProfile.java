@@ -95,6 +95,10 @@ public class CreatorProfile {
     @Column(name = "profile_views", nullable = false)
     private long profileViews;
 
+    /** Pay the whole available balance every Monday (FR-63); on by default. */
+    @Column(name = "auto_weekly", nullable = false)
+    private boolean autoWeekly = true;
+
     @Column(nullable = false)
     private boolean away;
 

@@ -4,6 +4,7 @@ import com.webinger.collab.common.AdjustableClock;
 import com.webinger.collab.common.web.ApiException;
 import com.webinger.collab.order.service.OrderService;
 import com.webinger.collab.payment.service.PaymentService;
+import com.webinger.collab.payout.service.PayoutService;
 import com.webinger.collab.creator.service.CreatorService;
 import com.webinger.collab.creator.web.CreatorDtos.CreatorMeDto;
 import com.webinger.collab.messaging.OutboxMessage;
@@ -36,8 +37,11 @@ public class DevController {
     private final PaymentService payments;
     private final OrderService orders;
     private final AdjustableClock clock;
+    private final PayoutService payouts;
 
-    public DevController(OutboxMessageRepository outbox, CreatorService creators, PaymentService payments, OrderService orders, AdjustableClock clock) {
+    public DevController(OutboxMessageRepository outbox, CreatorService creators, PaymentService payments, OrderService orders, AdjustableClock clock,
+            PayoutService payouts) {
+        this.payouts = payouts;
         this.outbox = outbox;
         this.creators = creators;
         this.payments = payments;
@@ -65,7 +69,7 @@ public class DevController {
 
     public record ClockView(long offsetHours, java.time.Instant now) {}
 
-    public record SimulateResult(long offsetHours, java.time.Instant now, int expired, int autoApproved) {}
+    public record SimulateResult(long offsetHours, java.time.Instant now, int expired, int autoApproved, int payoutsSent) {}
 
     /** POST /dev/simulate-time: moves the app clock forward and runs the scheduled jobs (expiry, auto-approval). */
     @PostMapping("/simulate-time")
@@ -74,7 +78,7 @@ public class DevController {
         if (h == null || h < 1 || h > 720) throw ApiException.field(HttpStatus.UNPROCESSABLE_CONTENT, "Hours must be a whole number from 1 to 720.", "VALIDATION_FAILED", "hours", "1 to 720.");
         clock.advance(java.time.Duration.ofHours(h));
         OrderService.JobCounts jobs = orders.runDueJobs();
-        return new SimulateResult(clock.offset().toHours(), clock.instant(), jobs.expired(), jobs.autoApproved());
+        return new SimulateResult(clock.offset().toHours(), clock.instant(), jobs.expired(), jobs.autoApproved(), payouts.runWeekly());
     }
 
     @GetMapping("/clock")

@@ -23,6 +23,9 @@ public interface CreatorProfileRepository extends JpaRepository<CreatorProfile, 
 
     long countByVettingStatus(String vettingStatus);
 
+    /** Creators whose balance goes out with the Monday payout. */
+    List<CreatorProfile> findByPayoutStatusAndAutoWeeklyTrue(String payoutStatus);
+
     /** FR-70 profile views, counted in SQL so concurrent views never collide with profile edits. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update CreatorProfile p set p.profileViews = p.profileViews + 1 where p.id = :id")

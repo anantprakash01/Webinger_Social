@@ -526,6 +526,25 @@ public class CreatorService {
         if (!"ENABLED".equals(p.getPayoutStatus())) throw new ApiException(HttpStatus.CONFLICT, "This creator cannot take paid orders yet.", "CREATOR_PAYOUTS_DISABLED");
     }
 
+    /** The signed-in creator's profile, or 403 for other roles (payouts). */
+    @Transactional(readOnly = true)
+    public CreatorProfile ownProfile(AuthUser me) {
+        return own(me);
+    }
+
+    @Transactional
+    public void setAutoWeekly(AuthUser me, boolean on) {
+        CreatorProfile p = own(me);
+        p.setAutoWeekly(on);
+        touch(p);
+    }
+
+    /** Creators the Monday payout covers: payouts enabled and the weekly payout on. */
+    @Transactional(readOnly = true)
+    public List<CreatorProfile> weeklyPayoutCreators() {
+        return profiles.findByPayoutStatusAndAutoWeeklyTrue("ENABLED");
+    }
+
     /** The public id of a package (orders keep the internal id). */
     @Transactional(readOnly = true)
     public String packagePublicId(Long packageId) {

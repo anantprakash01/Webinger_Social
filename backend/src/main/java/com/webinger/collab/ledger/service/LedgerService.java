@@ -45,7 +45,7 @@ public class LedgerService {
             entries.save(new LedgerEntry(txnId, ref, l.account(), l.debitCents(), l.creditCents(), l.account() == Account.CREATOR_BALANCE ? creatorUserId : null, memo, now));
         }
         long amount = kept.stream().mapToLong(Line::debitCents).sum();
-        audit.record(actor, "MONEY_MOVEMENT", "ORDER", ref, memo + ": " + formatRupees(amount), null,
+        audit.record(actor, "MONEY_MOVEMENT", ref.startsWith("payout_") ? "PAYOUT" : "ORDER", ref, memo + ": " + formatRupees(amount), null,
                 Map.of("txnId", txnId, "lines", kept.stream().map(l -> Map.of("account", l.account().name(), "debitCents", l.debitCents(), "creditCents", l.creditCents())).toList()));
         return txnId;
     }
@@ -65,6 +65,14 @@ public class LedgerService {
     @Transactional(readOnly = true)
     public long creatorLifetimeEarned(Long creatorUserId) {
         return entries.partyDebits(creatorUserId, Account.CREATOR_BALANCE);
+    }
+
+    /** Approved work released to a creator's balance, newest first: (order ref, amount, when). */
+    public record Credit(String ref, long amountCents, java.time.Instant at) {}
+
+    @Transactional(readOnly = true)
+    public List<Credit> creatorCredits(Long creatorUserId) {
+        return entries.partyCredits(creatorUserId, Account.CREATOR_BALANCE).stream().map(e -> new Credit(e.getRef(), e.getDebitCents(), e.getCreatedAt())).toList();
     }
 
     @Transactional(readOnly = true)

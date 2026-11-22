@@ -51,6 +51,12 @@ public class PayoutAccountService {
                 a.getFailureReason(), a.getUpdatedAt(), a.getGstin());
     }
 
+    /** A creator's payout account as shown to them (payout overview). */
+    @Transactional(readOnly = true)
+    public Optional<PayoutAccountDto> accountOf(Long creatorProfileId) {
+        return accounts.findByCreatorId(creatorProfileId).map(PayoutAccountService::toDto);
+    }
+
     /** The GSTIN on a creator's verified payout account: they are GST-registered for tax on orders (v2.3). */
     @Transactional(readOnly = true)
     public Optional<String> verifiedGstinOf(Long creatorProfileId) {

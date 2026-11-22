@@ -106,6 +106,33 @@ public class CreatorTrackRecord {
                 .toList();
     }
 
+    /** Approved work moved to the balance (contract Transfer), newest first. */
+    public record Transfer(String orderId, String orderTitle, long amountCents, Instant at) {}
+
+    @Transactional(readOnly = true)
+    public List<Transfer> transfers(Long creatorUserId) {
+        Map<String, String> titles = new HashMap<>();
+        orders.findByCreatorUserId(creatorUserId).forEach(o -> titles.put(o.getPublicId(), o.getTitle()));
+        return ledger.creatorCredits(creatorUserId).stream().filter(c -> titles.containsKey(c.ref()))
+                .map(c -> new Transfer(c.ref(), titles.get(c.ref()), c.amountCents(), c.at())).toList();
+    }
+
+    /** TDS (194-O) and TCS (s.52) withheld on orders released since `since` (the financial year's start). */
+    public record Withheld(long tdsCents, long tcsCents) {}
+
+    @Transactional(readOnly = true)
+    public Withheld withheldSince(Long creatorUserId, Instant since) {
+        long tds = 0, tcs = 0;
+        for (Order o : orders.findByCreatorUserId(creatorUserId)) {
+            boolean released = o.getStatus() == Status.COMPLETED || (o.getStatus() == Status.REFUNDED && o.getPaymentRefundedCents() < o.getPaymentAmountCents());
+            if (released && !o.getUpdatedAt().isBefore(since)) {
+                tds += o.getTdsCents();
+                tcs += o.getTcsCents();
+            }
+        }
+        return new Withheld(tds, tcs);
+    }
+
     /** FR-70 dashboard: balance from the ledger, escrow and order counts from the orders. */
     @Transactional(readOnly = true)
     public Earnings earnings(Long creatorUserId) {
