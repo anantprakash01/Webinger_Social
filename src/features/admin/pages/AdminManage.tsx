@@ -14,6 +14,7 @@ import { calculateFees } from '@/api/mock/fees';
 import { brandTotalCents, creatorPayoutCents } from '@/api/mock/orderMachine';
 import { calculateTaxes } from '@/api/mock/tax';
 import { formatMoney } from '@/lib/money';
+import { PLANS, type BrandPlan } from '@/lib/plans';
 import { useOrders, useSimulateTime } from '@/features/orders/hooks';
 import { STATUS_FILTERS } from '@/features/orders/format';
 import type { AdminUser, AuditAction, UserStatus } from '@/types';
@@ -205,16 +206,20 @@ export function AdminFeesPage() {
     <div className="page" style={{ maxWidth: 900 }}>
       <PageHeader title="Fees & plans" />
       <div className="brand-profile">
-        <Card title="Free plan">
-          <FeeForm key={data.current.effectiveFrom} brand={data.current.brandFeeBps} creator={data.current.creatorFeeBps} />
-        </Card>
+        <div className="admin-stack">
+          {data.plans.map((p) => (
+            <Card key={p.plan} title={`${PLANS[p.plan].name} plan${PLANS[p.plan].monthlyCents ? ` · ${formatMoney(PLANS[p.plan].monthlyCents)}/month` : ''}`}>
+              <FeeForm key={`${p.plan}-${p.effectiveFrom}`} plan={p.plan} brand={p.brandFeeBps} creator={p.creatorFeeBps} />
+            </Card>
+          ))}
+        </div>
         <Card title="History">
           <ul className="list">
             {data.history.map((h) => (
               <li key={h.effectiveFrom} className="list__item">
                 <div className="list__main">
                   <div className="list__title">
-                    Brand {h.brandFeeBps / 100}% · Creator {h.creatorFeeBps / 100}%
+                    {PLANS[h.plan].name}: brand {h.brandFeeBps / 100}% · creator {h.creatorFeeBps / 100}%
                   </div>
                   <div className="list__meta">
                     From {formatDate(h.effectiveFrom)}
@@ -230,7 +235,7 @@ export function AdminFeesPage() {
   );
 }
 
-function FeeForm({ brand, creator }: { brand: number; creator: number }) {
+function FeeForm({ plan, brand, creator }: { plan: BrandPlan; brand: number; creator: number }) {
   const update = useUpdateFees();
   const confirm = useConfirm();
   const [b, setB] = useState(String(brand));
@@ -248,13 +253,13 @@ function FeeForm({ brand, creator }: { brand: number; creator: number }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (!valid) return;
-        const ok = await confirm.ask({ title: 'Apply the new fees?', body: `Brand ${bn / 100}% and creator ${cn / 100}% apply to every new order from now on. Existing orders keep the fees they were placed with.`, confirmLabel: 'Apply fees' });
-        if (ok) update.mutate({ brandFeeBps: bn, creatorFeeBps: cn }, { onSuccess: () => toast('Fees updated for new orders') });
+        const ok = await confirm.ask({ title: `Apply the new ${PLANS[plan].name} fees?`, body: `Brand ${bn / 100}% and creator ${cn / 100}% apply to every new order by ${PLANS[plan].name} brands from now on. Existing orders keep the fees they were placed with.`, confirmLabel: 'Apply fees' });
+        if (ok) update.mutate({ plan, brandFeeBps: bn, creatorFeeBps: cn }, { onSuccess: () => toast(`${PLANS[plan].name} fees updated for new orders`) });
       }}
     >
       <div className="form-row">
-        <Input label="Brand fee (bps)" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value)} error={err(bn)} hint={!err(bn) ? `= ${bn / 100}% added at checkout` : undefined} />
-        <Input label="Creator fee (bps)" inputMode="numeric" value={c} onChange={(e) => setC(e.target.value)} error={err(cn)} hint={!err(cn) ? `= ${cn / 100}% deducted from payouts` : undefined} />
+        <Input label={`${PLANS[plan].name}: brand fee (bps)`} inputMode="numeric" value={b} onChange={(e) => setB(e.target.value)} error={err(bn)} hint={!err(bn) ? `= ${bn / 100}% added at checkout` : undefined} />
+        <Input label={`${PLANS[plan].name}: creator fee (bps)`} inputMode="numeric" value={c} onChange={(e) => setC(e.target.value)} error={err(cn)} hint={!err(cn) ? `= ${cn / 100}% deducted from payouts` : undefined} />
       </div>
       {example && (
         <div className="payment-line small">

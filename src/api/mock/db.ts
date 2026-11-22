@@ -10,7 +10,7 @@ import { seedAddons, seedMetrics } from './seed/collab';
 import type { DisputeEvidence, DisputeReasonCode, MessageAttachment, NotificationCategory, PackageAddon, PostMetrics, ResolutionReason } from '@/types';
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
-import type { BrandPlan } from '@/lib/plans';
+import { PLANS, type BrandPlan } from '@/lib/plans';
 import type { LedgerEntry } from './ledger';
 import type { MockOrder, OrderEvent, PaymentMethod } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
@@ -292,10 +292,41 @@ export interface NotificationRow {
   createdAt: string;
 }
 
-/** fee_configs: the newest row applies to new orders (FR-83). */
+/** fee_configs: per plan, the newest row applies to new orders (FR-83, FR-66). */
 export interface FeeConfigRow extends FeeConfig {
   effectiveFrom: string;
   changedBy: string | null;
+}
+
+/** v3.2 brand plan subscription (Razorpay Subscriptions). Absent = Free. */
+export interface SubscriptionRow {
+  brandUserId: string;
+  plan: BrandPlan;
+  cycle: 'MONTHLY' | 'YEARLY';
+  periodStart: string;
+  periodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  /** A downgrade (or monthly instead of yearly) scheduled for the end of the period. */
+  nextPlan: BrandPlan | null;
+  nextCycle: 'MONTHLY' | 'YEARLY' | null;
+  methodLabel: string;
+}
+
+/** One charge for a plan period (tax invoice). Ledger reference `sub_<id>`. */
+export interface SubscriptionInvoiceRow {
+  id: string;
+  number: string;
+  brandUserId: string;
+  plan: BrandPlan;
+  cycle: 'MONTHLY' | 'YEARLY';
+  periodStart: string;
+  periodEnd: string;
+  priceCents: number;
+  gstCents: number;
+  intraState: boolean;
+  methodLabel: string;
+  kind: 'NEW' | 'UPGRADE' | 'RENEWAL';
+  createdAt: string;
 }
 
 /** audit_logs: append-only (FR-84). */
@@ -347,7 +378,7 @@ export interface PayoutRow {
 export interface PaymentSessionRow {
   id: string;
   userId: string;
-  purpose: 'ORDER';
+  purpose: 'ORDER' | 'SUBSCRIPTION';
   amountCents: number;
   razorpayOrderId: string;
   createdAt: string;
@@ -528,6 +559,8 @@ export interface Db {
   invites: InviteRow[];
   brandReviews: BrandReviewRow[];
   notificationPrefs: NotificationPrefsRow[];
+  subscriptions: SubscriptionRow[];
+  subscriptionInvoices: SubscriptionInvoiceRow[];
   /** Last weekly payout run (Mondays 00:00 UTC). */
   lastPayoutRunAt: string;
 }
@@ -574,7 +607,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -634,7 +667,7 @@ function seed(now: Date): Db {
     accessTokens: [],
     refreshTokens: [],
     outbox: [],
-    feeConfigs: [{ ...DEFAULT_FEES, effectiveFrom: new Date(now.getTime() - 120 * 86_400_000).toISOString(), changedBy: null }],
+    feeConfigs: (['FREE', 'PRO', 'PREMIUM'] as const).map((plan) => ({ ...DEFAULT_FEES, plan, brandFeeBps: PLANS[plan].defaultBrandFeeBps, effectiveFrom: new Date(now.getTime() - 120 * 86_400_000).toISOString(), changedBy: null })),
     orders: orders.orders,
     orderEvents: orders.orderEvents,
     ledgerEntries: orders.ledgerEntries,
@@ -661,6 +694,8 @@ function seed(now: Date): Db {
     invites: [],
     brandReviews: [],
     notificationPrefs: [],
+    subscriptions: [],
+    subscriptionInvoices: [],
     lastPayoutRunAt: now.toISOString(),
   };
   seedGrowth(out, now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator });

@@ -47,6 +47,7 @@ const CreatorCampaigns = area(creatorCampaigns, 'CreatorCampaignsPage');
 const CreatorCampaignDetail = area(creatorCampaigns, 'CreatorCampaignDetailPage');
 const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
 const BrandPaymentMethods = area(() => import('@/features/payments/pages/PaymentMethodsPage'), 'PaymentMethodsPage');
+const BrandPlan = area(() => import('@/features/plans/pages/PlanPage'), 'PlanPage');
 const CreatorPayouts = area(() => import('@/features/payouts/pages/PayoutsPage'), 'PayoutsPage');
 const ReceiptPage = area(() => import('@/features/orders/pages/ReceiptPage'), 'ReceiptPage');
 
@@ -100,6 +101,7 @@ export function AppRoutes() {
             <Route path="lists" element={<SavedListsPage />} />
             <Route path="lists/:id" element={<SavedListPage />} />
             <Route path="payment-methods" element={<BrandPaymentMethods />} />
+            <Route path="plan" element={<BrandPlan />} />
           </Route>
         </Route>
 

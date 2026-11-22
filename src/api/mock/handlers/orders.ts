@@ -25,6 +25,7 @@ import { auditLedger } from '../audit';
 import { runPayouts } from '../payoutsCore';
 import { resolveOrderPayment } from './payments';
 import { runAccountDeletions } from './account';
+import { feeConfigFor, planOf, runSubscriptions } from './plans';
 import { calculateFees } from '../fees';
 import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type PackageRow, type ReviewRow, type UserRow } from '../db';
 import type { PackageAddon } from '@/types';
@@ -72,11 +73,8 @@ function approvedCreator(username: string): CreatorProfileRow {
   return p;
 }
 
-/** The newest fee config applies to new orders (FR-83); it is copied onto the order. */
-const feeConfig = () => {
-  const rows = getDb().feeConfigs;
-  return rows[rows.length - 1];
-};
+/** The newest fee config for the brand's plan applies to new orders (FR-83, FR-66); it is copied onto the order. */
+const feeConfig = (brand: UserRow) => feeConfigFor(planOf(brand.id));
 
 /** Runs one transition and stores everything it produced. */
 export function applyTransition(order: MockOrder, e: OrderEventInput, actor: Actor): MockOrder {
@@ -121,6 +119,7 @@ export function runScheduledJobs(): { expired: number; autoApproved: number } {
   }
   runPayouts();
   runAccountDeletions();
+  runSubscriptions();
   return counts;
 }
 
@@ -289,7 +288,7 @@ export const quoteOrder: Handler = ({ req, user }) => {
     creator = approvedCreator(q.creatorUsername!);
     priceCents = q.priceCents!;
   }
-  const f = calculateFees(priceCents, feeConfig());
+  const f = calculateFees(priceCents, feeConfig(user));
   const taxes = calculateTaxes(f, taxContext(user, creator.userId));
   const body: OrderQuote = {
     kind: pkg ? 'PACKAGE' : 'CUSTOM_OFFER',
@@ -298,7 +297,7 @@ export const quoteOrder: Handler = ({ req, user }) => {
     priceCents: f.priceCents,
     brandFeeCents: f.brandFeeCents,
     totalCents: brandTotalCents({ ...f, taxes }),
-    brandFeeBps: feeConfig().brandFeeBps,
+    brandFeeBps: feeConfig(user).brandFeeBps,
     taxes,
     currency: CURRENCY,
     acceptWindowHours: ACCEPT_WINDOW_HOURS,
@@ -379,7 +378,7 @@ export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: Orde
   if (!user.emailVerifiedAt) fail(403, 'Verify your email before placing orders.', 'EMAIL_NOT_VERIFIED');
   const db = getDb();
   // v2.0: verify the payment (Razorpay proof or wallet balance) for the exact total before the order exists.
-  const fees = feeConfig();
+  const fees = feeConfig(user);
   const tax = taxContext(user, creator.userId);
   const f = calculateFees(line.priceCents, fees);
   const pay = resolveOrderPayment(user, payment, brandTotalCents({ ...f, taxes: calculateTaxes(f, tax) }));

@@ -122,10 +122,15 @@ export const mockRazorpayPay: Handler = ({ req, user }) => {
  * forged payment never creates one. Returns what the order records, and `commit` to call with the order id.
  */
 export function resolveOrderPayment(user: UserRow, raw: unknown, totalCents: number): { info: OrderPaymentInfo; commit: (orderId: string) => void } {
+  return resolvePayment(user, raw, totalCents, 'ORDER');
+}
+
+/** Same check for any purpose (v3.2: plan subscriptions pay through Checkout too). */
+export function resolvePayment(user: UserRow, raw: unknown, totalCents: number, purpose: PaymentSessionRow['purpose']): { info: OrderPaymentInfo; commit: (refId: string) => void } {
   const r = orderPaymentInputSchema.safeParse(raw);
   if (!r.success) fail(422, 'Complete the payment first.', 'VALIDATION_FAILED', [{ field: 'payment', message: 'Complete the payment first.' }]);
   const p = r.data;
-  const s = getDb().paymentSessions.find((x) => x.id === p.sessionId && x.userId === user.id && x.purpose === 'ORDER');
+  const s = getDb().paymentSessions.find((x) => x.id === p.sessionId && x.userId === user.id && x.purpose === purpose);
   if (!s) fail(404, 'Payment session not found.', 'NOT_FOUND');
   if (s.usedBy) fail(409, 'This payment was already used.', 'SESSION_USED');
   if (!s.payment || s.payment.id !== p.razorpayPaymentId || p.razorpaySignature !== sign(s.razorpayOrderId, p.razorpayPaymentId))

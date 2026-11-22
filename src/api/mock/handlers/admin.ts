@@ -7,13 +7,15 @@ import { feeUpdateSchema, reportInputSchema, reportResolveSchema, requiredReason
 import { formatMoney } from '@/lib/money';
 import type { AdminDispute, AdminSummary, AdminUser, AdminUserPage, AuditPage, FeeSettings, Report, VettingItem } from '@/types';
 import { audit } from '../audit';
-import { getDb, now, ulid, type DisputeRow, type FeeConfigRow, type ReportRow, type UserRow } from '../db';
+import { getDb, now, ulid, type DisputeRow, type ReportRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
 import { brandTotalCents, creatorPayoutCents } from '../orderMachine';
 import { NO_TAXES } from '../tax';
 import { decideVetting, toCreatorMe } from './creatorMe';
 import { applyTransition } from './orders';
 import { toDisputeView } from './disputes';
+import { feeConfigFor, toFeeEntry } from './plans';
+import { PLAN_ORDER, PLANS } from '@/lib/plans';
 import { issueSession, revokeAllSessions } from './session';
 
 function requireAdmin(user: UserRow) {
@@ -243,41 +245,30 @@ export const impersonateUser: Handler = ({ params, user }) => {
 
 /* ---------- Fees (FR-83) ---------- */
 
-const currentFees = () => {
-  const rows = getDb().feeConfigs;
-  return rows[rows.length - 1];
-};
-const toEntry = (r: FeeConfigRow) => ({
-  plan: 'FREE' as const,
-  brandFeeBps: r.brandFeeBps,
-  creatorFeeBps: r.creatorFeeBps,
-  effectiveFrom: r.effectiveFrom,
-  changedBy: r.changedBy ? (getDb().users.find((u) => u.id === r.changedBy)?.name ?? null) : null,
+const feeSettings = (): FeeSettings => ({
+  current: toFeeEntry(feeConfigFor('FREE')),
+  plans: PLAN_ORDER.map((p) => toFeeEntry(feeConfigFor(p))),
+  history: [...getDb().feeConfigs].reverse().map(toFeeEntry),
 });
-const feeSettings = (): FeeSettings => ({ current: toEntry(currentFees()), history: [...getDb().feeConfigs].reverse().map(toEntry) });
 
 export const getFees: Handler = ({ user }) => {
   requireAdmin(user);
   return ok(feeSettings());
 };
 
-export const getCurrentFees: Handler = () => {
-  const f = currentFees();
-  return ok({ plan: 'FREE', brandFeeBps: f.brandFeeBps, creatorFeeBps: f.creatorFeeBps });
-};
-
 export const updateFees: Handler = ({ req, user }) => {
   requireAdmin(user);
   const body = parseBody(feeUpdateSchema, req.body);
-  const before = currentFees();
-  getDb().feeConfigs.push({ plan: 'FREE', brandFeeBps: body.brandFeeBps, creatorFeeBps: body.creatorFeeBps, effectiveFrom: now().toISOString(), changedBy: user.id });
+  const plan = body.plan ?? 'FREE';
+  const before = feeConfigFor(plan);
+  getDb().feeConfigs.push({ plan, brandFeeBps: body.brandFeeBps, creatorFeeBps: body.creatorFeeBps, effectiveFrom: now().toISOString(), changedBy: user.id });
   audit(user, {
     action: 'FEES_CHANGED',
     entityType: 'FEE_CONFIG',
-    entityId: 'FREE',
-    summary: `Fees: brand ${before.brandFeeBps / 100}% → ${body.brandFeeBps / 100}%, creator ${before.creatorFeeBps / 100}% → ${body.creatorFeeBps / 100}%`,
+    entityId: plan,
+    summary: `${PLANS[plan].name} plan fees: brand ${before.brandFeeBps / 100}% → ${body.brandFeeBps / 100}%, creator ${before.creatorFeeBps / 100}% → ${body.creatorFeeBps / 100}%`,
     before: { brandFeeBps: before.brandFeeBps, creatorFeeBps: before.creatorFeeBps },
-    after: body,
+    after: { plan, brandFeeBps: body.brandFeeBps, creatorFeeBps: body.creatorFeeBps },
   });
   return ok(feeSettings());
 };

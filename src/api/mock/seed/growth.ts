@@ -2,18 +2,30 @@
  * Seed for the v3.0 growth features, applied to the finished seed: pre-booking inquiries (more arrive with
  * disputes, plans, promos and finance). Invented people and brands only.
  */
+import { PLANS, planPriceCents, type BillingCycle, type BrandPlan } from '@/lib/plans';
+import { formatMoney } from '@/lib/money';
 import type { Db } from '../db';
+import { applyBps } from '../fees';
+import { postTxn, subscriptionLines } from '../ledger';
+import { GST_BPS, PLATFORM_STATE } from '../tax';
 
 const HOUR = 3_600_000;
 
 /** Stable 26-char ids from a label, so links survive "Reset demo data". */
 export function seedId(label: string): string {
   const A = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  // FNV-1a over the whole label, then a xorshift stream for the 22 characters.
   let h = 2166136261;
-  let out = '01JG';
-  for (let i = 0; out.length < 26; i++) {
-    h ^= label.charCodeAt(i % label.length) + i;
+  for (let i = 0; i < label.length; i++) {
+    h ^= label.charCodeAt(i);
     h = Math.imul(h, 16777619) >>> 0;
+  }
+  let out = '01JG';
+  while (out.length < 26) {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    h >>>= 0;
     out += A[h % 32];
   }
   return out;
@@ -78,6 +90,57 @@ export function seedGrowth(db: Db, now: Date, ids: { brandId: string; leoId: str
       d.resolutionNote = d.resolutionNote ?? 'One of three clips was unusable; refunded that share from the creator’s payout.';
     }
   }
+
+  // Plans (v3.2): Copperleaf on Pro (monthly, renews in 6 days), Tidewell on Premium (yearly).
+  const subscribe = (brand: string, plan: BrandPlan, cycle: BillingCycle, startedDaysAgo: number, periods: number, methodLabel: string) => {
+    const profile = db.brandProfiles.find((b) => b.userId === brand)!;
+    let start = new Date(now.getTime() - startedDaysAgo * 24 * HOUR);
+    let end = start;
+    for (let i = 0; i < periods; i++) {
+      end = new Date(start);
+      if (cycle === 'YEARLY') end.setUTCFullYear(end.getUTCFullYear() + 1);
+      else end.setUTCMonth(end.getUTCMonth() + 1);
+      const price = planPriceCents(plan, cycle);
+      const gst = applyBps(price, GST_BPS);
+      const id = `sinv_${seedId(`${brand}-${i}`).slice(-12).toLowerCase()}`;
+      const fyStart = start.getUTCMonth() >= 3 ? start.getUTCFullYear() : start.getUTCFullYear() - 1;
+      db.subscriptionInvoices.push({
+        id,
+        number: `WC/${fyStart}-${String((fyStart + 1) % 100).padStart(2, '0')}/S${String(db.subscriptionInvoices.length + 1).padStart(4, '0')}`,
+        brandUserId: brand,
+        plan,
+        cycle,
+        periodStart: start.toISOString(),
+        periodEnd: end.toISOString(),
+        priceCents: price,
+        gstCents: gst,
+        intraState: !profile.state || profile.state === PLATFORM_STATE,
+        methodLabel,
+        kind: i === 0 ? 'NEW' : 'RENEWAL',
+        createdAt: start.toISOString(),
+      });
+      const entries = postTxn(subscriptionLines(price, gst), { txnId: seedId(`txn-${id}`), orderId: `sub_${id}`, memo: `${PLANS[plan].name} plan (${cycle.toLowerCase()})`, at: start.toISOString() });
+      db.ledgerEntries.push(...entries);
+      db.auditLogs.push({
+        id: seedId(`audit-${id}`),
+        actorId: null,
+        actorName: 'SYSTEM',
+        action: 'MONEY_MOVEMENT',
+        entityType: 'SUBSCRIPTION',
+        entityId: `sub_${id}`,
+        summary: `${entries[0].memo}: ${formatMoney(price + gst)}`,
+        before: null,
+        after: { txnId: entries[0].txnId, lines: entries.map((l) => ({ account: l.account, debitCents: l.debitCents, creditCents: l.creditCents })) },
+        ip: null,
+        at: start.toISOString(),
+      });
+      if (i < periods - 1) start = end;
+    }
+    db.subscriptions.push({ brandUserId: brand, plan, cycle, periodStart: start.toISOString(), periodEnd: end.toISOString(), cancelAtPeriodEnd: false, nextPlan: null, nextCycle: null, methodLabel });
+    profile.plan = plan;
+  };
+  subscribe(copperleaf, 'PRO', 'MONTHLY', 55, 2, 'UPI · nisha@okaxis');
+  subscribe(brandByName('Tidewell Swim'), 'PREMIUM', 'YEARLY', 100, 1, 'Visa •••• 4242');
 
   db.notifications.push({
     id: seedId('note-inquiry-leo'),

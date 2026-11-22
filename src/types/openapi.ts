@@ -1643,11 +1643,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Current fees and their history (FR-83) */
+        /** Current fees per plan and their history (FR-83, FR-66) */
         get: operations["getFees"];
         /**
-         * Change the fees for new orders (FR-83)
-         * @description Takes effect immediately for new orders; existing orders keep the fees copied onto them at checkout.
+         * Change one plan's fees for new orders (FR-83)
+         * @description Takes effect immediately for new orders placed by brands on that plan (`plan`, default FREE); existing orders keep the fees copied onto them at checkout.
          */
         put: operations["updateFees"];
         post?: never;
@@ -1664,10 +1664,68 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The current public fee rates, for explanatory copy in the UI */
+        /** The current public fee rates (Free plan) and the brand plans on offer, for explanatory copy and the pricing page */
         get: operations["getCurrentFees"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The brand's plan, billing period and invoices (FR-66, v3.2) */
+        get: operations["getMySubscription"];
+        put?: never;
+        /**
+         * Subscribe, upgrade or schedule a downgrade (FR-66, v3.2)
+         * @description A higher plan (or another billing cycle) starts now and is paid now: open a payment session with purpose SUBSCRIPTION
+         *     for `priceCents + gstCents` from `GET /fees`, pay it, and send the proof as `payment`. No proration in MVP: the new
+         *     period starts today. A lower plan is scheduled for the end of the current period (no payment). Renewals charge the
+         *     saved method automatically (Razorpay Subscriptions). GST 18% (CGST + SGST or IGST by the brand's state).
+         */
+        post: operations["changeMySubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/subscription/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel at the end of the paid period (back to Free then) */
+        post: operations["cancelMySubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/subscription/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo a cancellation or a scheduled downgrade before the period ends */
+        post: operations["resumeMySubscription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2659,8 +2717,7 @@ export interface components {
             reason: string;
         };
         FeeRates: {
-            /** @enum {string} */
-            plan: "FREE";
+            plan: components["schemas"]["BrandPlan"];
             brandFeeBps: number;
             creatorFeeBps: number;
         };
@@ -2670,11 +2727,101 @@ export interface components {
             changedBy: string | null;
         };
         FeeSettings: {
+            /** @description The Free plan's fees. */
             current: components["schemas"]["FeeConfigEntry"];
+            /** @description Current fees for FREE, PRO and PREMIUM (v3.2). */
+            plans: components["schemas"]["FeeConfigEntry"][];
             /** @description Newest first. */
             history: components["schemas"]["FeeConfigEntry"][];
         };
+        PlanOffer: {
+            plan: components["schemas"]["BrandPlan"];
+            name: string;
+            tagline: string;
+            /**
+             * Format: int64
+             * @description Excluding GST. 0 for Free.
+             */
+            monthlyCents: number;
+            /**
+             * Format: int64
+             * @description Excluding GST (two months free).
+             */
+            yearlyCents: number;
+            /** @example 1800 */
+            gstBps: number;
+            /** @description Service fee on orders for brands on this plan. */
+            brandFeeBps: number;
+            creatorFeeBps: number;
+            /** @description New pre-booking conversations per 30 days; null = unlimited. */
+            inquiryLimit: number | null;
+            features: string[];
+        };
+        PublicFees: components["schemas"]["FeeRates"] & {
+            plans: components["schemas"]["PlanOffer"][];
+        };
+        /** @enum {string} */
+        BillingCycle: "MONTHLY" | "YEARLY";
+        SubscriptionRequest: {
+            plan: components["schemas"]["BrandPlan"];
+            cycle: components["schemas"]["BillingCycle"];
+            /** @description Required when the change is paid now. */
+            payment?: components["schemas"]["OrderPaymentInput"] | null;
+        };
+        SubscriptionInvoice: {
+            id: string;
+            /** @example WC/2026-27/S0001 */
+            number: string;
+            plan: components["schemas"]["BrandPlan"];
+            cycle: components["schemas"]["BillingCycle"];
+            /** Format: date-time */
+            periodStart: string;
+            /** Format: date-time */
+            periodEnd: string;
+            /** Format: int64 */
+            priceCents: number;
+            /** Format: int64 */
+            gstCents: number;
+            /** Format: int64 */
+            totalCents: number;
+            intraState: boolean;
+            methodLabel: string;
+            /** @enum {string} */
+            kind: "NEW" | "UPGRADE" | "RENEWAL";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        BrandSubscription: {
+            plan: components["schemas"]["BrandPlan"];
+            cycle: components["schemas"]["BillingCycle"] | null;
+            /**
+             * @description CANCELLING: paid until the period ends, then Free.
+             * @enum {string}
+             */
+            status: "FREE" | "ACTIVE" | "CANCELLING";
+            /** Format: date-time */
+            currentPeriodStart: string | null;
+            /** Format: date-time */
+            currentPeriodEnd: string | null;
+            cancelAtPeriodEnd: boolean;
+            /** @description A downgrade scheduled for the end of the period. */
+            nextPlan: components["schemas"]["BrandPlan"] | null;
+            nextCycle: components["schemas"]["BillingCycle"] | null;
+            /**
+             * Format: int64
+             * @description What the next renewal charges, incl. GST; null when nothing renews.
+             */
+            renewalCents: number | null;
+            methodLabel: string | null;
+            /** @description The service fee the brand pays on new orders now. */
+            brandFeeBps: number;
+            inquiries: components["schemas"]["InquiryAllowance"];
+            /** @description Newest first. */
+            invoices: components["schemas"]["SubscriptionInvoice"][];
+        };
         FeeUpdate: {
+            /** @description Default FREE (v3.2). */
+            plan?: components["schemas"]["BrandPlan"];
             /** @description Basis points: 1000 = 10%. At most 30%. */
             brandFeeBps: number;
             creatorFeeBps: number;
@@ -2844,7 +2991,7 @@ export interface components {
         PaymentMethodType: "UPI" | "CARD" | "NETBANKING" | "WALLET_APP";
         PaymentSessionRequest: {
             /** @enum {string} */
-            purpose: "ORDER";
+            purpose: "ORDER" | "SUBSCRIPTION";
             /**
              * Format: int64
              * @description The quoted total (price + brand fee); the server rechecks it when the order is placed.
@@ -2854,7 +3001,7 @@ export interface components {
         PaymentSession: {
             id: string;
             /** @enum {string} */
-            purpose: "ORDER";
+            purpose: "ORDER" | "SUBSCRIPTION";
             /** Format: int64 */
             amountCents: number;
             /** @example INR */
@@ -2977,6 +3124,8 @@ export interface components {
             /** @description Creators: the invitation to this campaign, if any (v2.5). */
             myInvite: components["schemas"]["CampaignInvite"] | null;
             brandRating: components["schemas"]["BrandRating"];
+            /** @description Shown to creators as a "Pro brand" / "Premium brand" badge (v3.2). */
+            brandPlan: components["schemas"]["BrandPlan"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -6179,9 +6328,111 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FeeRates"];
+                    "application/json": components["schemas"]["PublicFees"];
                 };
             };
+        };
+    };
+    getMySubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    changeMySubscription: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description The subscription after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            /** @description Payment failed (PAYMENT_FAILED). */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    cancelMySubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    resumeMySubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            409: components["responses"]["Conflict"];
         };
     };
     listAuditLogs: {

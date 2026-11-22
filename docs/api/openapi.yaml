@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 3.1.0
+  version: 3.2.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -1406,7 +1406,7 @@ paths:
   /admin/fees:
     get:
       tags: [Admin]
-      summary: Current fees and their history (FR-83)
+      summary: Current fees per plan and their history (FR-83, FR-66)
       operationId: getFees
       security: [{ bearerAuth: [] }]
       responses:
@@ -1414,8 +1414,8 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Admin]
-      summary: Change the fees for new orders (FR-83)
-      description: "Takes effect immediately for new orders; existing orders keep the fees copied onto them at checkout."
+      summary: Change one plan's fees for new orders (FR-83)
+      description: "Takes effect immediately for new orders placed by brands on that plan (`plan`, default FREE); existing orders keep the fees copied onto them at checkout."
       operationId: updateFees
       security: [{ bearerAuth: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FeeUpdate' } } } }
@@ -1427,10 +1427,58 @@ paths:
   /fees:
     get:
       tags: [Payouts]
-      summary: The current public fee rates, for explanatory copy in the UI
+      summary: The current public fee rates (Free plan) and the brand plans on offer, for explanatory copy and the pricing page
       operationId: getCurrentFees
       responses:
-        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FeeRates' } } } }
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/PublicFees' } } } }
+
+  /brands/me/subscription:
+    get:
+      tags: [Brands]
+      summary: The brand's plan, billing period and invoices (FR-66, v3.2)
+      operationId: getMySubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Brands]
+      summary: Subscribe, upgrade or schedule a downgrade (FR-66, v3.2)
+      description: |
+        A higher plan (or another billing cycle) starts now and is paid now: open a payment session with purpose SUBSCRIPTION
+        for `priceCents + gstCents` from `GET /fees`, pay it, and send the proof as `payment`. No proration in MVP: the new
+        period starts today. A lower plan is scheduled for the end of the current period (no payment). Renewals charge the
+        saved method automatically (Razorpay Subscriptions). GST 18% (CGST + SGST or IGST by the brand's state).
+      operationId: changeMySubscription
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionRequest' } } } }
+      responses:
+        '200': { description: The subscription after the change., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '402': { description: Payment failed (PAYMENT_FAILED)., content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /brands/me/subscription/cancel:
+    post:
+      tags: [Brands]
+      summary: Cancel at the end of the paid period (back to Free then)
+      operationId: cancelMySubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /brands/me/subscription/resume:
+    post:
+      tags: [Brands]
+      summary: Undo a cancellation or a scheduled downgrade before the period ends
+      operationId: resumeMySubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /admin/audit-logs:
     get:
@@ -2544,7 +2592,7 @@ components:
       type: object
       required: [plan, brandFeeBps, creatorFeeBps]
       properties:
-        plan: { type: string, enum: [FREE] }
+        plan: { $ref: '#/components/schemas/BrandPlan' }
         brandFeeBps: { type: integer, minimum: 0, maximum: 3000 }
         creatorFeeBps: { type: integer, minimum: 0, maximum: 3000 }
 
@@ -2559,15 +2607,88 @@ components:
 
     FeeSettings:
       type: object
-      required: [current, history]
+      required: [current, plans, history]
       properties:
-        current: { $ref: '#/components/schemas/FeeConfigEntry' }
+        current: { $ref: '#/components/schemas/FeeConfigEntry', description: The Free plan's fees. }
+        plans: { type: array, description: 'Current fees for FREE, PRO and PREMIUM (v3.2).', items: { $ref: '#/components/schemas/FeeConfigEntry' } }
         history: { type: array, description: Newest first., items: { $ref: '#/components/schemas/FeeConfigEntry' } }
+
+    PlanOffer:
+      type: object
+      required: [plan, name, tagline, monthlyCents, yearlyCents, gstBps, brandFeeBps, creatorFeeBps, inquiryLimit, features]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        name: { type: string }
+        tagline: { type: string }
+        monthlyCents: { type: integer, format: int64, description: Excluding GST. 0 for Free. }
+        yearlyCents: { type: integer, format: int64, description: Excluding GST (two months free). }
+        gstBps: { type: integer, examples: [1800] }
+        brandFeeBps: { type: integer, description: Service fee on orders for brands on this plan. }
+        creatorFeeBps: { type: integer }
+        inquiryLimit: { type: [integer, 'null'], description: 'New pre-booking conversations per 30 days; null = unlimited.' }
+        features: { type: array, items: { type: string } }
+
+    PublicFees:
+      allOf:
+        - $ref: '#/components/schemas/FeeRates'
+        - type: object
+          required: [plans]
+          properties:
+            plans: { type: array, items: { $ref: '#/components/schemas/PlanOffer' } }
+
+    BillingCycle:
+      type: string
+      enum: [MONTHLY, YEARLY]
+
+    SubscriptionRequest:
+      type: object
+      required: [plan, cycle]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        cycle: { $ref: '#/components/schemas/BillingCycle' }
+        payment: { oneOf: [{ $ref: '#/components/schemas/OrderPaymentInput' }, { type: 'null' }], description: Required when the change is paid now. }
+
+    SubscriptionInvoice:
+      type: object
+      required: [id, number, plan, cycle, periodStart, periodEnd, priceCents, gstCents, totalCents, intraState, methodLabel, kind, createdAt]
+      properties:
+        id: { type: string }
+        number: { type: string, examples: ['WC/2026-27/S0001'] }
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        cycle: { $ref: '#/components/schemas/BillingCycle' }
+        periodStart: { type: string, format: date-time }
+        periodEnd: { type: string, format: date-time }
+        priceCents: { type: integer, format: int64 }
+        gstCents: { type: integer, format: int64 }
+        totalCents: { type: integer, format: int64 }
+        intraState: { type: boolean }
+        methodLabel: { type: string }
+        kind: { type: string, enum: [NEW, UPGRADE, RENEWAL] }
+        createdAt: { type: string, format: date-time }
+
+    BrandSubscription:
+      type: object
+      required: [plan, cycle, status, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, nextPlan, nextCycle, renewalCents, methodLabel, brandFeeBps, inquiries, invoices]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        cycle: { oneOf: [{ $ref: '#/components/schemas/BillingCycle' }, { type: 'null' }] }
+        status: { type: string, enum: [FREE, ACTIVE, CANCELLING], description: 'CANCELLING: paid until the period ends, then Free.' }
+        currentPeriodStart: { type: [string, 'null'], format: date-time }
+        currentPeriodEnd: { type: [string, 'null'], format: date-time }
+        cancelAtPeriodEnd: { type: boolean }
+        nextPlan: { oneOf: [{ $ref: '#/components/schemas/BrandPlan' }, { type: 'null' }], description: A downgrade scheduled for the end of the period. }
+        nextCycle: { oneOf: [{ $ref: '#/components/schemas/BillingCycle' }, { type: 'null' }] }
+        renewalCents: { type: [integer, 'null'], format: int64, description: 'What the next renewal charges, incl. GST; null when nothing renews.' }
+        methodLabel: { type: [string, 'null'] }
+        brandFeeBps: { type: integer, description: The service fee the brand pays on new orders now. }
+        inquiries: { $ref: '#/components/schemas/InquiryAllowance' }
+        invoices: { type: array, description: Newest first., items: { $ref: '#/components/schemas/SubscriptionInvoice' } }
 
     FeeUpdate:
       type: object
       required: [brandFeeBps, creatorFeeBps]
       properties:
+        plan: { $ref: '#/components/schemas/BrandPlan', description: 'Default FREE (v3.2).' }
         brandFeeBps: { type: integer, minimum: 0, maximum: 3000, description: 'Basis points: 1000 = 10%. At most 30%.' }
         creatorFeeBps: { type: integer, minimum: 0, maximum: 3000 }
 
@@ -2716,7 +2837,7 @@ components:
       type: object
       required: [purpose, amountCents]
       properties:
-        purpose: { type: string, enum: [ORDER] }
+        purpose: { type: string, enum: [ORDER, SUBSCRIPTION] }
         amountCents: { type: integer, format: int64, minimum: 100, description: 'The quoted total (price + brand fee); the server rechecks it when the order is placed.' }
 
     PaymentSession:
@@ -2724,7 +2845,7 @@ components:
       required: [id, purpose, amountCents, currency, razorpayOrderId, razorpayKeyId, expiresAt]
       properties:
         id: { type: string }
-        purpose: { type: string, enum: [ORDER] }
+        purpose: { type: string, enum: [ORDER, SUBSCRIPTION] }
         amountCents: { type: integer, format: int64 }
         currency: { type: string, examples: [INR] }
         razorpayOrderId: { type: string, examples: [order_Mock123] }
@@ -2817,7 +2938,7 @@ components:
 
     CampaignSummary:
       type: object
-      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, myInvite, brandRating, createdAt]
+      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, myInvite, brandRating, brandPlan, createdAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         brand: { $ref: '#/components/schemas/OrderParty' }
@@ -2833,6 +2954,7 @@ components:
         myApplication: { oneOf: [{ $ref: '#/components/schemas/Application' }, { type: 'null' }], description: "The creator's own application, if any." }
         myInvite: { oneOf: [{ $ref: '#/components/schemas/CampaignInvite' }, { type: 'null' }], description: 'Creators: the invitation to this campaign, if any (v2.5).' }
         brandRating: { $ref: '#/components/schemas/BrandRating' }
+        brandPlan: { $ref: '#/components/schemas/BrandPlan', description: 'Shown to creators as a "Pro brand" / "Premium brand" badge (v3.2).' }
         createdAt: { type: string, format: date-time }
 
     CampaignDetail:

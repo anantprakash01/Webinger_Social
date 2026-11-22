@@ -94,6 +94,13 @@ export function payoutLines(cents: number, feeCents = 0): LedgerLine[] {
   ];
 }
 
+/** v3.2 brand plan charge: BRAND_CHARGE → PLATFORM_REVENUE (plan price) + GST_PAYABLE (GST on it). */
+export const subscriptionLines = (priceCents: number, gstCents: number): LedgerLine[] => [
+  { account: 'BRAND_CHARGE', debitCents: 0, creditCents: priceCents + gstCents },
+  { account: 'PLATFORM_REVENUE', debitCents: priceCents, creditCents: 0 },
+  { account: 'GST_PAYABLE', debitCents: gstCents, creditCents: 0 },
+];
+
 /** Dev check (section 9.5 rule 3): every transaction in the ledger sums to zero. Returns the bad txn ids. */
 export function findUnbalancedTxns(entries: LedgerEntry[]): string[] {
   const byTxn = new Map<string, number>();

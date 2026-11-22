@@ -23,7 +23,7 @@ export function auditLedger(entries: LedgerEntry[], actor: UserRow | null) {
   const amount = entries.reduce((s, e) => s + e.debitCents, 0);
   audit(actor, {
     action: 'MONEY_MOVEMENT',
-    entityType: entries[0].orderId.startsWith('payout_') ? 'PAYOUT' : 'ORDER',
+    entityType: entries[0].orderId.startsWith('payout_') ? 'PAYOUT' : entries[0].orderId.startsWith('sub_') ? 'SUBSCRIPTION' : 'ORDER',
     entityId: entries[0].orderId,
     summary: `${entries[0].memo}: ${formatMoney(amount)}`,
     before: null,

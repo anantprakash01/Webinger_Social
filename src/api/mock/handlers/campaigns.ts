@@ -4,6 +4,7 @@
  */
 import { deliver } from '../deliver';
 import { brandRatingOf, toInvite } from './retention';
+import { planOf } from './plans';
 import { applicationAcceptSchema, applicationInputSchema, campaignInputSchema } from '@/features/campaigns/schemas';
 import { reasonRequestSchema } from '@/features/orders/schemas';
 import type { Application, CampaignDetail, CampaignPage, CampaignSummary } from '@/types';
@@ -63,6 +64,7 @@ function toSummary(c: CampaignRow, viewer: UserRow): CampaignSummary {
     myApplication: mine ? toApplication(mine) : null,
     myInvite: invite ? toInvite(invite) : null,
     brandRating: brandRatingOf(c.brandUserId),
+    brandPlan: planOf(c.brandUserId),
     createdAt: c.createdAt,
   };
 }

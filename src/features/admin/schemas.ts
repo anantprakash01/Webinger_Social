@@ -30,7 +30,7 @@ const bps = z
   .int({ error: 'Whole basis points only.' })
   .min(0, { error: 'Cannot be negative.' })
   .max(MAX_FEE_BPS, { error: `At most ${MAX_FEE_BPS} bps (${MAX_FEE_BPS / 100}%).` });
-export const feeUpdateSchema = z.object({ brandFeeBps: bps, creatorFeeBps: bps });
+export const feeUpdateSchema = z.object({ plan: z.enum(['FREE', 'PRO', 'PREMIUM']).optional(), brandFeeBps: bps, creatorFeeBps: bps });
 
 export const reportInputSchema = z.object({
   targetType: z.enum(['CREATOR', 'BRAND', 'MESSAGE', 'REVIEW']),

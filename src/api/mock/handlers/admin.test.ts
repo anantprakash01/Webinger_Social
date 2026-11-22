@@ -129,7 +129,7 @@ describe('fees (FR-83)', () => {
     await expectError(api.admin.updateFees({ brandFeeBps: 5000, creatorFeeBps: 1500 }), 422);
     const s = await api.admin.updateFees({ brandFeeBps: 800, creatorFeeBps: 1200 });
     expect(s.current).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1200, changedBy: 'Sam Mehta' });
-    expect(s.history).toHaveLength(2);
+    expect(s.history).toHaveLength(4); // seeded FREE, PRO, PREMIUM + this change
     expect(await api.fees.current()).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1200 });
     await asBrand();
     const pkg = getDb().packages.find((k) => k.creatorId === leoId() && k.active)!;

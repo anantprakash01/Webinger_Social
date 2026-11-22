@@ -6,6 +6,7 @@
 import * as retention from './handlers/retention';
 import * as collab from './handlers/collab';
 import * as disputes from './handlers/disputes';
+import * as plans from './handlers/plans';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
 import { HttpError, type Handler, type MockRequest, type MockResponse } from './http';
@@ -143,7 +144,11 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/admin/users/:id/impersonate', auth: true, handler: admin.impersonateUser },
   { method: 'GET', path: '/admin/fees', auth: true, handler: admin.getFees },
   { method: 'PUT', path: '/admin/fees', auth: true, handler: admin.updateFees },
-  { method: 'GET', path: '/fees', auth: false, handler: admin.getCurrentFees },
+  { method: 'GET', path: '/fees', auth: false, handler: plans.getPublicFees },
+  { method: 'GET', path: '/brands/me/subscription', auth: true, handler: plans.getMySubscription },
+  { method: 'POST', path: '/brands/me/subscription', auth: true, handler: plans.changeMySubscription, idempotent: true },
+  { method: 'POST', path: '/brands/me/subscription/cancel', auth: true, handler: plans.cancelMySubscription },
+  { method: 'POST', path: '/brands/me/subscription/resume', auth: true, handler: plans.resumeMySubscription },
   { method: 'GET', path: '/admin/audit-logs', auth: true, handler: admin.listAuditLogs },
   { method: 'POST', path: '/reports', auth: true, handler: admin.createReport },
   { method: 'GET', path: '/admin/reports', auth: true, handler: admin.listReports },

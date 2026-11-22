@@ -50,7 +50,9 @@ import {
   type AdminUser,
   type AdminUserPage,
   type AuditPage,
-  type FeeRates,
+  type PublicFees,
+  type BrandSubscription,
+  type SubscriptionRequest,
   type FeeSettings,
   type FeeUpdate,
   type PayoutOverview,
@@ -461,6 +463,12 @@ export const api = {
     updateProfile: (body: BrandProfileInput) => request<BrandProfile>('PUT', '/brands/me/profile', { body }),
     /** FR-71 dashboard numbers. */
     stats: () => request<BrandStats>('GET', '/brands/me/stats'),
+    /** FR-66 plans (v3.2). Paid changes carry an Idempotency-Key. */
+    subscription: () => request<BrandSubscription>('GET', '/brands/me/subscription'),
+    changeSubscription: (body: SubscriptionRequest, idempotencyKey: string) =>
+      request<BrandSubscription>('POST', '/brands/me/subscription', { body, headers: { 'idempotency-key': idempotencyKey } }),
+    cancelSubscription: () => request<BrandSubscription>('POST', '/brands/me/subscription/cancel'),
+    resumeSubscription: () => request<BrandSubscription>('POST', '/brands/me/subscription/resume'),
   },
   payouts: {
     /** FR-63: balance, transfers, payouts, payout account and settings. */
@@ -474,7 +482,7 @@ export const api = {
   },
   /** Razorpay payment sessions and saved methods (v2.0). */
   payments: {
-    session: (amountCents: number) => request<PaymentSession>('POST', '/payments/sessions', { body: { purpose: 'ORDER', amountCents } }),
+    session: (amountCents: number, purpose: 'ORDER' | 'SUBSCRIPTION' = 'ORDER') => request<PaymentSession>('POST', '/payments/sessions', { body: { purpose, amountCents } }),
     methods: () => request<{ content: SavedPaymentMethod[] }>('GET', '/payments/methods'),
     removeMethod: (id: string) => request<void>('DELETE', `/payments/methods/${enc(id)}`),
   },
@@ -614,7 +622,7 @@ export const api = {
   },
   fees: {
     /** Current public rates, for explanatory copy (the server always calculates the real fees). */
-    current: () => request<FeeRates>('GET', '/fees', { auth: false }),
+    current: () => request<PublicFees>('GET', '/fees', { auth: false }),
   },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {

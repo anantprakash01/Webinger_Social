@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
-import { LuCalendar, LuUsers } from 'react-icons/lu';
+import { LuCalendar, LuCrown, LuUsers } from 'react-icons/lu';
 import { CreatorPhoto, PlatformIcon, Rating } from '@/components/creator';
 import { Badge, Button, ChipGroup, FormError, Input, TextArea, type Tone } from '@/components/ui';
 import { NICHE_LABEL, NICHES, PLATFORM_LABEL, PLATFORMS } from '@/lib/catalog';
@@ -29,6 +29,18 @@ export function CampaignStatusBadge({ c }: { c: Pick<CampaignSummary, 'status' |
   return <Badge>{c.status === 'CLOSED' ? 'Closed' : 'Deadline passed'}</Badge>;
 }
 
+/** v3.2: paying brands get a badge creators can see. */
+export function BrandPlanBadge({ plan }: { plan: CampaignSummary['brandPlan'] }) {
+  if (plan === 'FREE') return null;
+  return (
+    <Badge tone="info">
+      <span className="brand-plan-badge">
+        <LuCrown aria-hidden /> {plan === 'PREMIUM' ? 'Premium brand' : 'Pro brand'}
+      </span>
+    </Badge>
+  );
+}
+
 export function CampaignCard({ c, href, role }: { c: CampaignSummary; href: string; role: 'BRAND' | 'CREATOR' }) {
   return (
     <article className="card campaign-card">
@@ -39,6 +51,7 @@ export function CampaignCard({ c, href, role }: { c: CampaignSummary; href: stri
               <CreatorPhoto name={c.brand.name} url={c.brand.photoUrl} seed={c.brand.name} size={28} className="order__photo" />
               <span className="small">{c.brand.name}</span>
               <Rating avg={c.brandRating.ratingAvg} count={c.brandRating.ratingCount} />
+              <BrandPlanBadge plan={c.brandPlan} />
             </span>
           ) : (
             <CampaignStatusBadge c={c} />

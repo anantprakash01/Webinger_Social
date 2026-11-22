@@ -42,7 +42,7 @@ export function cardNetwork(number: string): string {
 
 /* ---------- Requests ---------- */
 export const paymentSessionRequestSchema = z.object({
-  purpose: z.enum(['ORDER']),
+  purpose: z.enum(['ORDER', 'SUBSCRIPTION']),
   amountCents: z.number().int().min(100),
 });
 
