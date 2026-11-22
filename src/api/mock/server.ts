@@ -5,6 +5,7 @@
  */
 import * as retention from './handlers/retention';
 import * as collab from './handlers/collab';
+import * as disputes from './handlers/disputes';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
 import { HttpError, type Handler, type MockRequest, type MockResponse } from './http';
@@ -103,6 +104,8 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/orders/:id/approve', auth: true, handler: orders.approveOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/request-revision', auth: true, handler: orders.requestRevision, idempotent: true },
   { method: 'POST', path: '/orders/:id/dispute', auth: true, handler: orders.disputeOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/dispute/response', auth: true, handler: disputes.respondToDispute },
+  { method: 'POST', path: '/orders/:id/dispute/evidence', auth: true, handler: disputes.addDisputeEvidence },
   { method: 'POST', path: '/orders/:id/cancel', auth: true, handler: orders.cancelOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/review', auth: true, handler: orders.reviewOrder },
   { method: 'POST', path: '/reviews/:id/reply', auth: true, handler: orders.replyToReview },
@@ -132,6 +135,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/admin/creators/:id/approve', auth: true, handler: admin.approveCreator },
   { method: 'POST', path: '/admin/creators/:id/reject', auth: true, handler: admin.rejectCreator },
   { method: 'GET', path: '/admin/disputes', auth: true, handler: admin.listDisputes },
+  { method: 'GET', path: '/admin/disputes/report', auth: true, handler: disputes.getDisputeReport },
   { method: 'POST', path: '/admin/disputes/:id/resolve', auth: true, handler: admin.resolveDispute, idempotent: true },
   { method: 'POST', path: '/admin/orders/:id/cancel', auth: true, handler: admin.cancelOrderAsAdmin, idempotent: true },
   { method: 'GET', path: '/admin/users', auth: true, handler: admin.listUsers },

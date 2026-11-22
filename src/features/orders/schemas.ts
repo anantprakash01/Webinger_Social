@@ -123,6 +123,51 @@ export const noteRequestSchema = z.object({
 
 export const reasonRequestSchema = z.object({ reason: z.string().trim().max(500).nullable().optional() }).default({});
 
+/* ---------- Disputes (v3.1) ---------- */
+
+export const DISPUTE_RESPONSE_HOURS = 48;
+export const MAX_EVIDENCE_PER_SIDE = 5;
+
+export const DISPUTE_REASONS = [
+  { value: 'NOT_AS_BRIEFED', label: 'Doesn’t follow the brief' },
+  { value: 'LOW_QUALITY', label: 'Quality is too low' },
+  { value: 'NOT_DELIVERED', label: 'Not delivered / files missing' },
+  { value: 'LATE', label: 'Delivered too late to use' },
+  { value: 'POST_REMOVED', label: 'Post was deleted or edited' },
+  { value: 'OTHER', label: 'Something else' },
+] as const;
+export type DisputeReasonValue = (typeof DISPUTE_REASONS)[number]['value'];
+
+export const RESOLUTION_REASONS = [
+  { value: 'WORK_MATCHES_BRIEF', label: 'Work matches the brief' },
+  { value: 'BRIEF_NOT_FOLLOWED', label: 'Brief not followed' },
+  { value: 'QUALITY_BELOW_STANDARD', label: 'Quality below standard' },
+  { value: 'WORK_NOT_DELIVERED', label: 'Work not delivered' },
+  { value: 'DELIVERED_LATE', label: 'Delivered late' },
+  { value: 'POST_TAKEN_DOWN', label: 'Post taken down' },
+  { value: 'CREATOR_UNRESPONSIVE', label: 'Creator did not respond' },
+  { value: 'BRAND_UNRESPONSIVE', label: 'Brand did not respond' },
+  { value: 'SETTLED_BY_PARTIES', label: 'Settled between the two sides' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+
+export const disputeRequestSchema = noteRequestSchema.extend({
+  reasonCode: z.enum(DISPUTE_REASONS.map((r) => r.value) as [DisputeReasonValue, ...DisputeReasonValue[]]).default('OTHER'),
+});
+
+export const disputeResponseSchema = z.object({
+  response: z.string().trim().min(20, { error: 'Explain your side in at least 20 characters.' }).max(2000, { error: 'Use at most 2000 characters.' }),
+});
+
+export const disputeEvidenceSchema = z
+  .object({
+    kind: z.enum(['FILE', 'LINK']),
+    url: z.string().trim().min(1, { error: 'Add a file or a link.' }).max(15_000_000),
+    name: z.string().trim().max(200).nullable().optional(),
+    note: z.string().trim().max(500, { error: 'Use at most 500 characters.' }).nullable().optional(),
+  })
+  .refine((v) => v.kind !== 'LINK' || /^https:\/\/[^\s]+\.[^\s]+/.test(v.url), { error: 'Use a full https:// link.', path: ['url'] });
+
 export const reviewRequestSchema = z.object({
   rating: z.number({ error: 'Choose a rating.' }).int().min(1, { error: 'Choose 1 to 5 stars.' }).max(5, { error: 'Choose 1 to 5 stars.' }),
   comment: z.string().trim().max(1000, { error: 'Use at most 1000 characters.' }).nullable().optional(),

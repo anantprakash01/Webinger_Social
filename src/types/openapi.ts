@@ -783,9 +783,49 @@ export interface paths {
         put?: never;
         /**
          * Brand opens a dispute (FR-35)
-         * @description DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81).
+         * @description DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81). v3.1: an optional `reasonCode`; the creator then has 48 hours to respond.
          */
         post: operations["disputeOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/dispute/response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Creator answers a dispute (v3.1)
+         * @description Once, within 48 hours of the dispute being opened (409 ALREADY_RESPONDED, RESPONSE_WINDOW_PASSED). Shown to the brand and the admin.
+         */
+        post: operations["respondToDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/dispute/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand or creator adds evidence to an open dispute (v3.1)
+         * @description A file (image or PDF, uploaded with presign purpose DISPUTE_EVIDENCE) or a link, with an optional note. Up to 5 items per side (409 EVIDENCE_LIMIT); only while the dispute is open (409 DISPUTE_RESOLVED).
+         */
+        post: operations["addDisputeEvidence"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1474,6 +1514,23 @@ export interface paths {
         };
         /** Dispute console list (FR-81), open first */
         get: operations["listDisputes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/disputes/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Refund-reason log — resolved disputes by outcome and reason (v3.1) */
+        get: operations["getDisputeReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2419,10 +2476,10 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE" | "MESSAGE_ATTACHMENT";
+            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE" | "MESSAGE_ATTACHMENT" | "DISPUTE_EVIDENCE";
             fileName: string;
             /**
-             * @description PDF only for MESSAGE_ATTACHMENT (v2.5).
+             * @description PDF only for MESSAGE_ATTACHMENT (v2.5) and DISPUTE_EVIDENCE (v3.1).
              * @enum {string}
              */
             contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
@@ -2473,6 +2530,16 @@ export interface components {
             reason: string;
         };
         AdminDispute: {
+            reasonCode: components["schemas"]["DisputeReasonCode"];
+            /** Format: date-time */
+            respondBy: string;
+            creatorResponse: string | null;
+            /** Format: date-time */
+            respondedAt: string | null;
+            evidence: components["schemas"]["DisputeEvidence"][];
+            resolutionReason: components["schemas"]["ResolutionReason"] | null;
+            /** @description Premium brands' disputes are listed first. */
+            brandPlan: components["schemas"]["BrandPlan"];
             id: components["schemas"]["Ulid"];
             orderId: components["schemas"]["Ulid"];
             orderTitle: string;
@@ -2494,9 +2561,70 @@ export interface components {
         AdminDisputeList: {
             content: components["schemas"]["AdminDispute"][];
         };
+        /**
+         * @description What the brand says went wrong (v3.1).
+         * @enum {string}
+         */
+        DisputeReasonCode: "NOT_DELIVERED" | "NOT_AS_BRIEFED" | "LOW_QUALITY" | "LATE" | "POST_REMOVED" | "OTHER";
+        /**
+         * @description Why the admin decided as they did — the refund-reason log (v3.1).
+         * @enum {string}
+         */
+        ResolutionReason: "WORK_NOT_DELIVERED" | "BRIEF_NOT_FOLLOWED" | "QUALITY_BELOW_STANDARD" | "DELIVERED_LATE" | "POST_TAKEN_DOWN" | "WORK_MATCHES_BRIEF" | "BRAND_UNRESPONSIVE" | "CREATOR_UNRESPONSIVE" | "SETTLED_BY_PARTIES" | "OTHER";
+        DisputeRequest: {
+            note: string;
+            reasonCode?: components["schemas"]["DisputeReasonCode"];
+        };
+        DisputeResponseInput: {
+            response: string;
+        };
+        DisputeEvidenceInput: {
+            /** @enum {string} */
+            kind: "FILE" | "LINK";
+            /** @description https link, or the uploaded file URL. */
+            url: string;
+            name?: string | null;
+            note?: string | null;
+        };
+        DisputeEvidence: {
+            id: string;
+            /** @enum {string} */
+            by: "BRAND" | "CREATOR";
+            /** @enum {string} */
+            kind: "FILE" | "LINK";
+            url: string;
+            name: string | null;
+            note: string | null;
+            /** Format: date-time */
+            at: string;
+        };
+        DisputeReport: {
+            days: number;
+            resolved: number;
+            open: number;
+            released: number;
+            fullRefunds: number;
+            partialRefunds: number;
+            /** Format: int64 */
+            refundedCents: number;
+            avgHoursToResolve: number | null;
+            /** @description Resolved disputes by the admin's reason, most frequent first. */
+            byReason: {
+                reason: components["schemas"]["ResolutionReason"];
+                count: number;
+                /** Format: int64 */
+                refundedCents: number;
+            }[];
+            /** @description Disputes opened in the period by the brand's reason. */
+            byBrandReason: {
+                reasonCode: components["schemas"]["DisputeReasonCode"];
+                count: number;
+            }[];
+        };
         ResolveDisputeRequest: {
             /** @enum {string} */
             resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND";
+            resolutionReason: components["schemas"]["ResolutionReason"];
             /**
              * Format: int64
              * @description Required for PARTIAL_REFUND.
@@ -3039,7 +3167,7 @@ export interface components {
          * @description What the viewer may do now. The UI offers only these; the server checks again.
          * @enum {string}
          */
-        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY" | "ADMIN_CANCEL";
+        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY" | "ADMIN_CANCEL" | "DISPUTE_RESPOND" | "ADD_EVIDENCE";
         /** @enum {string} */
         OrderKind: "PACKAGE" | "CUSTOM_OFFER" | "CAMPAIGN";
         ShippingAddress: {
@@ -3271,6 +3399,20 @@ export interface components {
             /** @enum {string|null} */
             resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND" | null;
             refundCents: number | null;
+            reasonCode: components["schemas"]["DisputeReasonCode"];
+            /**
+             * Format: date-time
+             * @description The creator's 48-hour window to respond (v3.1).
+             */
+            respondBy: string;
+            creatorResponse: string | null;
+            /** Format: date-time */
+            respondedAt: string | null;
+            /** @description Oldest first. */
+            evidence: components["schemas"]["DisputeEvidence"][];
+            resolutionReason: components["schemas"]["ResolutionReason"] | null;
+            /** @description The admin's explanation, shown to both sides. */
+            resolutionNote: string | null;
         };
         OrderDetail: components["schemas"]["OrderSummary"] & {
             packageId: components["schemas"]["Ulid"] | null;
@@ -4598,11 +4740,71 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NoteRequest"];
+                "application/json": components["schemas"]["DisputeRequest"];
             };
         };
         responses: {
             /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    respondToDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeResponseInput"];
+            };
+        };
+        responses: {
+            /** @description The order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    addDisputeEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeEvidenceInput"];
+            };
+        };
+        responses: {
+            /** @description The order. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5740,6 +5942,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminDisputeList"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDisputeReport: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisputeReport"];
                 };
             };
             403: components["responses"]["Forbidden"];

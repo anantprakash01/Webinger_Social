@@ -168,3 +168,8 @@ export type SearchSuggestion = S['SearchSuggestion'];
 /* v3.0 */
 export type InquiryAllowance = S['InquiryAllowance'];
 export type BrandPlanApi = S['BrandPlan'];
+export type DisputeReasonCode = S['DisputeReasonCode'];
+export type ResolutionReason = S['ResolutionReason'];
+export type DisputeEvidence = S['DisputeEvidence'];
+export type DisputeEvidenceInput = S['DisputeEvidenceInput'];
+export type DisputeReport = S['DisputeReport'];

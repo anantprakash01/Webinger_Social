@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 3.0.0
+  version: 3.1.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -704,15 +704,47 @@ paths:
     post:
       tags: [Orders]
       summary: Brand opens a dispute (FR-35)
-      description: DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81).
+      description: "DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81). v3.1: an optional `reasonCode`; the creator then has 48 hours to respond."
       operationId: disputeOrder
       security: [{ bearerAuth: [] }]
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NoteRequest' } } } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DisputeRequest' } } } }
       responses:
         '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/dispute/response:
+    post:
+      tags: [Orders]
+      summary: Creator answers a dispute (v3.1)
+      description: Once, within 48 hours of the dispute being opened (409 ALREADY_RESPONDED, RESPONSE_WINDOW_PASSED). Shown to the brand and the admin.
+      operationId: respondToDispute
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DisputeResponseInput' } } } }
+      responses:
+        '200': { description: The order., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/dispute/evidence:
+    post:
+      tags: [Orders]
+      summary: Brand or creator adds evidence to an open dispute (v3.1)
+      description: "A file (image or PDF, uploaded with presign purpose DISPUTE_EVIDENCE) or a link, with an optional note. Up to 5 items per side (409 EVIDENCE_LIMIT); only while the dispute is open (409 DISPUTE_RESOLVED)."
+      operationId: addDisputeEvidence
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DisputeEvidenceInput' } } } }
+      responses:
+        '200': { description: The order., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -1277,6 +1309,18 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [OPEN, RESOLVED] } }
       responses:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminDisputeList' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/disputes/report:
+    get:
+      tags: [Admin]
+      summary: Refund-reason log — resolved disputes by outcome and reason (v3.1)
+      operationId: getDisputeReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 90 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/DisputeReport' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /admin/orders/{id}/cancel:
@@ -2292,9 +2336,9 @@ components:
       type: object
       required: [purpose, fileName, contentType, sizeBytes]
       properties:
-        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE, MESSAGE_ATTACHMENT] }
+        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE, MESSAGE_ATTACHMENT, DISPUTE_EVIDENCE] }
         fileName: { type: string, maxLength: 200 }
-        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf], description: 'PDF only for MESSAGE_ATTACHMENT (v2.5).' }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf], description: 'PDF only for MESSAGE_ATTACHMENT (v2.5) and DISPUTE_EVIDENCE (v3.1).' }
         sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
 
     PresignResponse:
@@ -2352,8 +2396,15 @@ components:
 
     AdminDispute:
       type: object
-      required: [id, orderId, orderTitle, brand, creator, money, reason, status, openedAt, resolution, refundCents, resolvedAt, resolutionNote]
+      required: [id, orderId, orderTitle, brand, creator, money, reason, status, openedAt, resolution, refundCents, resolvedAt, resolutionNote, reasonCode, respondBy, creatorResponse, respondedAt, evidence, resolutionReason, brandPlan]
       properties:
+        reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+        respondBy: { type: string, format: date-time }
+        creatorResponse: { type: [string, 'null'] }
+        respondedAt: { type: [string, 'null'], format: date-time }
+        evidence: { type: array, items: { $ref: '#/components/schemas/DisputeEvidence' } }
+        resolutionReason: { oneOf: [{ $ref: '#/components/schemas/ResolutionReason' }, { type: 'null' }] }
+        brandPlan: { $ref: '#/components/schemas/BrandPlan', description: Premium brands' disputes are listed first. }
         id: { $ref: '#/components/schemas/Ulid' }
         orderId: { $ref: '#/components/schemas/Ulid' }
         orderTitle: { type: string }
@@ -2374,11 +2425,88 @@ components:
       properties:
         content: { type: array, items: { $ref: '#/components/schemas/AdminDispute' } }
 
+    DisputeReasonCode:
+      type: string
+      description: What the brand says went wrong (v3.1).
+      enum: [NOT_DELIVERED, NOT_AS_BRIEFED, LOW_QUALITY, LATE, POST_REMOVED, OTHER]
+
+    ResolutionReason:
+      type: string
+      description: Why the admin decided as they did — the refund-reason log (v3.1).
+      enum: [WORK_NOT_DELIVERED, BRIEF_NOT_FOLLOWED, QUALITY_BELOW_STANDARD, DELIVERED_LATE, POST_TAKEN_DOWN, WORK_MATCHES_BRIEF, BRAND_UNRESPONSIVE, CREATOR_UNRESPONSIVE, SETTLED_BY_PARTIES, OTHER]
+
+    DisputeRequest:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string, minLength: 10, maxLength: 2000 }
+        reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+
+    DisputeResponseInput:
+      type: object
+      required: [response]
+      properties:
+        response: { type: string, minLength: 20, maxLength: 2000 }
+
+    DisputeEvidenceInput:
+      type: object
+      required: [kind, url]
+      properties:
+        kind: { type: string, enum: [FILE, LINK] }
+        url: { type: string, description: 'https link, or the uploaded file URL.' }
+        name: { type: [string, 'null'], maxLength: 200 }
+        note: { type: [string, 'null'], maxLength: 500 }
+
+    DisputeEvidence:
+      type: object
+      required: [id, by, kind, url, name, note, at]
+      properties:
+        id: { type: string }
+        by: { type: string, enum: [BRAND, CREATOR] }
+        kind: { type: string, enum: [FILE, LINK] }
+        url: { type: string }
+        name: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+
+    DisputeReport:
+      type: object
+      required: [days, resolved, open, released, fullRefunds, partialRefunds, refundedCents, avgHoursToResolve, byReason, byBrandReason]
+      properties:
+        days: { type: integer }
+        resolved: { type: integer }
+        open: { type: integer }
+        released: { type: integer }
+        fullRefunds: { type: integer }
+        partialRefunds: { type: integer }
+        refundedCents: { type: integer, format: int64 }
+        avgHoursToResolve: { type: [number, 'null'] }
+        byReason:
+          type: array
+          description: Resolved disputes by the admin's reason, most frequent first.
+          items:
+            type: object
+            required: [reason, count, refundedCents]
+            properties:
+              reason: { $ref: '#/components/schemas/ResolutionReason' }
+              count: { type: integer }
+              refundedCents: { type: integer, format: int64 }
+        byBrandReason:
+          type: array
+          description: Disputes opened in the period by the brand's reason.
+          items:
+            type: object
+            required: [reasonCode, count]
+            properties:
+              reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+              count: { type: integer }
+
     ResolveDisputeRequest:
       type: object
-      required: [resolution, note]
+      required: [resolution, note, resolutionReason]
       properties:
         resolution: { type: string, enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND] }
+        resolutionReason: { $ref: '#/components/schemas/ResolutionReason' }
         refundCents: { type: [integer, 'null'], format: int64, description: Required for PARTIAL_REFUND. }
         note: { type: string, minLength: 10, maxLength: 1000, description: Shown to both sides and kept in the audit log. }
 
@@ -2921,7 +3049,7 @@ components:
     OrderAction:
       type: string
       description: What the viewer may do now. The UI offers only these; the server checks again.
-      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY, ADMIN_CANCEL]
+      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY, ADMIN_CANCEL, DISPUTE_RESPOND, ADD_EVIDENCE]
 
     OrderKind:
       type: string
@@ -3119,13 +3247,20 @@ components:
 
     DisputeView:
       type: object
-      required: [reason, status, openedAt, resolution, refundCents]
+      required: [reason, status, openedAt, resolution, refundCents, reasonCode, respondBy, creatorResponse, respondedAt, evidence, resolutionReason, resolutionNote]
       properties:
         reason: { type: string }
         status: { type: string, enum: [OPEN, RESOLVED] }
         openedAt: { type: string, format: date-time }
         resolution: { type: [string, 'null'], enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND, null] }
         refundCents: { type: [integer, 'null'] }
+        reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+        respondBy: { type: string, format: date-time, description: The creator's 48-hour window to respond (v3.1). }
+        creatorResponse: { type: [string, 'null'] }
+        respondedAt: { type: [string, 'null'], format: date-time }
+        evidence: { type: array, description: Oldest first., items: { $ref: '#/components/schemas/DisputeEvidence' } }
+        resolutionReason: { oneOf: [{ $ref: '#/components/schemas/ResolutionReason' }, { type: 'null' }] }
+        resolutionNote: { type: [string, 'null'], description: "The admin's explanation, shown to both sides." }
 
     OrderDetail:
       allOf:

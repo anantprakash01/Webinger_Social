@@ -7,7 +7,7 @@
  * (src/api/mock/seed/creators.ts). Orders and campaigns arrive with their weeks.
  */
 import { seedAddons, seedMetrics } from './seed/collab';
-import type { MessageAttachment, NotificationCategory, PackageAddon, PostMetrics } from '@/types';
+import type { DisputeEvidence, DisputeReasonCode, MessageAttachment, NotificationCategory, PackageAddon, PostMetrics, ResolutionReason } from '@/types';
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
 import type { BrandPlan } from '@/lib/plans';
@@ -219,6 +219,13 @@ export interface DisputeRow {
   createdAt: string;
   resolvedAt: string | null;
   resolutionNote?: string | null;
+  /** v3.1: the brand's reason, the creator's 48-hour response, evidence from both sides, the admin's reason. */
+  reasonCode?: DisputeReasonCode;
+  respondBy?: string;
+  creatorResponse?: string | null;
+  respondedAt?: string | null;
+  evidence?: DisputeEvidence[];
+  resolutionReason?: ResolutionReason | null;
 }
 
 export interface CampaignRow {

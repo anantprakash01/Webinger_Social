@@ -67,6 +67,9 @@ import {
   type ChatMessage,
   type Conversation,
   type ConversationList,
+  type DisputeEvidenceInput,
+  type DisputeReasonCode,
+  type DisputeReport,
   type InquiryAllowance,
   type MarkReadRequest,
   type MessageList,
@@ -275,7 +278,7 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
 const enc = encodeURIComponent;
 
 /** Longest side per upload purpose, so demo images stay small enough for sessionStorage. */
-const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600, MESSAGE_ATTACHMENT: 1600 };
+const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600, MESSAGE_ATTACHMENT: 1600, DISPUTE_EVIDENCE: 1600 };
 
 /** Mock mode only: the file as a data URL (PDF chat attachments). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -506,7 +509,10 @@ export const api = {
     deliver: (id: string, body: DeliverRequest, key: string) => orderAction(id, 'deliver', body, key),
     approve: (id: string, key: string) => orderAction(id, 'approve', undefined, key),
     requestRevision: (id: string, note: string, key: string) => orderAction(id, 'request-revision', { note }, key),
-    dispute: (id: string, note: string, key: string) => orderAction(id, 'dispute', { note }, key),
+    dispute: (id: string, note: string, key: string, reasonCode?: DisputeReasonCode) => orderAction(id, 'dispute', { note, reasonCode }, key),
+    /** v3.1: the creator's answer (once, within 48 h) and evidence from either side. */
+    respondToDispute: (id: string, response: string) => request<OrderDetail>('POST', `/orders/${enc(id)}/dispute/response`, { body: { response } }),
+    addDisputeEvidence: (id: string, body: DisputeEvidenceInput) => request<OrderDetail>('POST', `/orders/${enc(id)}/dispute/evidence`, { body }),
     updateBrief: (id: string, brief: OrderBrief) => request<OrderDetail>('POST', `/orders/${enc(id)}/brief`, { body: brief }),
     /* Collaboration (phase C) */
     shareDraft: (id: string, body: DeliverRequest) => request<OrderDetail>('POST', `/orders/${enc(id)}/drafts`, { body }),
@@ -574,6 +580,8 @@ export const api = {
     approveCreator: (id: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/approve`),
     rejectCreator: (id: string, reason: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/reject`, { body: { reason } }),
     disputes: (status?: string) => request<{ content: AdminDispute[] }>('GET', '/admin/disputes', { query: { status } }),
+    /** v3.1 refund-reason log. */
+    disputeReport: (days = 90) => request<DisputeReport>('GET', '/admin/disputes/report', { query: { days } }),
     /** FR-37: cancel an accepted order with a full refund. */
     cancelOrder: (id: string, reason: string, idempotencyKey: string) =>
       request<{ orderId: string; status: string; refundedCents: number }>('POST', `/admin/orders/${enc(id)}/cancel`, { body: { reason }, headers: { 'idempotency-key': idempotencyKey } }),

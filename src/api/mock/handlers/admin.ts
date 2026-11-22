@@ -13,6 +13,7 @@ import { brandTotalCents, creatorPayoutCents } from '../orderMachine';
 import { NO_TAXES } from '../tax';
 import { decideVetting, toCreatorMe } from './creatorMe';
 import { applyTransition } from './orders';
+import { toDisputeView } from './disputes';
 import { issueSession, revokeAllSessions } from './session';
 
 function requireAdmin(user: UserRow) {
@@ -127,13 +128,9 @@ function toDispute(d: DisputeRow): AdminDispute {
       creatorPayoutCents: creatorPayoutCents(o),
       taxes: o.taxes ?? NO_TAXES,
     },
-    reason: d.reason,
-    status: d.status,
-    openedAt: d.createdAt,
-    resolution: d.resolution,
-    refundCents: d.refundCents,
+    ...toDisputeView(d),
     resolvedAt: d.resolvedAt,
-    resolutionNote: d.resolutionNote ?? null,
+    brandPlan: db.brandProfiles.find((b) => b.userId === o.brandUserId)?.plan ?? 'FREE',
   };
 }
 
@@ -142,8 +139,14 @@ export const listDisputes: Handler = ({ req, user }) => {
   const status = req.query.get('status');
   const rows = getDb()
     .disputes.filter((d) => !status || d.status === status)
-    .sort((a, b) => Number(a.status === 'RESOLVED') - Number(b.status === 'RESOLVED') || a.createdAt.localeCompare(b.createdAt));
-  return ok({ content: rows.map(toDispute) });
+    .map(toDispute)
+    // Open first; among open ones Premium brands first (plan benefit), then oldest. Resolved: newest first.
+    .sort(
+      (a, b) =>
+        Number(a.status === 'RESOLVED') - Number(b.status === 'RESOLVED') ||
+        (a.status === 'OPEN' ? Number(b.brandPlan === 'PREMIUM') - Number(a.brandPlan === 'PREMIUM') || a.openedAt.localeCompare(b.openedAt) : (b.resolvedAt ?? '').localeCompare(a.resolvedAt ?? '')),
+    );
+  return ok({ content: rows });
 };
 
 export const resolveDispute: Handler = ({ req, params, user }) => {
@@ -159,14 +162,14 @@ export const resolveDispute: Handler = ({ req, params, user }) => {
   // The state machine validates the amount (1 cent .. creator payout, or the full total).
   if (body.resolution === 'RELEASE') applyTransition(order, { type: 'ADMIN_RELEASE', note: body.note }, actor(user));
   else applyTransition(order, { type: 'ADMIN_REFUND', refundCents: refund, note: body.note }, actor(user));
-  Object.assign(d, { status: 'RESOLVED', resolution: body.resolution, refundCents: refund, resolvedBy: user.id, resolvedAt: now().toISOString(), resolutionNote: body.note });
+  Object.assign(d, { status: 'RESOLVED', resolution: body.resolution, resolutionReason: body.resolutionReason, refundCents: refund, resolvedBy: user.id, resolvedAt: now().toISOString(), resolutionNote: body.note });
   audit(user, {
     action: 'DISPUTE_RESOLVED',
     entityType: 'ORDER',
     entityId: order.id,
     summary: `Dispute resolved: ${body.resolution.toLowerCase().replace('_', ' ')}${refund ? `, ${formatMoney(refund)} refunded` : ''}`,
     before: { status: 'DISPUTED' },
-    after: { resolution: body.resolution, refundCents: refund, note: body.note },
+    after: { resolution: body.resolution, resolutionReason: body.resolutionReason, refundCents: refund, note: body.note },
   });
   return ok(toDispute(d));
 };

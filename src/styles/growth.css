@@ -3,3 +3,19 @@
 /* Inquiry threads: "book now" strip under the header. */
 .thread__book { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; justify-content: space-between; padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
 .thread__book > .small { flex: 1 1 220px; min-width: 0; color: var(--ink-2); }
+
+/* Disputes (v3.1) */
+.dispute__side { display: grid; gap: var(--s-1); padding-top: var(--s-3); border-top: 1px solid var(--border); }
+.dispute__side p { margin: 0; overflow-wrap: anywhere; }
+.dispute__h { display: flex; align-items: center; gap: var(--s-1); margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
+.dispute__decision { background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--s-3); border-top: 0; }
+.evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.evidence__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); min-width: 0; }
+.evidence__link { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.evidence__note { flex-basis: 100%; }
+.evidence__add { padding-top: var(--s-2); }
+.evidence__row { display: flex; gap: var(--s-2); align-items: flex-end; flex-wrap: wrap; }
+.evidence__row > .field { flex: 1 1 200px; min-width: 0; }
+.reason-bar { height: 4px; margin-top: 6px; background: var(--surface-2); border-radius: 2px; overflow: hidden; max-width: 240px; }
+.reason-bar > span { display: block; height: 100%; background: var(--navy); border-radius: 2px; }
+.reason-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }

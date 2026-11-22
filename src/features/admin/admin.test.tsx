@@ -43,6 +43,7 @@ describe('admin console (Week 6)', () => {
     await screen.findByText('Chat between brand and creator');
     await user.click(screen.getByLabelText(/Partial refund/));
     await user.type(screen.getByLabelText('Refund amount (₹)'), '2000');
+    await user.selectOptions(screen.getByLabelText('Reason (for the refund-reason log)'), 'QUALITY_BELOW_STANDARD');
     await user.type(screen.getByLabelText('Decision note'), 'Two of the three clips were usable.');
     await user.click(screen.getByRole('button', { name: 'Confirm decision' }));
     expect((await screen.findAllByText(/₹2,000\.00 refunded/)).length).toBeGreaterThan(0);

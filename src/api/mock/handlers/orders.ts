@@ -8,6 +8,8 @@ import { assertAvailable, brandRatingOf, brandReviewOf } from './retention';
 import { calculateTaxes, NO_TAXES, PLATFORM_GSTIN, PLATFORM_STATE } from '../tax';
 import {
   briefSchema,
+  DISPUTE_RESPONSE_HOURS,
+  disputeRequestSchema,
   deliverRequestSchema,
   noteRequestSchema,
   orderCreateRequestSchema,
@@ -16,8 +18,9 @@ import {
   replyRequestSchema,
   reviewRequestSchema,
 } from '@/features/orders/schemas';
-import type { OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
+import type { DisputeReasonCode, OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
 import { orderEventNotifications } from '../notify';
+import { disputeActionsFor, toDisputeView } from './disputes';
 import { auditLedger } from '../audit';
 import { runPayouts } from '../payoutsCore';
 import { resolveOrderPayment } from './payments';
@@ -144,6 +147,7 @@ function actionsFor(o: MockOrder, user: UserRow): OrderAction[] {
   if (user.role === 'BRAND' && (o.status === 'PENDING_ACCEPTANCE' || o.status === 'IN_PROGRESS')) out.push('EDIT_BRIEF');
   if (user.role === 'BRAND' && o.status === 'COMPLETED' && !review) out.push('REVIEW');
   if (user.role === 'CREATOR' && review && !review.creatorReply) out.push('REPLY');
+  out.push(...disputeActionsFor(o.id, user));
   return out;
 }
 
@@ -215,7 +219,7 @@ export function toDetail(o: MockOrder, user: UserRow): OrderDetail {
     events: db.orderEvents
       .filter((e) => e.orderId === o.id)
       .map((e) => ({ type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, actor: actorRole(e.actorId), note: e.note, at: e.at })),
-    dispute: dispute ? { reason: dispute.reason, status: dispute.status, openedAt: dispute.createdAt, resolution: dispute.resolution, refundCents: dispute.refundCents } : null,
+    dispute: dispute ? toDisputeView(dispute) : null,
     review: review ? toReview(review) : null,
     allowedActions: actionsFor(o, user),
     serverTime: now().toISOString(),
@@ -443,9 +447,18 @@ function act(type: 'ACCEPT' | 'DECLINE' | 'CANCEL' | 'APPROVE' | 'REQUEST_REVISI
   return ({ req, params, user }) => {
     const order = visibleOrder(user, params.id);
     let note: string | undefined;
-    if (type === 'REQUEST_REVISION' || type === 'DISPUTE') note = parseBody(noteRequestSchema, req.body).note;
+    let reasonCode: DisputeReasonCode | undefined;
+    if (type === 'REQUEST_REVISION') note = parseBody(noteRequestSchema, req.body).note;
+    if (type === 'DISPUTE') ({ note, reasonCode } = parseBody(disputeRequestSchema, req.body));
     if (type === 'DECLINE' || type === 'CANCEL') note = parseBody(reasonRequestSchema, req.body ?? {}).reason ?? undefined;
     const next = applyTransition(order, { type, note } as OrderEventInput, actorOf(user));
+    if (type === 'DISPUTE') {
+      // v3.1: the brand's reason and the creator's 48-hour window to respond.
+      const d = getDb().disputes.find((x) => x.orderId === order.id)!;
+      d.reasonCode = reasonCode ?? 'OTHER';
+      d.respondBy = new Date(now().getTime() + DISPUTE_RESPONSE_HOURS * 3_600_000).toISOString();
+      d.evidence = [];
+    }
     return ok(toDetail(next, user));
   };
 }

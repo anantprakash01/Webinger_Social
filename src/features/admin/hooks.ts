@@ -31,6 +31,7 @@ export function useVettingDecision() {
 }
 
 export const useDisputes = (status?: string) => useQuery({ queryKey: ['admin', 'disputes', status ?? 'all'], queryFn: () => api.admin.disputes(status) });
+export const useDisputeReport = (days: number) => useQuery({ queryKey: ['admin', 'disputes', 'report', days], queryFn: () => api.admin.disputeReport(days) });
 export function useResolveDispute(id: string) {
   const key = useRef<string | null>(null);
   const refresh = useRefresh();

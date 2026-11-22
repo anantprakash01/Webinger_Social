@@ -56,6 +56,29 @@ export function seedGrowth(db: Db, now: Date, ids: { brandId: string; leoId: str
       db.messages.push({ id: seedId(`${q.id}-m${i}`), conversationId: q.id, senderUserId: m.from, body: m.body, masked: false, attachment: null, createdAt: ago(m.h), readAt: q.read ? ago(m.h - 1) : null });
     });
   }
+  // Disputes (v3.1): the open one has the brand's evidence and waits for the creator (18 h left);
+  // the resolved one has both sides' input and the admin's reason, for the refund-reason log.
+  for (const d of db.disputes) {
+    d.respondBy = new Date(new Date(d.createdAt).getTime() + 48 * HOUR).toISOString();
+    if (d.status === 'OPEN') {
+      d.reasonCode = 'NOT_AS_BRIEFED';
+      d.creatorResponse = null;
+      d.evidence = [
+        { id: seedId(`ev-${d.id}-1`), by: 'BRAND', kind: 'LINK', url: 'https://example.com/brief-section-2', name: 'Brief, section 2: “no other brands in frame”', note: 'The competitor bottle is visible from 0:04 to 0:21.', at: new Date(new Date(d.createdAt).getTime() + HOUR).toISOString() },
+      ];
+    } else {
+      d.reasonCode = 'LOW_QUALITY';
+      d.creatorResponse = 'Two clips were shot in low light because the product arrived late; I offered a reshoot in chat.';
+      d.respondedAt = new Date(new Date(d.createdAt).getTime() + 20 * HOUR).toISOString();
+      d.evidence = [
+        { id: seedId(`ev-${d.id}-b`), by: 'BRAND', kind: 'FILE', url: '/demo/work-07.svg', name: 'Frame from clip 2', note: 'Too dark to see the label.', at: d.createdAt },
+        { id: seedId(`ev-${d.id}-c`), by: 'CREATOR', kind: 'FILE', url: '/demo/work-12.svg', name: 'Courier receipt', note: 'Product delivered two days before the due date.', at: d.respondedAt },
+      ];
+      d.resolutionReason = d.resolution === 'RELEASE' ? 'WORK_MATCHES_BRIEF' : 'QUALITY_BELOW_STANDARD';
+      d.resolutionNote = d.resolutionNote ?? 'One of three clips was unusable; refunded that share from the creator’s payout.';
+    }
+  }
+
   db.notifications.push({
     id: seedId('note-inquiry-leo'),
     userId: ids.leoId,

@@ -67,20 +67,20 @@ describe('disputes (FR-81, FR-64)', () => {
   it('releases the payment to the creator', async () => {
     await asAdmin();
     const [d] = (await api.admin.disputes('OPEN')).content;
-    const res = await api.admin.resolveDispute(d.id, { resolution: 'RELEASE', note: 'The delivery matches the brief.' }, key());
+    const res = await api.admin.resolveDispute(d.id, { resolution: 'RELEASE', resolutionReason: 'WORK_MATCHES_BRIEF', note: 'The delivery matches the brief.' }, key());
     expect(res).toMatchObject({ status: 'RESOLVED', resolution: 'RELEASE', refundCents: 0 });
     expect(getDb().orders.find((o) => o.id === d.orderId)!.status).toBe('COMPLETED');
     expect(accountBalance(getDb().ledgerEntries, 'ESCROW', d.orderId)).toBe(0);
-    await expectError(api.admin.resolveDispute(d.id, { resolution: 'RELEASE', note: 'Trying to resolve twice.' }, key()), 409);
+    await expectError(api.admin.resolveDispute(d.id, { resolution: 'RELEASE', resolutionReason: 'WORK_MATCHES_BRIEF', note: 'Trying to resolve twice.' }, key()), 409);
     expect((await api.admin.audit({ action: 'DISPUTE_RESOLVED' })).content[0].entityId).toBe(d.orderId);
   });
 
   it('refunds in part (capped at the creator payout) or in full', async () => {
     await asAdmin();
     const [d] = (await api.admin.disputes('OPEN')).content;
-    await expectError(api.admin.resolveDispute(d.id, { resolution: 'PARTIAL_REFUND', refundCents: d.money.creatorPayoutCents + 1, note: 'Too much refund attempted.' }, key()), 422, 'INVALID_REFUND_AMOUNT');
-    await expectError(api.admin.resolveDispute(d.id, { resolution: 'PARTIAL_REFUND', note: 'Missing the refund amount.' }, key()), 422);
-    const res = await api.admin.resolveDispute(d.id, { resolution: 'FULL_REFUND', note: 'Wrong product shown throughout.' }, key());
+    await expectError(api.admin.resolveDispute(d.id, { resolution: 'PARTIAL_REFUND', resolutionReason: 'QUALITY_BELOW_STANDARD', refundCents: d.money.creatorPayoutCents + 1, note: 'Too much refund attempted.' }, key()), 422, 'INVALID_REFUND_AMOUNT');
+    await expectError(api.admin.resolveDispute(d.id, { resolution: 'PARTIAL_REFUND', resolutionReason: 'QUALITY_BELOW_STANDARD', note: 'Missing the refund amount.' }, key()), 422);
+    const res = await api.admin.resolveDispute(d.id, { resolution: 'FULL_REFUND', resolutionReason: 'BRIEF_NOT_FOLLOWED', note: 'Wrong product shown throughout.' }, key());
     expect(res).toMatchObject({ resolution: 'FULL_REFUND', refundCents: d.money.totalCents });
     const o = getDb().orders.find((x) => x.id === d.orderId)!;
     expect(o).toMatchObject({ status: 'REFUNDED', payment: { status: 'REFUNDED', refundedCents: d.money.totalCents } });
