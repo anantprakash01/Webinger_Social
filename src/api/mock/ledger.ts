@@ -12,7 +12,7 @@ import { assertCents } from '@/lib/money';
  * owed to the government. TAX_WITHHELD: TDS (194-O) and TCS (s.52) withheld from creators, deposited with the
  * government. Everything else as in section 4.1.
  */
-export type LedgerAccount = 'BRAND_CHARGE' | 'ESCROW' | 'PLATFORM_REVENUE' | 'GST_PAYABLE' | 'TAX_WITHHELD' | 'CREATOR_BALANCE' | 'PAYOUT';
+export type LedgerAccount = 'BRAND_CHARGE' | 'ESCROW' | 'PLATFORM_REVENUE' | 'GST_PAYABLE' | 'TAX_WITHHELD' | 'CREATOR_BALANCE' | 'PAYOUT' | 'PROMOTIONS';
 
 export interface LedgerEntry {
   txnId: string;
@@ -56,8 +56,19 @@ const move = (from: LedgerAccount, to: LedgerAccount, cents: number): LedgerLine
 
 /* ---------- One builder per money movement in section 4.1 ---------- */
 
-/** Step 2 — creator accepts, payment captured: BRAND_CHARGE → ESCROW (price + brand fee). */
-export const captureLines = (brandTotalCents: number) => move('BRAND_CHARGE', 'ESCROW', brandTotalCents);
+/**
+ * Step 2 — creator accepts, payment captured: BRAND_CHARGE → ESCROW (price + brand fee + GST).
+ * v3.3: a promo or referral credit is funded by the platform, so PROMOTIONS pays that part into escrow and
+ * the creator's share and the fees are unchanged.
+ */
+export function captureLines(brandTotalCents: number, promotionsCents = 0): LedgerLine[] {
+  if (promotionsCents < 0 || promotionsCents >= brandTotalCents) throw new LedgerImbalanceError('Discount must be less than the order total');
+  return [
+    { account: 'BRAND_CHARGE', debitCents: 0, creditCents: brandTotalCents - promotionsCents },
+    { account: 'PROMOTIONS', debitCents: 0, creditCents: promotionsCents },
+    { account: 'ESCROW', debitCents: brandTotalCents, creditCents: 0 },
+  ];
+}
 
 /**
  * Step 4 — approval or auto-approval: ESCROW → CREATOR_BALANCE (their share), GST_PAYABLE (GST on both fees),
@@ -78,8 +89,20 @@ export function releaseLines(o: { escrowCents: number; creatorPayoutCents: numbe
   return lines.filter((l) => l.debitCents !== 0 || l.creditCents !== 0 || l.account === 'CREATOR_BALANCE');
 }
 
-/** Step 6 — dispute ruled for the brand: ESCROW → BRAND_CHARGE (refunded to the original payment method). */
-export const refundLines = (refundCents: number) => move('ESCROW', 'BRAND_CHARGE', refundCents);
+/**
+ * Step 6 — dispute ruled for the brand: ESCROW → BRAND_CHARGE (refunded to the original payment method).
+ * v3.3: on a full refund of a discounted order, the platform-funded part goes back to PROMOTIONS.
+ */
+export function refundLines(refundCents: number, promotionsCents = 0): LedgerLine[] {
+  return [
+    { account: 'ESCROW', debitCents: 0, creditCents: refundCents + promotionsCents },
+    { account: 'BRAND_CHARGE', debitCents: refundCents, creditCents: 0 },
+    { account: 'PROMOTIONS', debitCents: promotionsCents, creditCents: 0 },
+  ];
+}
+
+/** v3.3 creator referral bonus: PROMOTIONS → CREATOR_BALANCE. */
+export const referralBonusLines = (cents: number) => move('PROMOTIONS', 'CREATOR_BALANCE', cents);
 
 /**
  * Step 5 — payout: CREATOR_BALANCE → PAYOUT. An instant payout's fee goes to PLATFORM_REVENUE, so the
@@ -93,6 +116,13 @@ export function payoutLines(cents: number, feeCents = 0): LedgerLine[] {
     { account: 'PLATFORM_REVENUE', debitCents: feeCents, creditCents: 0 },
   ];
 }
+
+/** v3.2 brand plan charge: BRAND_CHARGE → PLATFORM_REVENUE (plan price) + GST_PAYABLE (GST on it). */
+export const subscriptionLines = (priceCents: number, gstCents: number): LedgerLine[] => [
+  { account: 'BRAND_CHARGE', debitCents: 0, creditCents: priceCents + gstCents },
+  { account: 'PLATFORM_REVENUE', debitCents: priceCents, creditCents: 0 },
+  { account: 'GST_PAYABLE', debitCents: gstCents, creditCents: 0 },
+];
 
 /** Dev check (section 9.5 rule 3): every transaction in the ledger sums to zero. Returns the bad txn ids. */
 export function findUnbalancedTxns(entries: LedgerEntry[]): string[] {

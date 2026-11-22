@@ -605,6 +605,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/referrals/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who invited you (public, for the sign-up page) (v3.3) */
+        get: operations["getReferralInvite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your referral code, the people you invited, and (brands) your credits (v3.3)
+         * @description Brands invite brands: the new brand gets ₹500 credit at sign-up; you get ₹1,000 credit when their first order is completed.
+         *     Creators invite creators: you get a ₹500 bonus in your balance when their first order is completed.
+         *     Credits are promotional: they only reduce the price of orders, cannot be bought, withdrawn or transferred.
+         */
+        get: operations["getMyReferrals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/finance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Finance dashboard — money through the platform, balances, payouts needing attention, reconciliation (v3.4)
+         * @description Figures come from the double-entry ledger. Flows are for the period (`days`, default 30); balances are as of now.
+         *     Reconciliation compares the ledger with payment, payout and subscription records (the backend also compares them
+         *     with Razorpay's settlement and payout reports in the hourly reconciliation job).
+         */
+        get: operations["getFinanceOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/payouts/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a failed payout again to the creator's current payout account (v3.4)
+         * @description Only FAILED payouts, once (409 NOT_FAILED / ALREADY_RETRIED), and only to a VERIFIED account (409 PAYOUT_ACCOUNT_NOT_VERIFIED). The money went back to the creator's balance when the payout failed; the retry takes it out again.
+         */
+        post: operations["retryPayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/promo-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promo codes with their use (v3.3) */
+        get: operations["listPromoCodes"];
+        put?: never;
+        /** Create a promo code (platform-funded discount for brands) (v3.3) */
+        post: operations["createPromoCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/promo-codes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Turn a promo code on or off (v3.3) */
+        patch: operations["updatePromoCode"];
+        trace?: never;
+    };
     "/orders": {
         parameters: {
             query?: never;
@@ -783,9 +899,49 @@ export interface paths {
         put?: never;
         /**
          * Brand opens a dispute (FR-35)
-         * @description DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81).
+         * @description DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81). v3.1: an optional `reasonCode`; the creator then has 48 hours to respond.
          */
         post: operations["disputeOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/dispute/response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Creator answers a dispute (v3.1)
+         * @description Once, within 48 hours of the dispute being opened (409 ALREADY_RESPONDED, RESPONSE_WINDOW_PASSED). Shown to the brand and the admin.
+         */
+        post: operations["respondToDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/dispute/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand or creator adds evidence to an open dispute (v3.1)
+         * @description A file (image or PDF, uploaded with presign purpose DISPUTE_EVIDENCE) or a link, with an optional note. Up to 5 items per side (409 EVIDENCE_LIMIT); only while the dispute is open (409 DISPUTE_RESOLVED).
+         */
+        post: operations["addDisputeEvidence"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1263,6 +1419,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brand messages a creator before booking (v3.0)
+         * @description Opens (or reuses) the brand's pre-booking conversation with an approved creator and sends the first message.
+         *     Contact details are always masked in inquiries. New inquiries per rolling 30 days are limited by the brand's
+         *     plan (FREE 5, PRO 50, PREMIUM unlimited); writing in an existing inquiry is not limited. 429 `INQUIRY_LIMIT`.
+         */
+        post: operations["startInquiry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/inquiries/allowance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many new inquiries the brand can still start in the current 30 days */
+        get: operations["getInquiryAllowance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{id}/messages": {
         parameters: {
             query?: never;
@@ -1443,6 +1638,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/disputes/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Refund-reason log — resolved disputes by outcome and reason (v3.1) */
+        get: operations["getDisputeReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/orders/{id}/cancel": {
         parameters: {
             query?: never;
@@ -1547,11 +1759,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Current fees and their history (FR-83) */
+        /** Current fees per plan and their history (FR-83, FR-66) */
         get: operations["getFees"];
         /**
-         * Change the fees for new orders (FR-83)
-         * @description Takes effect immediately for new orders; existing orders keep the fees copied onto them at checkout.
+         * Change one plan's fees for new orders (FR-83)
+         * @description Takes effect immediately for new orders placed by brands on that plan (`plan`, default FREE); existing orders keep the fees copied onto them at checkout.
          */
         put: operations["updateFees"];
         post?: never;
@@ -1568,10 +1780,68 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The current public fee rates, for explanatory copy in the UI */
+        /** The current public fee rates (Free plan) and the brand plans on offer, for explanatory copy and the pricing page */
         get: operations["getCurrentFees"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The brand's plan, billing period and invoices (FR-66, v3.2) */
+        get: operations["getMySubscription"];
+        put?: never;
+        /**
+         * Subscribe, upgrade or schedule a downgrade (FR-66, v3.2)
+         * @description A higher plan (or another billing cycle) starts now and is paid now: open a payment session with purpose SUBSCRIPTION
+         *     for `priceCents + gstCents` from `GET /fees`, pay it, and send the proof as `payment`. No proration in MVP: the new
+         *     period starts today. A lower plan is scheduled for the end of the current period (no payment). Renewals charge the
+         *     saved method automatically (Razorpay Subscriptions). GST 18% (CGST + SGST or IGST by the brand's state).
+         */
+        post: operations["changeMySubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/subscription/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel at the end of the paid period (back to Free then) */
+        post: operations["cancelMySubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/me/subscription/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo a cancellation or a scheduled downgrade before the period ends */
+        post: operations["resumeMySubscription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2231,6 +2501,8 @@ export interface components {
             availability: components["schemas"]["CreatorAvailability"];
             /** @description Always APPROVED for the public; other values only in an owner or admin preview. */
             vettingStatus: components["schemas"]["VettingStatus"];
+            /** @description The signed-in brand's pre-booking conversation with this creator, if any (v3.0). */
+            myInquiryId?: string | null;
         };
         CreatorProfileInput: {
             username: string;
@@ -2362,11 +2634,7 @@ export interface components {
             logoUrl: string | null;
             industry: components["schemas"]["BrandIndustry"] | null;
             country: string | null;
-            /**
-             * @description Pro / Premium arrive in v2.
-             * @enum {string}
-             */
-            plan: "FREE";
+            plan: components["schemas"]["BrandPlan"];
         };
         BrandProfileInput: {
             companyName: string;
@@ -2382,10 +2650,10 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE" | "MESSAGE_ATTACHMENT";
+            purpose: "AVATAR" | "COVER" | "PORTFOLIO" | "BRAND_LOGO" | "BRIEF_REFERENCE" | "DELIVERABLE" | "MESSAGE_ATTACHMENT" | "DISPUTE_EVIDENCE";
             fileName: string;
             /**
-             * @description PDF only for MESSAGE_ATTACHMENT (v2.5).
+             * @description PDF only for MESSAGE_ATTACHMENT (v2.5) and DISPUTE_EVIDENCE (v3.1).
              * @enum {string}
              */
             contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
@@ -2436,6 +2704,16 @@ export interface components {
             reason: string;
         };
         AdminDispute: {
+            reasonCode: components["schemas"]["DisputeReasonCode"];
+            /** Format: date-time */
+            respondBy: string;
+            creatorResponse: string | null;
+            /** Format: date-time */
+            respondedAt: string | null;
+            evidence: components["schemas"]["DisputeEvidence"][];
+            resolutionReason: components["schemas"]["ResolutionReason"] | null;
+            /** @description Premium brands' disputes are listed first. */
+            brandPlan: components["schemas"]["BrandPlan"];
             id: components["schemas"]["Ulid"];
             orderId: components["schemas"]["Ulid"];
             orderTitle: string;
@@ -2457,9 +2735,70 @@ export interface components {
         AdminDisputeList: {
             content: components["schemas"]["AdminDispute"][];
         };
+        /**
+         * @description What the brand says went wrong (v3.1).
+         * @enum {string}
+         */
+        DisputeReasonCode: "NOT_DELIVERED" | "NOT_AS_BRIEFED" | "LOW_QUALITY" | "LATE" | "POST_REMOVED" | "OTHER";
+        /**
+         * @description Why the admin decided as they did — the refund-reason log (v3.1).
+         * @enum {string}
+         */
+        ResolutionReason: "WORK_NOT_DELIVERED" | "BRIEF_NOT_FOLLOWED" | "QUALITY_BELOW_STANDARD" | "DELIVERED_LATE" | "POST_TAKEN_DOWN" | "WORK_MATCHES_BRIEF" | "BRAND_UNRESPONSIVE" | "CREATOR_UNRESPONSIVE" | "SETTLED_BY_PARTIES" | "OTHER";
+        DisputeRequest: {
+            note: string;
+            reasonCode?: components["schemas"]["DisputeReasonCode"];
+        };
+        DisputeResponseInput: {
+            response: string;
+        };
+        DisputeEvidenceInput: {
+            /** @enum {string} */
+            kind: "FILE" | "LINK";
+            /** @description https link, or the uploaded file URL. */
+            url: string;
+            name?: string | null;
+            note?: string | null;
+        };
+        DisputeEvidence: {
+            id: string;
+            /** @enum {string} */
+            by: "BRAND" | "CREATOR";
+            /** @enum {string} */
+            kind: "FILE" | "LINK";
+            url: string;
+            name: string | null;
+            note: string | null;
+            /** Format: date-time */
+            at: string;
+        };
+        DisputeReport: {
+            days: number;
+            resolved: number;
+            open: number;
+            released: number;
+            fullRefunds: number;
+            partialRefunds: number;
+            /** Format: int64 */
+            refundedCents: number;
+            avgHoursToResolve: number | null;
+            /** @description Resolved disputes by the admin's reason, most frequent first. */
+            byReason: {
+                reason: components["schemas"]["ResolutionReason"];
+                count: number;
+                /** Format: int64 */
+                refundedCents: number;
+            }[];
+            /** @description Disputes opened in the period by the brand's reason. */
+            byBrandReason: {
+                reasonCode: components["schemas"]["DisputeReasonCode"];
+                count: number;
+            }[];
+        };
         ResolveDisputeRequest: {
             /** @enum {string} */
             resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND";
+            resolutionReason: components["schemas"]["ResolutionReason"];
             /**
              * Format: int64
              * @description Required for PARTIAL_REFUND.
@@ -2494,8 +2833,7 @@ export interface components {
             reason: string;
         };
         FeeRates: {
-            /** @enum {string} */
-            plan: "FREE";
+            plan: components["schemas"]["BrandPlan"];
             brandFeeBps: number;
             creatorFeeBps: number;
         };
@@ -2505,17 +2843,199 @@ export interface components {
             changedBy: string | null;
         };
         FeeSettings: {
+            /** @description The Free plan's fees. */
             current: components["schemas"]["FeeConfigEntry"];
+            /** @description Current fees for FREE, PRO and PREMIUM (v3.2). */
+            plans: components["schemas"]["FeeConfigEntry"][];
             /** @description Newest first. */
             history: components["schemas"]["FeeConfigEntry"][];
         };
+        PlanOffer: {
+            plan: components["schemas"]["BrandPlan"];
+            name: string;
+            tagline: string;
+            /**
+             * Format: int64
+             * @description Excluding GST. 0 for Free.
+             */
+            monthlyCents: number;
+            /**
+             * Format: int64
+             * @description Excluding GST (two months free).
+             */
+            yearlyCents: number;
+            /** @example 1800 */
+            gstBps: number;
+            /** @description Service fee on orders for brands on this plan. */
+            brandFeeBps: number;
+            creatorFeeBps: number;
+            /** @description New pre-booking conversations per 30 days; null = unlimited. */
+            inquiryLimit: number | null;
+            features: string[];
+        };
+        PublicFees: components["schemas"]["FeeRates"] & {
+            plans: components["schemas"]["PlanOffer"][];
+        };
+        /** @enum {string} */
+        BillingCycle: "MONTHLY" | "YEARLY";
+        SubscriptionRequest: {
+            plan: components["schemas"]["BrandPlan"];
+            cycle: components["schemas"]["BillingCycle"];
+            /** @description Required when the change is paid now. */
+            payment?: components["schemas"]["OrderPaymentInput"] | null;
+        };
+        SubscriptionInvoice: {
+            id: string;
+            /** @example WC/2026-27/S0001 */
+            number: string;
+            plan: components["schemas"]["BrandPlan"];
+            cycle: components["schemas"]["BillingCycle"];
+            /** Format: date-time */
+            periodStart: string;
+            /** Format: date-time */
+            periodEnd: string;
+            /** Format: int64 */
+            priceCents: number;
+            /** Format: int64 */
+            gstCents: number;
+            /** Format: int64 */
+            totalCents: number;
+            intraState: boolean;
+            methodLabel: string;
+            /** @enum {string} */
+            kind: "NEW" | "UPGRADE" | "RENEWAL";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        BrandSubscription: {
+            plan: components["schemas"]["BrandPlan"];
+            cycle: components["schemas"]["BillingCycle"] | null;
+            /**
+             * @description CANCELLING: paid until the period ends, then Free.
+             * @enum {string}
+             */
+            status: "FREE" | "ACTIVE" | "CANCELLING";
+            /** Format: date-time */
+            currentPeriodStart: string | null;
+            /** Format: date-time */
+            currentPeriodEnd: string | null;
+            cancelAtPeriodEnd: boolean;
+            /** @description A downgrade scheduled for the end of the period. */
+            nextPlan: components["schemas"]["BrandPlan"] | null;
+            nextCycle: components["schemas"]["BillingCycle"] | null;
+            /**
+             * Format: int64
+             * @description What the next renewal charges, incl. GST; null when nothing renews.
+             */
+            renewalCents: number | null;
+            methodLabel: string | null;
+            /** @description The service fee the brand pays on new orders now. */
+            brandFeeBps: number;
+            inquiries: components["schemas"]["InquiryAllowance"];
+            /** @description Newest first. */
+            invoices: components["schemas"]["SubscriptionInvoice"][];
+        };
         FeeUpdate: {
+            /** @description Default FREE (v3.2). */
+            plan?: components["schemas"]["BrandPlan"];
             /** @description Basis points: 1000 = 10%. At most 30%. */
             brandFeeBps: number;
             creatorFeeBps: number;
         };
         /** @enum {string} */
-        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT" | "ORDER_CANCELLED" | "ACCOUNT_DELETION_REQUESTED";
+        AuditAction: "CREATOR_APPROVED" | "CREATOR_REJECTED" | "DISPUTE_RESOLVED" | "USER_STATUS_CHANGED" | "IMPERSONATION_STARTED" | "FEES_CHANGED" | "REPORT_RESOLVED" | "MONEY_MOVEMENT" | "PAYOUT_SENT" | "ORDER_CANCELLED" | "ACCOUNT_DELETION_REQUESTED" | "PROMO_CHANGED" | "PAYOUT_RETRIED";
+        PromoCodeInput: {
+            code: string;
+            description: string;
+            /** @enum {string} */
+            kind: "PERCENT" | "FLAT";
+            /** @description PERCENT: share of the order price. */
+            percentBps?: number | null;
+            /** Format: int64 */
+            flatCents?: number | null;
+            /** Format: int64 */
+            maxDiscountCents?: number | null;
+            /**
+             * Format: int64
+             * @description Minimum order price (before fees).
+             */
+            minOrderCents?: number | null;
+            firstOrderOnly?: boolean;
+            /** @description Total uses across all brands; null = no cap. */
+            maxRedemptions?: number | null;
+            /**
+             * Format: date
+             * @description Last day the code works (inclusive).
+             */
+            validUntil?: string | null;
+        };
+        PromoCode: components["schemas"]["PromoCodeInput"] & {
+            id: string;
+            active: boolean;
+            /** @enum {string} */
+            status: "ACTIVE" | "PAUSED" | "EXPIRED" | "USED_UP";
+            /** @description Orders that used it (not counting released ones). */
+            redemptions: number;
+            /** Format: int64 */
+            discountGivenCents: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReferralInvite: {
+            code: string;
+            referrerName: string;
+            role: components["schemas"]["SignupRole"];
+            /**
+             * Format: int64
+             * @description Credit the new account gets (brands); 0 for creators.
+             */
+            welcomeCreditCents: number;
+        };
+        CreditEntry: {
+            id: string;
+            /**
+             * Format: int64
+             * @description + granted, − used.
+             */
+            deltaCents: number;
+            /** @enum {string} */
+            reason: "REFERRAL_WELCOME" | "REFERRAL_REWARD" | "ORDER_USED" | "ORDER_RETURNED" | "ADMIN_GRANT";
+            note: string;
+            orderId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReferralOverview: {
+            /** @example MAYA7K2Q */
+            code: string;
+            shareUrl: string;
+            role: components["schemas"]["SignupRole"];
+            /** Format: int64 */
+            refereeRewardCents: number;
+            /** Format: int64 */
+            referrerRewardCents: number;
+            referred: {
+                name: string;
+                /** Format: date-time */
+                joinedAt: string;
+                /** @enum {string} */
+                status: "JOINED" | "REWARDED";
+                /** Format: int64 */
+                rewardCents: number | null;
+            }[];
+            /**
+             * Format: int64
+             * @description Brands only; 0 for creators.
+             */
+            creditBalanceCents: number;
+            /** @description Newest first (brands). */
+            credits: components["schemas"]["CreditEntry"][];
+            /**
+             * Format: int64
+             * @description Total referral rewards so far.
+             */
+            earnedCents: number;
+        };
         AdminCancelResult: {
             orderId: components["schemas"]["Ulid"];
             status: components["schemas"]["OrderStatus"];
@@ -2613,12 +3133,136 @@ export interface components {
             speed: "SCHEDULED" | "STANDARD" | "INSTANT";
             /** @example HDFC Bank •••• 4321 */
             destinationLabel: string;
-            /** @enum {string} */
-            status: "IN_TRANSIT" | "PAID";
+            /**
+             * @description FAILED (v3.4): the bank rejected it; the money is back in the balance.
+             * @enum {string}
+             */
+            status: "IN_TRANSIT" | "PAID" | "FAILED";
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             arrivalDate: string;
+            /** @description v3.4. */
+            failureReason?: string | null;
+        };
+        FinanceOverview: {
+            days: number;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** @description Money that moved in the period. */
+            flows: {
+                /**
+                 * Format: int64
+                 * @description Order totals captured (brand payments + platform-funded discounts).
+                 */
+                gmvCents: number;
+                ordersCaptured: number;
+                /**
+                 * Format: int64
+                 * @description Plan charges incl. GST.
+                 */
+                subscriptionsCents: number;
+                /**
+                 * Format: int64
+                 * @description Fees, plan prices and instant-payout fees earned (excl. GST).
+                 */
+                platformRevenueCents: number;
+                /**
+                 * Format: int64
+                 * @description Back to brands' payment methods.
+                 */
+                refundsCents: number;
+                /**
+                 * Format: int64
+                 * @description Promo codes, credits and referral bonuses paid for by the platform (net of returns).
+                 */
+                promotionsCents: number;
+                /** Format: int64 */
+                gstCollectedCents: number;
+                /**
+                 * Format: int64
+                 * @description TDS and TCS withheld from creators.
+                 */
+                taxWithheldCents: number;
+                /**
+                 * Format: int64
+                 * @description Sent to creators' banks (after instant fees).
+                 */
+                paidOutCents: number;
+                /** Format: int64 */
+                payoutFeesCents: number;
+            };
+            /** @description As of now. */
+            balances: {
+                /**
+                 * Format: int64
+                 * @description Held for accepted orders not yet approved or refunded.
+                 */
+                escrowCents: number;
+                /**
+                 * Format: int64
+                 * @description Owed to creators (released
+                 */
+                creatorBalancesCents: number;
+                /** Format: int64 */
+                gstPayableCents: number;
+                /**
+                 * Format: int64
+                 * @description TDS/TCS to deposit with the government.
+                 */
+                taxWithheldCents: number;
+                /**
+                 * Format: int64
+                 * @description Payments authorised on orders waiting for acceptance (not captured).
+                 */
+                authorisedHoldsCents: number;
+            };
+            /** @description Last 6 months, oldest first. */
+            byMonth: {
+                /** @example 2026-11 */
+                month: string;
+                /** Format: int64 */
+                gmvCents: number;
+                /** Format: int64 */
+                revenueCents: number;
+                /** Format: int64 */
+                refundsCents: number;
+            }[];
+            payoutsNeedingAttention: (components["schemas"]["Payout"] & {
+                creatorName: string;
+                creatorUsername: string | null;
+                /** @enum {string|null} */
+                accountStatus: "VERIFYING" | "VERIFIED" | "FAILED" | null;
+                /** @description The payout that retried this one. */
+                retriedAs: string | null;
+            })[];
+            inTransit: {
+                count: number;
+                /** Format: int64 */
+                cents: number;
+            };
+            reconciliation: {
+                /** Format: date-time */
+                checkedAt: string;
+                ok: boolean;
+                checks: {
+                    id: string;
+                    label: string;
+                    ok: boolean;
+                    detail: string;
+                }[];
+                mismatches: {
+                    check: string;
+                    ref: string;
+                    /** Format: int64 */
+                    expectedCents: number;
+                    /** Format: int64 */
+                    actualCents: number;
+                    note: string;
+                }[];
+            };
         };
         PayoutOverview: {
             currency: string;
@@ -2679,7 +3323,7 @@ export interface components {
         PaymentMethodType: "UPI" | "CARD" | "NETBANKING" | "WALLET_APP";
         PaymentSessionRequest: {
             /** @enum {string} */
-            purpose: "ORDER";
+            purpose: "ORDER" | "SUBSCRIPTION";
             /**
              * Format: int64
              * @description The quoted total (price + brand fee); the server rechecks it when the order is placed.
@@ -2689,7 +3333,7 @@ export interface components {
         PaymentSession: {
             id: string;
             /** @enum {string} */
-            purpose: "ORDER";
+            purpose: "ORDER" | "SUBSCRIPTION";
             /** Format: int64 */
             amountCents: number;
             /** @example INR */
@@ -2812,6 +3456,8 @@ export interface components {
             /** @description Creators: the invitation to this campaign, if any (v2.5). */
             myInvite: components["schemas"]["CampaignInvite"] | null;
             brandRating: components["schemas"]["BrandRating"];
+            /** @description Shown to creators as a "Pro brand" / "Premium brand" badge (v3.2). */
+            brandPlan: components["schemas"]["BrandPlan"];
             /** Format: date-time */
             createdAt: string;
         };
@@ -2888,11 +3534,15 @@ export interface components {
             body: string;
             attachment?: components["schemas"]["MessageAttachment"] | null;
         };
+        /** @description One per order (FR-50), or a pre-booking inquiry between a brand and a creator (v3.0: kind INQUIRY, orderId and orderStatus null). */
         Conversation: {
             id: components["schemas"]["Ulid"];
-            orderId: components["schemas"]["Ulid"];
+            /** @enum {string} */
+            kind: "ORDER" | "INQUIRY";
+            orderId: components["schemas"]["Ulid"] | null;
+            /** @description The order title, or "Before booking" for inquiries. */
             orderTitle: string;
-            orderStatus: components["schemas"]["OrderStatus"];
+            orderStatus: components["schemas"]["OrderStatus"] | null;
             counterparty: components["schemas"]["OrderParty"];
             lastMessage: components["schemas"]["ChatMessage"] | null;
             unreadCount: number;
@@ -2900,12 +3550,30 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        InquiryInput: {
+            creatorUsername: string;
+            body: string;
+        };
+        InquiryAllowance: {
+            plan: components["schemas"]["BrandPlan"];
+            /** @description New inquiries started in the last 30 days. */
+            used: number;
+            /** @description Null = unlimited. */
+            limit: number | null;
+            /**
+             * Format: date-time
+             * @description When the oldest counted inquiry stops counting.
+             */
+            resetsAt: string | null;
+        };
+        /** @enum {string} */
+        BrandPlan: "FREE" | "PRO" | "PREMIUM";
         ConversationList: {
             content: components["schemas"]["Conversation"][];
             unreadTotal: number;
         };
         /** @enum {string} */
-        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT" | "CAMPAIGN_INVITE";
+        NotificationType: "ORDER_EVENT" | "NEW_APPLICATION" | "APPLICATION_ACCEPTED" | "APPLICATION_REJECTED" | "PROFILE_APPROVED" | "PROFILE_REJECTED" | "PAYOUT_SENT" | "CAMPAIGN_INVITE" | "NEW_INQUIRY" | "DISPUTE_UPDATE" | "PLAN_CHANGED" | "REFERRAL_REWARD";
         Notification: {
             id: components["schemas"]["Ulid"];
             type: components["schemas"]["NotificationType"];
@@ -2980,7 +3648,7 @@ export interface components {
          * @description What the viewer may do now. The UI offers only these; the server checks again.
          * @enum {string}
          */
-        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY" | "ADMIN_CANCEL";
+        OrderAction: "ACCEPT" | "DECLINE" | "CANCEL" | "DELIVER" | "EDIT_BRIEF" | "APPROVE" | "REQUEST_REVISION" | "DISPUTE" | "REVIEW" | "REPLY" | "ADMIN_CANCEL" | "DISPUTE_RESPOND" | "ADD_EVIDENCE";
         /** @enum {string} */
         OrderKind: "PACKAGE" | "CUSTOM_OFFER" | "CAMPAIGN";
         ShippingAddress: {
@@ -3020,8 +3688,25 @@ export interface components {
             payment: components["schemas"]["OrderPaymentInput"];
             /** @description Package add-ons chosen at checkout (v2.4). */
             addonIds?: string[];
+            /** @description v3.3. The payment must then be for amountDueCents from the quote. */
+            promoCode?: string | null;
+            /** @description v3.3: apply referral credits. */
+            useCredits?: boolean;
+        };
+        /** @description Platform-funded discount fixed at checkout (v3.3): the brand pays totalCents − promoCents − creditCents; the creator's payout and the fees are unchanged. */
+        OrderDiscount: {
+            promoCode: string | null;
+            /** Format: int64 */
+            promoCents: number;
+            /** Format: int64 */
+            creditCents: number;
         };
         OrderCreated: {
+            /**
+             * Format: int64
+             * @description What the brand was charged after discounts (v3.3).
+             */
+            paidCents: number;
             orderId: components["schemas"]["Ulid"];
             status: components["schemas"]["OrderStatus"];
             /** Format: int64 */
@@ -3038,6 +3723,19 @@ export interface components {
             acceptBy: string;
         };
         OrderQuote: {
+            discount: components["schemas"]["OrderDiscount"];
+            /**
+             * Format: int64
+             * @description What the brand pays now: totalCents minus discounts (at least ₹1).
+             */
+            amountDueCents: number;
+            /**
+             * Format: int64
+             * @description The brand's unused referral credit.
+             */
+            creditBalanceCents: number;
+            /** @example ₹500 off your first order */
+            promoDescription: string | null;
             kind: components["schemas"]["OrderKind"];
             creator: components["schemas"]["OrderParty"];
             package: components["schemas"]["Package"] | null;
@@ -3099,6 +3797,12 @@ export interface components {
         };
         /** @description Copied onto the order at checkout; later fee changes never alter it. */
         OrderMoney: {
+            discount: components["schemas"]["OrderDiscount"];
+            /**
+             * Format: int64
+             * @description What the brand paid: totalCents minus discounts (v3.3).
+             */
+            paidCents: number;
             currency: string;
             /** Format: int64 */
             priceCents: number;
@@ -3212,6 +3916,20 @@ export interface components {
             /** @enum {string|null} */
             resolution: "RELEASE" | "FULL_REFUND" | "PARTIAL_REFUND" | null;
             refundCents: number | null;
+            reasonCode: components["schemas"]["DisputeReasonCode"];
+            /**
+             * Format: date-time
+             * @description The creator's 48-hour window to respond (v3.1).
+             */
+            respondBy: string;
+            creatorResponse: string | null;
+            /** Format: date-time */
+            respondedAt: string | null;
+            /** @description Oldest first. */
+            evidence: components["schemas"]["DisputeEvidence"][];
+            resolutionReason: components["schemas"]["ResolutionReason"] | null;
+            /** @description The admin's explanation, shown to both sides. */
+            resolutionNote: string | null;
         };
         OrderDetail: components["schemas"]["OrderSummary"] & {
             packageId: components["schemas"]["Ulid"] | null;
@@ -3298,6 +4016,8 @@ export interface components {
             password: string;
             /** @constant */
             acceptTerms: true;
+            /** @description Someone else's referral code, same role (v3.3). */
+            referralCode?: string | null;
         };
         LoginRequest: {
             /** Format: email */
@@ -4234,6 +4954,10 @@ export interface operations {
                 priceCents?: number;
                 /** @description Comma-separated package add-on ids (v2.4). */
                 addonIds?: string;
+                /** @description A promo code to apply (v3.3). An invalid code answers 422 with a field error on promoCode. */
+                promoCode?: string;
+                /** @description Apply the brand's referral credits (v3.3). */
+                useCredits?: boolean;
             };
             header?: never;
             path?: never;
@@ -4254,6 +4978,181 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+        };
+    };
+    getReferralInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralInvite"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMyReferrals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralOverview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getFinanceOverview: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceOverview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    retryPayout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new payout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listPromoCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        content: components["schemas"]["PromoCode"][];
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoCodeInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    updatePromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    active: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listOrders: {
@@ -4539,11 +5438,71 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NoteRequest"];
+                "application/json": components["schemas"]["DisputeRequest"];
             };
         };
         responses: {
             /** @description The order after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    respondToDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeResponseInput"];
+            };
+        };
+        responses: {
+            /** @description The order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    addDisputeEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeEvidenceInput"];
+            };
+        };
+        responses: {
+            /** @description The order. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5365,6 +6324,63 @@ export interface operations {
             };
         };
     };
+    startInquiry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InquiryInput"];
+            };
+        };
+        responses: {
+            /** @description Opened (or an existing inquiry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            /** @description Monthly inquiry limit reached (INQUIRY_LIMIT). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getInquiryAllowance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InquiryAllowance"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
     listMessages: {
         parameters: {
             query?: {
@@ -5629,6 +6645,29 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    getDisputeReport: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisputeReport"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
     cancelOrderAsAdmin: {
         parameters: {
             query?: never;
@@ -5838,9 +6877,111 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FeeRates"];
+                    "application/json": components["schemas"]["PublicFees"];
                 };
             };
+        };
+    };
+    getMySubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    changeMySubscription: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description The subscription after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            /** @description Payment failed (PAYMENT_FAILED). */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+        };
+    };
+    cancelMySubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    resumeMySubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandSubscription"];
+                };
+            };
+            409: components["responses"]["Conflict"];
         };
     };
     listAuditLogs: {

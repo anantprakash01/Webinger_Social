@@ -7,8 +7,8 @@ import type { OrderPaymentInput, PayoutAccountInput } from '@/types';
 export const UNPAID: OrderPaymentInput = { sessionId: 'unpaid', razorpayPaymentId: 'unpaid', razorpaySignature: 'unpaid' };
 
 /** Pays `totalCents` by UPI (Razorpay's success@razorpay) unless told otherwise. */
-export async function payTotal(totalCents: number, how: Omit<MockCheckoutInput, 'sessionId'> = { method: 'UPI', vpa: 'success@razorpay' }): Promise<OrderPaymentInput> {
-  const s = await api.payments.session(totalCents);
+export async function payTotal(totalCents: number, how: Omit<MockCheckoutInput, 'sessionId'> = { method: 'UPI', vpa: 'success@razorpay' }, purpose: 'ORDER' | 'SUBSCRIPTION' = 'ORDER'): Promise<OrderPaymentInput> {
+  const s = await api.payments.session(totalCents, purpose);
   const proof = await api.dev.razorpayPay({ ...how, sessionId: s.id });
   return { sessionId: s.id, ...proof };
 }

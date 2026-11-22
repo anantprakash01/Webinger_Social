@@ -33,6 +33,13 @@ export type OrderStatus =
 
 export type CloseReason = 'DECLINED' | 'EXPIRED' | 'CANCELED';
 
+export interface OrderDiscount {
+  promoCode: string | null;
+  promoCents: number;
+  creditCents: number;
+}
+export const NO_DISCOUNT: OrderDiscount = { promoCode: null, promoCents: 0, creditCents: 0 };
+
 export type PaymentStatus = 'AUTHORIZED' | 'CAPTURED' | 'REFUNDED' | 'CANCELED';
 export type PaymentMethod = 'UPI' | 'CARD' | 'NETBANKING' | 'WALLET_APP';
 
@@ -69,6 +76,8 @@ export interface MockOrder {
   payment: { status: PaymentStatus; amountCents: number; refundedCents: number } & OrderPaymentInfo;
   /** GST, TDS and TCS on this order, fixed at checkout like the fees (phase B). */
   taxes: OrderTaxes;
+  /** v3.3: promo code and referral credit, fixed at checkout. The platform funds them. */
+  discount?: OrderDiscount;
   createdAt: string;
   updatedAt: string;
 }
@@ -152,6 +161,8 @@ export const maxRevisionsOf = (o: { maxRevisions?: number }) => o.maxRevisions ?
 /** A revision request gives the creator at least this many days, even if the original due date has passed. */
 export const REVISION_MIN_DAYS = 3;
 export const MIN_DELIVERY_DAYS = 1;
+/** Razorpay's smallest charge: a discounted order still costs at least ₹1 (v3.3). */
+export const MIN_CHARGE_CENTS = 100;
 export const MAX_DELIVERY_DAYS = 60;
 
 type ActorRole = 'BRAND' | 'CREATOR' | 'ADMIN' | 'SYSTEM';
@@ -188,6 +199,10 @@ export const brandTotalCents = (o: Money) => o.priceCents + o.brandFeeCents + (o
 /** What the creator receives on release (before any partial refund): price + their GST − commission − GST on it − TDS − TCS. */
 export const creatorPayoutCents = (o: Money) =>
   o.priceCents + (o.taxes?.creatorGstCents ?? 0) - o.creatorFeeCents - (o.taxes?.creatorFeeGstCents ?? 0) - (o.taxes?.tdsCents ?? 0) - (o.taxes?.tcsCents ?? 0);
+/** v3.3: the platform-funded part of the total (promo + referral credit). */
+export const discountCents = (o: { discount?: OrderDiscount }) => (o.discount?.promoCents ?? 0) + (o.discount?.creditCents ?? 0);
+/** What the brand is actually charged: the total minus discounts. */
+export const brandPaidCents = (o: Money & { discount?: OrderDiscount }) => brandTotalCents(o) - discountCents(o);
 /** GST on both platform fees (owed by the platform). */
 export const feeGstCents = (o: Money) => (o.taxes?.brandFeeGstCents ?? 0) + (o.taxes?.creatorFeeGstCents ?? 0);
 /** TDS + TCS withheld from the creator. */
@@ -232,17 +247,15 @@ function guard(order: MockOrder, e: OrderEventInput, actor: Actor, now: Date): T
     case 'AUTO_APPROVE':
       return isPast(order.reviewBy, now) ? null : new TransitionError(409, 'NOT_YET_DUE', 'The brand still has time to review.');
     case 'ADMIN_REFUND': {
-      const total = brandTotalCents(order);
+      // A refund goes back to the brand's payment method, so it is capped at what the brand paid (v3.3).
+      const paid = brandPaidCents(order);
+      const cap = Math.min(creatorPayoutCents(order), paid);
       const r = e.refundCents;
-      const full = r === total;
-      const partial = Number.isSafeInteger(r) && r > 0 && r <= creatorPayoutCents(order);
+      const full = r === paid;
+      const partial = Number.isSafeInteger(r) && r > 0 && r <= cap;
       return full || partial
         ? null
-        : new TransitionError(
-            422,
-            'INVALID_REFUND_AMOUNT',
-            `Refund the full ${total} cents, or a partial amount from 1 to ${creatorPayoutCents(order)} cents.`,
-          );
+        : new TransitionError(422, 'INVALID_REFUND_AMOUNT', `Refund the full ${paid} cents, or a partial amount from 1 to ${cap} cents.`);
     }
     default:
       return null;
@@ -261,7 +274,7 @@ export function allowedEvents(order: MockOrder, actor: Actor, now: Date): OrderE
     } catch {
       return false;
     }
-    const probe: OrderEventInput = type === 'ADMIN_REFUND' ? { type, refundCents: brandTotalCents(order) } : ({ type } as OrderEventInput);
+    const probe: OrderEventInput = type === 'ADMIN_REFUND' ? { type, refundCents: brandPaidCents(order) } : ({ type } as OrderEventInput);
     return guard(order, probe, actor, now) === null;
   });
 }
@@ -297,7 +310,7 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
       next.dueAt = addHours(ctx.now, order.deliveryDays * 24);
       next.payment.status = 'CAPTURED';
       paymentAction = 'CAPTURE';
-      lines = captureLines(brandTotalCents(order));
+      lines = captureLines(brandTotalCents(order), discountCents(order));
       memo = 'Payment captured on acceptance';
       break;
     case 'DECLINE':
@@ -331,8 +344,8 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
       next.payment.status = 'REFUNDED';
       next.payment.refundedCents = e.refundCents;
       paymentAction = 'REFUND';
-      if (e.refundCents === total) {
-        lines = refundLines(total);
+      if (e.refundCents === brandPaidCents(order)) {
+        lines = refundLines(e.refundCents, discountCents(order));
         memo = 'Dispute resolved: full refund';
       } else {
         // Partial refund comes out of the creator's share; the remainder follows the release rule (step 4).
@@ -351,11 +364,11 @@ export function transition(order: MockOrder, e: OrderEventInput, actor: Actor, c
       break;
     }
     case 'ADMIN_CANCEL': {
-      const total = brandTotalCents(order);
+      const paid = brandPaidCents(order);
       next.payment.status = 'REFUNDED';
-      next.payment.refundedCents = total;
+      next.payment.refundedCents = paid;
       paymentAction = 'REFUND';
-      lines = refundLines(total);
+      lines = refundLines(paid, discountCents(order));
       memo = 'Cancelled by admin: full refund';
       break;
     }
@@ -386,6 +399,8 @@ export interface NewOrderInput {
   tax?: { intraState: boolean; creatorGstRegistered: boolean };
   /** Revisions included (extra-revision add-ons raise it). */
   maxRevisions?: number;
+  /** v3.3 promo / referral credit; the brand is charged the total minus this. */
+  discount?: OrderDiscount;
 }
 
 export const DEFAULT_PAYMENT: OrderPaymentInfo = { method: 'CARD', methodLabel: 'Visa •••• 1111' };
@@ -401,6 +416,10 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
 
   const f = calculateFees(input.priceCents, input.fees);
   const taxes = calculateTaxes(f, input.tax ?? { intraState: true, creatorGstRegistered: false });
+  const discount = input.discount ?? NO_DISCOUNT;
+  const off = discount.promoCents + discount.creditCents;
+  if (discount.promoCents < 0 || discount.creditCents < 0 || brandTotalCents({ ...f, taxes }) - off < MIN_CHARGE_CENTS)
+    throw new TransitionError(422, 'DISCOUNT_TOO_LARGE', 'Discounts cannot bring the payment below ₹1.');
   const at = ctx.now.toISOString();
   const order: MockOrder = {
     id: input.id,
@@ -424,7 +443,8 @@ export function createOrder(input: NewOrderInput, actor: Actor, ctx: Pick<Machin
     maxRevisions: input.maxRevisions ?? MAX_REVISIONS,
     version: 0,
     taxes,
-    payment: { status: 'AUTHORIZED', amountCents: brandTotalCents({ ...f, taxes }), refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
+    discount,
+    payment: { status: 'AUTHORIZED', amountCents: brandTotalCents({ ...f, taxes }) - off, refundedCents: 0, ...(input.payment ?? DEFAULT_PAYMENT) },
     createdAt: at,
     updatedAt: at,
   };

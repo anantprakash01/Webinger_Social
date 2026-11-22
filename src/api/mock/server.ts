@@ -5,6 +5,10 @@
  */
 import * as retention from './handlers/retention';
 import * as collab from './handlers/collab';
+import * as disputes from './handlers/disputes';
+import * as plans from './handlers/plans';
+import * as promos from './handlers/promos';
+import * as finance from './handlers/finance';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
 import { HttpError, type Handler, type MockRequest, type MockResponse } from './http';
@@ -103,6 +107,8 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/orders/:id/approve', auth: true, handler: orders.approveOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/request-revision', auth: true, handler: orders.requestRevision, idempotent: true },
   { method: 'POST', path: '/orders/:id/dispute', auth: true, handler: orders.disputeOrder, idempotent: true },
+  { method: 'POST', path: '/orders/:id/dispute/response', auth: true, handler: disputes.respondToDispute },
+  { method: 'POST', path: '/orders/:id/dispute/evidence', auth: true, handler: disputes.addDisputeEvidence },
   { method: 'POST', path: '/orders/:id/cancel', auth: true, handler: orders.cancelOrder, idempotent: true },
   { method: 'POST', path: '/orders/:id/review', auth: true, handler: orders.reviewOrder },
   { method: 'POST', path: '/reviews/:id/reply', auth: true, handler: orders.replyToReview },
@@ -117,6 +123,9 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/applications/:id/withdraw', auth: true, handler: campaigns.withdrawApplication },
   // Chat and notifications (Week 5)
   { method: 'GET', path: '/conversations', auth: true, handler: chat.listConversations },
+  // /conversations/inquiries before /conversations/:id/… (v3.0).
+  { method: 'POST', path: '/conversations/inquiries', auth: true, handler: chat.startInquiry },
+  { method: 'GET', path: '/conversations/inquiries/allowance', auth: true, handler: chat.getInquiryAllowance },
   { method: 'GET', path: '/conversations/:id/messages', auth: true, handler: chat.listMessages },
   { method: 'POST', path: '/conversations/:id/messages', auth: true, handler: chat.sendMessage },
   { method: 'POST', path: '/conversations/:id/read', auth: true, handler: chat.markConversationRead },
@@ -129,6 +138,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/admin/creators/:id/approve', auth: true, handler: admin.approveCreator },
   { method: 'POST', path: '/admin/creators/:id/reject', auth: true, handler: admin.rejectCreator },
   { method: 'GET', path: '/admin/disputes', auth: true, handler: admin.listDisputes },
+  { method: 'GET', path: '/admin/disputes/report', auth: true, handler: disputes.getDisputeReport },
   { method: 'POST', path: '/admin/disputes/:id/resolve', auth: true, handler: admin.resolveDispute, idempotent: true },
   { method: 'POST', path: '/admin/orders/:id/cancel', auth: true, handler: admin.cancelOrderAsAdmin, idempotent: true },
   { method: 'GET', path: '/admin/users', auth: true, handler: admin.listUsers },
@@ -136,7 +146,18 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/admin/users/:id/impersonate', auth: true, handler: admin.impersonateUser },
   { method: 'GET', path: '/admin/fees', auth: true, handler: admin.getFees },
   { method: 'PUT', path: '/admin/fees', auth: true, handler: admin.updateFees },
-  { method: 'GET', path: '/fees', auth: false, handler: admin.getCurrentFees },
+  { method: 'GET', path: '/fees', auth: false, handler: plans.getPublicFees },
+  { method: 'GET', path: '/referrals/:code', auth: false, handler: promos.getReferralInvite },
+  { method: 'GET', path: '/me/referrals', auth: true, handler: promos.getMyReferrals },
+  { method: 'GET', path: '/admin/finance', auth: true, handler: finance.getFinanceOverview },
+  { method: 'POST', path: '/admin/payouts/:id/retry', auth: true, handler: finance.retryPayout, idempotent: true },
+  { method: 'GET', path: '/admin/promo-codes', auth: true, handler: promos.listPromoCodes },
+  { method: 'POST', path: '/admin/promo-codes', auth: true, handler: promos.createPromoCode },
+  { method: 'PATCH', path: '/admin/promo-codes/:id', auth: true, handler: promos.updatePromoCode },
+  { method: 'GET', path: '/brands/me/subscription', auth: true, handler: plans.getMySubscription },
+  { method: 'POST', path: '/brands/me/subscription', auth: true, handler: plans.changeMySubscription, idempotent: true },
+  { method: 'POST', path: '/brands/me/subscription/cancel', auth: true, handler: plans.cancelMySubscription },
+  { method: 'POST', path: '/brands/me/subscription/resume', auth: true, handler: plans.resumeMySubscription },
   { method: 'GET', path: '/admin/audit-logs', auth: true, handler: admin.listAuditLogs },
   { method: 'POST', path: '/reports', auth: true, handler: admin.createReport },
   { method: 'GET', path: '/admin/reports', auth: true, handler: admin.listReports },

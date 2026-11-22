@@ -28,7 +28,7 @@ const fyOf = (iso: string) => {
 /** What the creator was actually paid: partial refunds come out of their share, a full refund leaves nothing. */
 export function creatorReceivedCents(o: OrderDetail): number {
   if (o.status === 'COMPLETED') return o.money.creatorPayoutCents;
-  if (o.status === 'REFUNDED') return o.payment.refundedCents >= o.money.totalCents ? 0 : o.money.creatorPayoutCents - o.payment.refundedCents;
+  if (o.status === 'REFUNDED') return o.payment.refundedCents >= o.money.paidCents ? 0 : o.money.creatorPayoutCents - o.payment.refundedCents;
   return 0;
 }
 
@@ -190,11 +190,37 @@ function TaxInvoice({ o }: { o: OrderDetail }) {
           </tr>
         </tbody>
         <tfoot>
+          {m.paidCents < m.totalCents && (
+            <>
+              <tr>
+                <th scope="row" colSpan={span}>
+                  Invoice total
+                </th>
+                <td className="num">{formatMoney(m.totalCents, cur)}</td>
+              </tr>
+              {m.discount.promoCents > 0 && (
+                <tr>
+                  <th scope="row" colSpan={span}>
+                    Promo {m.discount.promoCode} (borne by {PRODUCT_NAME})
+                  </th>
+                  <td className="num">−{formatMoney(m.discount.promoCents, cur)}</td>
+                </tr>
+              )}
+              {m.discount.creditCents > 0 && (
+                <tr>
+                  <th scope="row" colSpan={span}>
+                    Referral credit (borne by {PRODUCT_NAME})
+                  </th>
+                  <td className="num">−{formatMoney(m.discount.creditCents, cur)}</td>
+                </tr>
+              )}
+            </>
+          )}
           <tr>
             <th scope="row" colSpan={span}>
               Total paid ({o.payment.methodLabel} via Razorpay)
             </th>
-            <td className="num">{formatMoney(m.totalCents, cur)}</td>
+            <td className="num">{formatMoney(m.paidCents, cur)}</td>
           </tr>
           {o.payment.refundedCents > 0 && (
             <tr>

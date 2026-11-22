@@ -7,13 +7,15 @@ import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { CreatorPhoto, PlatformIcon, VerifiedBadge, placeLabel } from '@/components/creator';
 import { VettingBadge, timeAgo } from '@/components/status';
-import { Badge, Button, Card, Drawer, EmptyState, ErrorState, FormError, Input, PageHeader, PageSkeleton, TextArea, cx } from '@/components/ui';
+import { Badge, Button, Card, Drawer, EmptyState, ErrorState, FormError, Input, PageHeader, PageSkeleton, Stat, TextArea, cx } from '@/components/ui';
 import { BriefCard, Deliveries, Timeline } from '@/features/orders/components/OrderParts';
+import { DISPUTE_REASON_LABEL, DisputeCard, RESOLUTION_REASON_LABEL } from '@/features/orders/components/DisputeCard';
+import { RESOLUTION_REASONS } from '@/features/orders/schemas';
 import { formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
 import { formatMoney, parseAmount } from '@/lib/money';
-import type { AdminDispute, Report, VettingItem } from '@/types';
+import type { AdminDispute, Report, ResolveDisputeRequest, VettingItem } from '@/types';
 import { REPORT_REASONS } from '../schemas';
-import { useDisputes, useReports, useResolveDispute, useResolveReport, useVettingDecision, useVettingQueue } from '../hooks';
+import { useDisputeReport, useDisputes, useReports, useResolveDispute, useResolveReport, useVettingDecision, useVettingQueue } from '../hooks';
 
 function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
   return (
@@ -185,13 +187,24 @@ function VettingCard({ c }: { c: VettingItem }) {
 /* ---------- Disputes (FR-81) ---------- */
 
 export function AdminDisputesPage() {
-  const [status, setStatus] = useState<'OPEN' | 'RESOLVED'>('OPEN');
-  const { data, isPending, isError, error, refetch } = useDisputes(status);
+  const [status, setStatus] = useState<'OPEN' | 'RESOLVED' | 'REASONS'>('OPEN');
+  const { data, isPending, isError, error, refetch } = useDisputes(status === 'REASONS' ? 'RESOLVED' : status);
   return (
     <div className="page">
       <PageHeader title="Disputes" />
-      <Tabs label="Status" value={status} onChange={setStatus} options={[{ value: 'OPEN', label: 'Open' }, { value: 'RESOLVED', label: 'Resolved' }]} />
-      {isError ? (
+      <Tabs
+        label="Status"
+        value={status}
+        onChange={setStatus}
+        options={[
+          { value: 'OPEN', label: 'Open' },
+          { value: 'RESOLVED', label: 'Resolved' },
+          { value: 'REASONS', label: 'Refund reasons' },
+        ]}
+      />
+      {status === 'REASONS' ? (
+        <DisputeReasons />
+      ) : isError ? (
         <ErrorState message={error.message} onRetry={() => void refetch()} />
       ) : isPending ? (
         <PageSkeleton />
@@ -223,12 +236,18 @@ export function AdminDisputesPage() {
                       </div>
                     </td>
                     <td data-label="Reason" className="small">
-                      {d.reason}
+                      <strong>{DISPUTE_REASON_LABEL[d.reasonCode]}</strong>
+                      <div className="list__meta">{d.reason}</div>
                     </td>
                     <td data-label="Amount">{formatMoney(d.money.totalCents, d.money.currency)}</td>
                     <td data-label="Opened" className="small">
                       {timeAgo(d.openedAt)}
-                      {d.resolution && <div><Badge>{d.resolution.replace('_', ' ').toLowerCase()}</Badge></div>}
+                      <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                        {d.brandPlan === 'PREMIUM' && d.status === 'OPEN' && <Badge tone="info">Premium · first</Badge>}
+                        {d.status === 'OPEN' && (d.creatorResponse ? <Badge tone="ok">Creator responded</Badge> : <Badge>Awaiting creator</Badge>)}
+                        {d.resolution && <Badge>{d.resolution.replace('_', ' ').toLowerCase()}</Badge>}
+                        {d.resolutionReason && <Badge>{RESOLUTION_REASON_LABEL[d.resolutionReason]}</Badge>}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -266,12 +285,7 @@ export function AdminDisputeDetailPage() {
       <PageHeader eyebrow={`${d.brand.name} → ${d.creator.name}`} title={d.orderTitle} />
       <div className="order__layout">
         <div className="order__main">
-          <Card title="Dispute">
-            <p className="small">
-              <strong>Brand's reason:</strong> {d.reason}
-            </p>
-            <p className="small muted">Opened {timeAgo(d.openedAt)}</p>
-          </Card>
+          {o.dispute && <DisputeCard o={o} d={o.dispute} role="ADMIN" />}
           <Deliveries o={o} role="ADMIN" />
           <BriefCard o={o} />
           <Card title="Chat between brand and creator">
@@ -292,7 +306,7 @@ export function AdminDisputeDetailPage() {
           </Card>
         </div>
         <aside className="order__side">
-          <ResolvePanel d={d} />
+          <ResolvePanel d={d} serverTime={o.serverTime} />
           <Timeline o={o} />
         </aside>
       </div>
@@ -300,15 +314,17 @@ export function AdminDisputeDetailPage() {
   );
 }
 
-function ResolvePanel({ d }: { d: AdminDispute }) {
+function ResolvePanel({ d, serverTime }: { d: AdminDispute; serverTime: string }) {
   const resolve = useResolveDispute(d.id);
   const [resolution, setResolution] = useState<'RELEASE' | 'FULL_REFUND' | 'PARTIAL_REFUND'>('RELEASE');
+  const [reason, setReason] = useState<ResolveDisputeRequest['resolutionReason'] | ''>('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const m = d.money;
   const refundCents = parseAmount(amount);
   const amountError = resolution === 'PARTIAL_REFUND' && amount && (refundCents === null || refundCents < 1 || refundCents > m.creatorPayoutCents) ? `Enter 0.01 to ${formatMoney(m.creatorPayoutCents, m.currency)}.` : undefined;
-  const ready = note.trim().length >= 10 && (resolution !== 'PARTIAL_REFUND' || (!!refundCents && !amountError));
+  const ready = note.trim().length >= 10 && !!reason && (resolution !== 'PARTIAL_REFUND' || (!!refundCents && !amountError));
+  const creatorCanStillRespond = !d.creatorResponse && d.respondBy > serverTime;
 
   if (d.status === 'RESOLVED') {
     return (
@@ -349,17 +365,108 @@ function ResolvePanel({ d }: { d: AdminDispute }) {
           ))}
         </fieldset>
         {resolution === 'PARTIAL_REFUND' && <Input label="Refund amount (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={amountError} />}
+        <div className="field">
+          <label className="field__label" htmlFor="resolution-reason">
+            Reason (for the refund-reason log)
+          </label>
+          <select id="resolution-reason" className="field__input" value={reason} onChange={(e) => setReason(e.target.value as ResolveDisputeRequest['resolutionReason'])}>
+            <option value="">Choose a reason…</option>
+            {RESOLUTION_REASONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <TextArea label="Decision note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} hint="Shown to both sides and kept in the audit log." />
+        {creatorCanStillRespond && (
+          <p className="note note--warn small" role="note">
+            The creator can still respond until {new Date(d.respondBy).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}. Deciding now is allowed, but wait unless it is urgent.
+          </p>
+        )}
         <FormError>{resolve.error?.message}</FormError>
         <Button
           disabled={!ready}
           loading={resolve.isPending}
-          onClick={() => resolve.mutate({ resolution, refundCents: resolution === 'PARTIAL_REFUND' ? refundCents : null, note: note.trim() })}
+          onClick={() => reason && resolve.mutate({ resolution, resolutionReason: reason, refundCents: resolution === 'PARTIAL_REFUND' ? refundCents : null, note: note.trim() })}
         >
           Confirm decision
         </Button>
       </div>
     </Card>
+  );
+}
+
+/** v3.1 refund-reason log: resolved disputes by outcome and reason. */
+function DisputeReasons() {
+  const [days, setDays] = useState(90);
+  const { data, isPending, isError, error, refetch } = useDisputeReport(days);
+  if (isError) return <ErrorState message={error.message} onRetry={() => void refetch()} />;
+  if (isPending) return <PageSkeleton />;
+  const r = data;
+  const max = Math.max(1, ...r.byReason.map((x) => x.count));
+  return (
+    <div className="admin-stack">
+      <div className="field" style={{ maxWidth: 220 }}>
+        <label className="field__label" htmlFor="report-days">
+          Period
+        </label>
+        <select id="report-days" className="field__input" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+          <option value={365}>Last 12 months</option>
+        </select>
+      </div>
+      <div className="grid grid--stats">
+        <Stat label="Resolved" value={r.resolved} hint={`${r.open} still open`} />
+        <Stat label="Released to creators" value={r.released} />
+        <Stat label="Refunded" value={r.fullRefunds + r.partialRefunds} hint={`${r.fullRefunds} full · ${r.partialRefunds} partial`} />
+        <Stat label="Money refunded" value={formatMoney(r.refundedCents, 'INR')} hint={r.avgHoursToResolve !== null ? `Avg ${r.avgHoursToResolve} h to decide` : undefined} accent />
+      </div>
+      <Card title="Why we decided as we did">
+        {r.byReason.length === 0 ? (
+          <EmptyState title="No resolved disputes in this period" />
+        ) : (
+          <table className="table table--rows">
+            <thead>
+              <tr>
+                <th scope="col">Reason</th>
+                <th scope="col">Disputes</th>
+                <th scope="col">Refunded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.byReason.map((x) => (
+                <tr key={x.reason}>
+                  <td data-label="Reason">
+                    {RESOLUTION_REASON_LABEL[x.reason]}
+                    <div className="reason-bar" aria-hidden>
+                      <span style={{ width: `${(x.count / max) * 100}%` }} />
+                    </div>
+                  </td>
+                  <td data-label="Disputes">{x.count}</td>
+                  <td data-label="Refunded">{formatMoney(x.refundedCents, 'INR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+      <Card title="What brands said went wrong">
+        {r.byBrandReason.length === 0 ? (
+          <p className="small muted">No disputes opened in this period.</p>
+        ) : (
+          <ul className="reason-list">
+            {r.byBrandReason.map((x) => (
+              <li key={x.reasonCode} className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="small">{DISPUTE_REASON_LABEL[x.reasonCode]}</span>
+                <strong className="small">{x.count}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
   );
 }
 

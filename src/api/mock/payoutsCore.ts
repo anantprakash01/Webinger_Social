@@ -18,7 +18,8 @@ const DAY = 86_400_000;
 export function creatorBalanceEntries(creatorId: string): LedgerEntry[] {
   const db = getDb();
   const refs = new Set([...db.orders.filter((o) => o.creatorUserId === creatorId).map((o) => o.id), ...db.payouts.filter((p) => p.creatorId === creatorId).map((p) => `payout_${p.id}`)]);
-  return db.ledgerEntries.filter((e) => e.account === 'CREATOR_BALANCE' && refs.has(e.orderId));
+  // v3.3 referral bonuses are referenced as ref_<referrer>_<referee>.
+  return db.ledgerEntries.filter((e) => e.account === 'CREATOR_BALANCE' && (refs.has(e.orderId) || e.orderId.startsWith(`ref_${creatorId}_`)));
 }
 
 export function creatorMoney(creatorId: string) {
@@ -27,7 +28,7 @@ export function creatorMoney(creatorId: string) {
   return {
     availableCents: entries.reduce((s, e) => s + e.debitCents - e.creditCents, 0),
     lifetimeEarnedCents: entries.filter((e) => !e.orderId.startsWith('payout_')).reduce((s, e) => s + e.debitCents, 0),
-    paidOutCents: db.payouts.filter((p) => p.creatorId === creatorId).reduce((s, p) => s + p.amountCents, 0),
+    paidOutCents: db.payouts.filter((p) => p.creatorId === creatorId && p.status !== 'FAILED').reduce((s, p) => s + p.amountCents, 0),
     inEscrowCents: db.orders
       .filter((o) => o.creatorUserId === creatorId && (o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED'))
       .reduce((s, o) => s + creatorPayoutCents(o), 0),

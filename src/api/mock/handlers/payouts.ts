@@ -8,6 +8,7 @@
  *
  * The mock verifies at once. Test outcomes: account number 000000000 / UPI ID ending @fail → FAILED.
  */
+import { toPayoutApi } from './finance';
 import {
   instantFee,
   INSTANT_FEE_BPS,
@@ -111,16 +112,7 @@ function overview(user: UserRow): PayoutOverview {
       .sort((a, b) => b.at.localeCompare(a.at)),
     payouts: db.payouts
       .filter((x) => x.creatorId === p.userId)
-      .map((x) => ({
-        id: x.id,
-        amountCents: x.amountCents,
-        feeCents: x.feeCents ?? 0,
-        speed: x.speed ?? 'SCHEDULED',
-        destinationLabel: x.destinationLabel ?? 'Bank account',
-        status: x.status,
-        createdAt: x.createdAt,
-        arrivalDate: x.arrivalDate,
-      }))
+      .map(toPayoutApi)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     account: account ? toAccount(account) : null,
     autoWeekly: p.autoWeekly ?? true,

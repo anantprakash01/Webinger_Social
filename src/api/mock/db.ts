@@ -7,9 +7,10 @@
  * (src/api/mock/seed/creators.ts). Orders and campaigns arrive with their weeks.
  */
 import { seedAddons, seedMetrics } from './seed/collab';
-import type { MessageAttachment, NotificationCategory, PackageAddon, PostMetrics } from '@/types';
+import type { DisputeEvidence, DisputeReasonCode, MessageAttachment, NotificationCategory, PackageAddon, PostMetrics, ResolutionReason } from '@/types';
 import type { BrandIndustry, Gender, Niche, PayoutStatus, Platform, Role, UserStatus, VettingStatus } from '@/types';
 import { DEFAULT_FEES, type FeeConfig } from './fees';
+import { PLANS, type BrandPlan } from '@/lib/plans';
 import type { LedgerEntry } from './ledger';
 import type { MockOrder, OrderEvent, PaymentMethod } from './orderMachine';
 import { DEMO_PASSWORD } from './demo';
@@ -18,6 +19,7 @@ import { seedOrders } from './seed/orders';
 import { seedEngagement } from './seed/engagement';
 import { seedAdmin } from './seed/admin';
 import { seedPayments } from './seed/payments';
+import { seedGrowth } from './seed/growth';
 
 /* ---------- Row types ---------- */
 
@@ -40,6 +42,51 @@ export interface UserRow {
   /** Account deletion requested (v2.2): erased after this date unless cancelled. */
   deletionScheduledFor?: string | null;
   deletedAt?: string | null;
+  /** v3.3 referrals: this user's code, who invited them, and when the inviter was rewarded. */
+  referralCode?: string | null;
+  referredBy?: string | null;
+  referralRewardedAt?: string | null;
+}
+
+/** v3.3: promotional credit (referrals). Not money held for the brand: it can only reduce order prices. */
+export interface CreditRow {
+  id: string;
+  userId: string;
+  deltaCents: number;
+  reason: 'REFERRAL_WELCOME' | 'REFERRAL_REWARD' | 'ORDER_USED' | 'ORDER_RETURNED' | 'ADMIN_GRANT';
+  note: string;
+  orderId: string | null;
+  createdAt: string;
+}
+
+/** v3.3: platform-funded promo codes for brands. */
+export interface PromoCodeRow {
+  id: string;
+  code: string;
+  description: string;
+  kind: 'PERCENT' | 'FLAT';
+  percentBps: number | null;
+  flatCents: number | null;
+  maxDiscountCents: number | null;
+  minOrderCents: number | null;
+  firstOrderOnly: boolean;
+  maxRedemptions: number | null;
+  /** Last valid day, YYYY-MM-DD (inclusive). */
+  validUntil: string | null;
+  active: boolean;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface PromoRedemptionRow {
+  id: string;
+  codeId: string;
+  brandUserId: string;
+  orderId: string;
+  discountCents: number;
+  /** RELEASED when the order closed unaccepted or was fully refunded. */
+  status: 'APPLIED' | 'RELEASED';
+  createdAt: string;
 }
 
 export interface CreatorProfileRow {
@@ -217,6 +264,13 @@ export interface DisputeRow {
   createdAt: string;
   resolvedAt: string | null;
   resolutionNote?: string | null;
+  /** v3.1: the brand's reason, the creator's 48-hour response, evidence from both sides, the admin's reason. */
+  reasonCode?: DisputeReasonCode;
+  respondBy?: string;
+  creatorResponse?: string | null;
+  respondedAt?: string | null;
+  evidence?: DisputeEvidence[];
+  resolutionReason?: ResolutionReason | null;
 }
 
 export interface CampaignRow {
@@ -248,10 +302,13 @@ export interface ApplicationRow {
   decidedAt: string | null;
 }
 
-/** One per order (FR-50). */
+/** One per order (FR-50), or a pre-booking inquiry (v3.0: orderId null, brand and creator set). */
 export interface ConversationRow {
   id: string;
-  orderId: string;
+  orderId: string | null;
+  /** Inquiries only. */
+  brandUserId?: string;
+  creatorUserId?: string;
   createdAt: string;
 }
 
@@ -272,7 +329,7 @@ export interface MessageRow {
 export interface NotificationRow {
   id: string;
   userId: string;
-  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT' | 'CAMPAIGN_INVITE';
+  type: 'ORDER_EVENT' | 'NEW_APPLICATION' | 'APPLICATION_ACCEPTED' | 'APPLICATION_REJECTED' | 'PROFILE_APPROVED' | 'PROFILE_REJECTED' | 'PAYOUT_SENT' | 'CAMPAIGN_INVITE' | 'NEW_INQUIRY' | 'DISPUTE_UPDATE' | 'PLAN_CHANGED' | 'REFERRAL_REWARD';
   title: string;
   body: string;
   link: string | null;
@@ -280,10 +337,41 @@ export interface NotificationRow {
   createdAt: string;
 }
 
-/** fee_configs: the newest row applies to new orders (FR-83). */
+/** fee_configs: per plan, the newest row applies to new orders (FR-83, FR-66). */
 export interface FeeConfigRow extends FeeConfig {
   effectiveFrom: string;
   changedBy: string | null;
+}
+
+/** v3.2 brand plan subscription (Razorpay Subscriptions). Absent = Free. */
+export interface SubscriptionRow {
+  brandUserId: string;
+  plan: BrandPlan;
+  cycle: 'MONTHLY' | 'YEARLY';
+  periodStart: string;
+  periodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  /** A downgrade (or monthly instead of yearly) scheduled for the end of the period. */
+  nextPlan: BrandPlan | null;
+  nextCycle: 'MONTHLY' | 'YEARLY' | null;
+  methodLabel: string;
+}
+
+/** One charge for a plan period (tax invoice). Ledger reference `sub_<id>`. */
+export interface SubscriptionInvoiceRow {
+  id: string;
+  number: string;
+  brandUserId: string;
+  plan: BrandPlan;
+  cycle: 'MONTHLY' | 'YEARLY';
+  periodStart: string;
+  periodEnd: string;
+  priceCents: number;
+  gstCents: number;
+  intraState: boolean;
+  methodLabel: string;
+  kind: 'NEW' | 'UPGRADE' | 'RENEWAL';
+  createdAt: string;
 }
 
 /** audit_logs: append-only (FR-84). */
@@ -291,7 +379,7 @@ export interface AuditRow {
   id: string;
   actorId: string | null;
   actorName: string;
-  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT' | 'ORDER_CANCELLED' | 'ACCOUNT_DELETION_REQUESTED';
+  action: 'CREATOR_APPROVED' | 'CREATOR_REJECTED' | 'DISPUTE_RESOLVED' | 'USER_STATUS_CHANGED' | 'IMPERSONATION_STARTED' | 'FEES_CHANGED' | 'REPORT_RESOLVED' | 'MONEY_MOVEMENT' | 'PAYOUT_SENT' | 'ORDER_CANCELLED' | 'ACCOUNT_DELETION_REQUESTED' | 'PROMO_CHANGED' | 'PAYOUT_RETRIED';
   entityType: string;
   entityId: string;
   summary: string;
@@ -324,9 +412,12 @@ export interface PayoutRow {
   feeCents?: number;
   speed?: 'SCHEDULED' | 'STANDARD' | 'INSTANT';
   destinationLabel?: string;
-  status: 'IN_TRANSIT' | 'PAID';
+  status: 'IN_TRANSIT' | 'PAID' | 'FAILED';
   createdAt: string;
   arrivalDate: string;
+  /** v3.4: why the bank rejected it, and the payout that retried it. */
+  failureReason?: string | null;
+  retriedAs?: string | null;
 }
 
 /* ---------- Payments (v2.0, Razorpay) ---------- */
@@ -335,7 +426,7 @@ export interface PayoutRow {
 export interface PaymentSessionRow {
   id: string;
   userId: string;
-  purpose: 'ORDER';
+  purpose: 'ORDER' | 'SUBSCRIPTION';
   amountCents: number;
   razorpayOrderId: string;
   createdAt: string;
@@ -391,7 +482,7 @@ export interface BrandProfileRow {
   logoUrl: string | null;
   industry: BrandIndustry | null;
   country: string | null;
-  plan: 'FREE';
+  plan: BrandPlan;
   stripeCustomerId: string | null;
   /** Indian state code (GST place of supply) and optional GSTIN (v2.3). */
   state?: string | null;
@@ -516,6 +607,11 @@ export interface Db {
   invites: InviteRow[];
   brandReviews: BrandReviewRow[];
   notificationPrefs: NotificationPrefsRow[];
+  subscriptions: SubscriptionRow[];
+  subscriptionInvoices: SubscriptionInvoiceRow[];
+  credits: CreditRow[];
+  promoCodes: PromoCodeRow[];
+  promoRedemptions: PromoRedemptionRow[];
   /** Last weekly payout run (Mondays 00:00 UTC). */
   lastPayoutRunAt: string;
 }
@@ -562,7 +658,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 16;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {
@@ -595,7 +691,7 @@ function seed(now: Date): Db {
   seedAddons(creators.packages, SEED_IDS.creator);
   seedMetrics(orders.orders, orders.deliveries, now.toISOString());
   const admin = seedAdmin(now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator, adminId: SEED_IDS.admin }, creators, orders, engagement);
-  return {
+  const out: Db = {
     schemaVersion: SCHEMA_VERSION,
     clockOffsetMs: 0,
     users: [
@@ -622,7 +718,7 @@ function seed(now: Date): Db {
     accessTokens: [],
     refreshTokens: [],
     outbox: [],
-    feeConfigs: [{ ...DEFAULT_FEES, effectiveFrom: new Date(now.getTime() - 120 * 86_400_000).toISOString(), changedBy: null }],
+    feeConfigs: (['FREE', 'PRO', 'PREMIUM'] as const).map((plan) => ({ ...DEFAULT_FEES, plan, brandFeeBps: PLANS[plan].defaultBrandFeeBps, effectiveFrom: new Date(now.getTime() - 120 * 86_400_000).toISOString(), changedBy: null })),
     orders: orders.orders,
     orderEvents: orders.orderEvents,
     ledgerEntries: orders.ledgerEntries,
@@ -649,8 +745,15 @@ function seed(now: Date): Db {
     invites: [],
     brandReviews: [],
     notificationPrefs: [],
+    subscriptions: [],
+    subscriptionInvoices: [],
+    credits: [],
+    promoCodes: [],
+    promoRedemptions: [],
     lastPayoutRunAt: now.toISOString(),
   };
+  seedGrowth(out, now, { brandId: SEED_IDS.brand, leoId: SEED_IDS.creator });
+  return out;
 }
 
 /* ---------- Store ---------- */

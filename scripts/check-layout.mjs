@@ -21,6 +21,7 @@ const PUBLIC = [
   ['profile', '/u/leomakes'],
   ['login', '/login'],
   ['signup', '/signup?role=creator'],
+  ['signup-referral', '/signup?role=brand&ref=MAYA7K2Q'],
   ['forgot-password', '/forgot-password'],
 ];
 const AS_BRAND = [
@@ -32,6 +33,10 @@ const AS_BRAND = [
   ['brand-lists', '/brand/lists'],
   ['settings', '/settings'],
   ['search-fast', '/search?fast=1&country=IN'],
+  // v3: plans, referrals, a pre-booking inquiry, the order with a dispute.
+  ['brand-plan', '/brand/plan'],
+  ['brand-referrals', '/referrals'],
+  ['brand-messages', '/messages'],
 ];
 // Week 3: a draft creator walks the setup wizard; an approved creator sees the workspace.
 const AS_DRAFT_CREATOR = ['profile', 'socials', 'packages', 'portfolio', 'payouts', 'review'].map((s) => [`onboarding-${s}`, `/creator/onboarding?step=${s}`]);
@@ -41,6 +46,7 @@ const AS_CREATOR = [
   ['creator-onboarding-live', '/creator/onboarding?step=profile'],
   ['creator-payouts', '/creator/payouts'],
   ['creator-campaigns-invited', '/creator/campaigns?tab=invited'],
+  ['creator-referrals', '/referrals'],
 ];
 const AS_ADMIN = [
   ['admin-vetting', '/admin/vetting'],
@@ -50,6 +56,9 @@ const AS_ADMIN = [
   ['admin-fees', '/admin/fees'],
   ['admin-audit', '/admin/audit'],
   ['admin-orders', '/admin/orders'],
+  ['admin-disputes-reasons', '/admin/disputes'],
+  ['admin-finance', '/admin/finance'],
+  ['admin-promos', '/admin/promos'],
 ];
 
 const problems = [];

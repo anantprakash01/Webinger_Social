@@ -41,6 +41,15 @@ export const registerRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   acceptTerms: z.literal(true, { error: 'Accept the terms to create an account.' }),
+  /** v3.3: someone else's referral code (optional). */
+  referralCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .max(20, { error: 'Referral codes are at most 20 characters.' })
+    .regex(/^[A-Z0-9]*$/, { error: 'Use letters and numbers only.' })
+    .nullable()
+    .optional(),
 });
 
 export const loginRequestSchema = z.object({

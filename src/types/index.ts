@@ -164,3 +164,24 @@ export type NotificationCategory = S['NotificationCategory'];
 export type NotificationPreferences = S['NotificationPreferences'];
 export type MessageAttachment = S['MessageAttachment'];
 export type SearchSuggestion = S['SearchSuggestion'];
+
+/* v3.0 */
+export type InquiryAllowance = S['InquiryAllowance'];
+export type BrandPlanApi = S['BrandPlan'];
+export type DisputeReasonCode = S['DisputeReasonCode'];
+export type ResolutionReason = S['ResolutionReason'];
+export type DisputeEvidence = S['DisputeEvidence'];
+export type DisputeEvidenceInput = S['DisputeEvidenceInput'];
+export type DisputeReport = S['DisputeReport'];
+export type PlanOffer = S['PlanOffer'];
+export type PublicFees = S['PublicFees'];
+export type BrandSubscription = S['BrandSubscription'];
+export type SubscriptionInvoice = S['SubscriptionInvoice'];
+export type SubscriptionRequest = S['SubscriptionRequest'];
+export type OrderDiscountApi = S['OrderDiscount'];
+export type PromoCode = S['PromoCode'];
+export type PromoCodeInput = S['PromoCodeInput'];
+export type ReferralInvite = S['ReferralInvite'];
+export type ReferralOverview = S['ReferralOverview'];
+export type CreditEntry = S['CreditEntry'];
+export type FinanceOverview = S['FinanceOverview'];

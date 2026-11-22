@@ -11,6 +11,10 @@ export const requiredReasonSchema = z.object({
 export const resolveDisputeSchema = z
   .object({
     resolution: z.enum(['RELEASE', 'FULL_REFUND', 'PARTIAL_REFUND'], { error: 'Choose an outcome.' }),
+    resolutionReason: z.enum(
+      ['WORK_NOT_DELIVERED', 'BRIEF_NOT_FOLLOWED', 'QUALITY_BELOW_STANDARD', 'DELIVERED_LATE', 'POST_TAKEN_DOWN', 'WORK_MATCHES_BRIEF', 'BRAND_UNRESPONSIVE', 'CREATOR_UNRESPONSIVE', 'SETTLED_BY_PARTIES', 'OTHER'],
+      { error: 'Choose the reason for the decision.' },
+    ),
     refundCents: z.number().int().positive().nullable().optional(),
     note: z.string().trim().min(10, { error: 'Explain the decision in at least 10 characters.' }).max(1000),
   })
@@ -26,7 +30,7 @@ const bps = z
   .int({ error: 'Whole basis points only.' })
   .min(0, { error: 'Cannot be negative.' })
   .max(MAX_FEE_BPS, { error: `At most ${MAX_FEE_BPS} bps (${MAX_FEE_BPS / 100}%).` });
-export const feeUpdateSchema = z.object({ brandFeeBps: bps, creatorFeeBps: bps });
+export const feeUpdateSchema = z.object({ plan: z.enum(['FREE', 'PRO', 'PREMIUM']).optional(), brandFeeBps: bps, creatorFeeBps: bps });
 
 export const reportInputSchema = z.object({
   targetType: z.enum(['CREATOR', 'BRAND', 'MESSAGE', 'REVIEW']),

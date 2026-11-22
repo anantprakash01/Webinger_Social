@@ -60,6 +60,8 @@ A two-sided marketplace where **brands** discover, book and pay social media **c
 | Stripe, USD (global) | **India-first: INR (paise), Razorpay** — UPI, cards (saved as RBI tokens), netbanking, wallet apps; Razorpay Route for escrow/creator accounts, RazorpayX for payouts | Decided 22 Nov 2026 (contract v2.0.0). Minimum package price ₹500 |
 | (not specified) | Creators can **Withdraw now** (standard NEFT free, instant IMPS/UPI 1%, min ₹10) on top of the weekly Monday payout, which they can turn off; minimum withdrawal ₹500 | Decided 22 Nov 2026 |
 | (not specified) | **No brand wallet / prepaid balance** — every order is paid through Razorpay | A wallet paying third parties is likely an RBI-regulated prepaid instrument; dropped 22 Nov 2026 |
+| (not specified) | Referral **credits** and promo codes are platform-funded discounts only (cannot be bought, withdrawn or transferred), funded by a PROMOTIONS ledger account | Keeps them outside the prepaid-instrument rules; decided 22 Nov 2026 |
+| Pro/Premium in v2 (FR-66) | Brand plans built in the prototype (contract v3.2): Free 10%, Pro 5%, Premium 2% service fee | Requested 22 Nov 2026 |
 
 ---
 
@@ -546,6 +548,7 @@ Source estimate assumes 2 backend, 1 frontend and 1 full-stack/QA engineer; a sm
 - [x] Product name: **Webinger Collab** (decided 21 Nov 2026; was "Webinger Social").
 - [ ] Domain and final brand colour (prototype uses Webinger UI and red).
 - [ ] Is this a separate product or the influencer module of the Webinger portal? (assumed separate repo sharing the Webinger design system)
+- [ ] Plan prices, promo and referral amounts, credit expiry, and GST on platform-funded discounts (see section 17, marketplace growth).
 - [ ] Partial dispute refunds: who absorbs them? Provisional rule in `orderMachine.ts`: a partial refund (1 cent up to the creator's payout) comes out of the creator's share and the platform keeps both fees; a full refund returns everything incl. the brand fee. Confirm before Week 6 / backend.
 
 ## 17. Current state and next action
@@ -674,6 +677,22 @@ Decisions to confirm:
 - Add-ons are one of each kind per package; rush must be faster than the package; usage rights 7–365 days.
 - Drafts don't count as revisions; more time is 1–14 days per request, one pending request at a time.
 - Away mode blocks new orders, custom offers, hiring from campaigns and invites; open orders continue.
+
+**Marketplace growth (22 Nov 2026, branch `marketplace-growth`).** Contract **v3.4.0** (v3.0 is the only breaking change: `Conversation.orderId`/`orderStatus` may be null). 266 unit/UI tests, `tsc`, lint, build, `check:contract`, `check:layout` (incl. plan, referrals, finance, promo codes, inquiries), `check:a11y` and the E2E smoke test clean. Backend notes: `docs/backend-handover.md` → "Marketplace growth". `SCHEMA_VERSION` = 16; seed additions in `src/api/mock/seed/growth.ts`.
+
+What exists:
+- **Message before booking (v3.0):** brands message an approved creator from the profile (`POST /conversations/inquiries`); one inquiry per brand–creator pair, contacts always masked, new inquiries per rolling 30 days by plan (Free 5, Pro 50, Premium unlimited; 429 `INQUIRY_LIMIT`). Inquiry threads offer "See packages" / "Send an offer".
+- **Disputes (v3.1):** brand picks a reason; creator answers once within 48 h; both sides add up to 5 evidence items (image/PDF upload, purpose `DISPUTE_EVIDENCE`, or https link); admin must record a resolution reason; "Refund reasons" tab (`GET /admin/disputes/report`); Premium brands' disputes listed first. `handlers/disputes.ts`, `components/DisputeCard.tsx`.
+- **Plans (FR-66, v3.2):** Free 10% / Pro 5% (₹4,999/month) / Premium 2% (₹14,999/month), yearly = 10 months; catalog in `src/lib/plans.ts`, fees per plan in `fee_configs` (admin edits each). Upgrades paid now via Razorpay session purpose `SUBSCRIPTION` + 18% GST, no proration; downgrades/cancel at period end; renewals in the scheduled jobs. Ledger `sub_<invoiceId>`: BRAND_CHARGE → PLATFORM_REVENUE + GST_PAYABLE. `/brand/plan`, "Pro brand" badge on campaigns.
+- **Promo codes and referral credits (v3.3):** platform-funded discounts. Order keeps its total, fees and creator payout; `discount` {promoCode, promoCents, creditCents}; brand pays total − discount (≥ ₹1). New ledger account **PROMOTIONS** funds the discount into escrow at capture; full refund returns what the brand paid and the discount to PROMOTIONS; closed/fully refunded orders give the code and credit back. Referrals: brand invitee ₹500 credit, inviting brand ₹1,000 credit after the invitee's first completed order; creators ₹500 balance bonus (PROMOTIONS → CREATOR_BALANCE, ref `ref_<referrer>_<referee>`). `/referrals`, `/admin/promos`, code field + invite banner on sign-up. `handlers/promos.ts`.
+- **Finance (v3.4):** `/admin/finance` — flows and balances from the ledger, 6-month chart, failed payouts (status FAILED, money back to the balance) with one retry to a verified account, reconciliation (balanced txns, captured payments, escrow vs open orders, payouts, plan invoices, Razorpay amounts, holds older than 5 days). `handlers/finance.ts`.
+- Demo: codes WELCOME500, DIWALI10, MONSOON15 (expired); Maya's referral code MAYA7K2Q (₹1,000 credit), Leo's LEO4XR8M; Copperleaf on Pro, Tidewell on Premium; an inquiry from Copperleaf to Leo; a failed payout in the finance queue.
+
+Decisions to confirm:
+- Plan prices and per-plan fees; no proration on upgrades; whether the creator fee should also vary by plan (it doesn't).
+- Promo and referral amounts; credits never expire in the prototype (suggest 12 months); referral abuse rules (same device/GSTIN/PAN); referral via Google sign-up not supported yet.
+- GST treatment of platform-funded discounts and referral bonuses (CA): invoices show the full value and the discount "borne by the platform".
+- Dispute response window 48 h; admins may still decide earlier.
 
 **Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.
 

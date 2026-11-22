@@ -47,6 +47,8 @@ const CreatorCampaigns = area(creatorCampaigns, 'CreatorCampaignsPage');
 const CreatorCampaignDetail = area(creatorCampaigns, 'CreatorCampaignDetailPage');
 const CreatorPackages = area(() => import('@/features/creators/pages/PackagesPage'), 'PackagesPage');
 const BrandPaymentMethods = area(() => import('@/features/payments/pages/PaymentMethodsPage'), 'PaymentMethodsPage');
+const BrandPlan = area(() => import('@/features/plans/pages/PlanPage'), 'PlanPage');
+const ReferralsPage = area(() => import('@/features/promos/pages/ReferralsPage'), 'ReferralsPage');
 const CreatorPayouts = area(() => import('@/features/payouts/pages/PayoutsPage'), 'PayoutsPage');
 const ReceiptPage = area(() => import('@/features/orders/pages/ReceiptPage'), 'ReceiptPage');
 
@@ -58,6 +60,8 @@ const AdminUsers = area(admin, 'AdminUsers');
 const AdminFees = area(admin, 'AdminFees');
 const AdminAudit = area(admin, 'AdminAudit');
 const AdminOrders = area(admin, 'AdminOrders');
+const AdminPromos = area(admin, 'AdminPromos');
+const AdminFinance = area(admin, 'AdminFinance');
 
 const MessagesPage = area(() => import('@/features/chat/pages/MessagesPage'), 'MessagesPage');
 const SettingsPage = area(() => import('@/features/account/pages/SettingsPage'), 'SettingsPage');
@@ -100,6 +104,7 @@ export function AppRoutes() {
             <Route path="lists" element={<SavedListsPage />} />
             <Route path="lists/:id" element={<SavedListPage />} />
             <Route path="payment-methods" element={<BrandPaymentMethods />} />
+            <Route path="plan" element={<BrandPlan />} />
           </Route>
         </Route>
 
@@ -129,7 +134,13 @@ export function AppRoutes() {
             <Route path="audit" element={<AdminAudit />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="promos" element={<AdminPromos />} />
+            <Route path="finance" element={<AdminFinance />} />
           </Route>
+        </Route>
+
+        <Route element={<RequireRole roles={['BRAND', 'CREATOR']} />}>
+          <Route path="referrals" element={<ReferralsPage />} />
         </Route>
 
         <Route element={<RequireRole />}>

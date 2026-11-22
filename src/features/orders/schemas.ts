@@ -65,6 +65,9 @@ export const orderCreateRequestSchema = z
     payment: z.unknown(),
     /** Phase C: package add-ons chosen at checkout. */
     addonIds: z.array(z.string().min(1)).max(5).optional(),
+    /** v3.3: promo code and referral credits. */
+    promoCode: z.string().trim().max(20).nullable().optional(),
+    useCredits: z.boolean().optional(),
   })
   .refine((v) => (v.packageId ? !v.offer && !v.creatorUsername : !!v.offer && !!v.creatorUsername), {
     error: 'Send either a packageId, or a creatorUsername with an offer.',
@@ -123,6 +126,59 @@ export const noteRequestSchema = z.object({
 
 export const reasonRequestSchema = z.object({ reason: z.string().trim().max(500).nullable().optional() }).default({});
 
+/* ---------- Disputes (v3.1) ---------- */
+
+export const DISPUTE_RESPONSE_HOURS = 48;
+export const MAX_EVIDENCE_PER_SIDE = 5;
+
+export const DISPUTE_REASONS = [
+  { value: 'NOT_AS_BRIEFED', label: 'Doesn’t follow the brief' },
+  { value: 'LOW_QUALITY', label: 'Quality is too low' },
+  { value: 'NOT_DELIVERED', label: 'Not delivered / files missing' },
+  { value: 'LATE', label: 'Delivered too late to use' },
+  { value: 'POST_REMOVED', label: 'Post was deleted or edited' },
+  { value: 'OTHER', label: 'Something else' },
+] as const;
+export type DisputeReasonValue = (typeof DISPUTE_REASONS)[number]['value'];
+
+export const RESOLUTION_REASONS = [
+  { value: 'WORK_MATCHES_BRIEF', label: 'Work matches the brief' },
+  { value: 'BRIEF_NOT_FOLLOWED', label: 'Brief not followed' },
+  { value: 'QUALITY_BELOW_STANDARD', label: 'Quality below standard' },
+  { value: 'WORK_NOT_DELIVERED', label: 'Work not delivered' },
+  { value: 'DELIVERED_LATE', label: 'Delivered late' },
+  { value: 'POST_TAKEN_DOWN', label: 'Post taken down' },
+  { value: 'CREATOR_UNRESPONSIVE', label: 'Creator did not respond' },
+  { value: 'BRAND_UNRESPONSIVE', label: 'Brand did not respond' },
+  { value: 'SETTLED_BY_PARTIES', label: 'Settled between the two sides' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+
+export const disputeRequestSchema = noteRequestSchema.extend({
+  reasonCode: z.enum(DISPUTE_REASONS.map((r) => r.value) as [DisputeReasonValue, ...DisputeReasonValue[]]).default('OTHER'),
+});
+
+/** v3.3: promo code as typed at checkout (case-insensitive). */
+export const promoCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .max(20, { error: 'Codes are at most 20 characters.' })
+  .regex(/^[A-Z0-9]*$/, { error: 'Use letters and numbers only.' });
+
+export const disputeResponseSchema = z.object({
+  response: z.string().trim().min(20, { error: 'Explain your side in at least 20 characters.' }).max(2000, { error: 'Use at most 2000 characters.' }),
+});
+
+export const disputeEvidenceSchema = z
+  .object({
+    kind: z.enum(['FILE', 'LINK']),
+    url: z.string().trim().min(1, { error: 'Add a file or a link.' }).max(15_000_000),
+    name: z.string().trim().max(200).nullable().optional(),
+    note: z.string().trim().max(500, { error: 'Use at most 500 characters.' }).nullable().optional(),
+  })
+  .refine((v) => v.kind !== 'LINK' || /^https:\/\/[^\s]+\.[^\s]+/.test(v.url), { error: 'Use a full https:// link.', path: ['url'] });
+
 export const reviewRequestSchema = z.object({
   rating: z.number({ error: 'Choose a rating.' }).int().min(1, { error: 'Choose 1 to 5 stars.' }).max(5, { error: 'Choose 1 to 5 stars.' }),
   comment: z.string().trim().max(1000, { error: 'Use at most 1000 characters.' }).nullable().optional(),
@@ -138,6 +194,8 @@ export const quoteQuerySchema = z
     creatorUsername: z.string().trim().toLowerCase().min(1).optional(),
     priceCents: z.coerce.number().int().min(MIN_PRICE_CENTS, { error: 'The minimum price is ₹500.' }).max(MAX_PRICE_CENTS).optional(),
     addonIds: z.string().max(400).optional(),
+    promoCode: z.string().trim().max(20).optional(),
+    useCredits: z.enum(['true', 'false']).optional(),
   })
   .refine((q) => !!q.packageId || (!!q.creatorUsername && q.priceCents !== undefined), {
     error: 'Send a packageId, or a creatorUsername with a priceCents.',

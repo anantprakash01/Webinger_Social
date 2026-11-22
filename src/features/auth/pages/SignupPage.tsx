@@ -3,7 +3,10 @@ import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LuBriefcase, LuCircleAlert, LuSparkles } from 'react-icons/lu';
+import { LuBriefcase, LuCircleAlert, LuGift, LuSparkles } from 'react-icons/lu';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/api/client';
+import { formatMoney } from '@/lib/money';
 import { homePath } from '@/app/AuthContext';
 import { Button, FormError, Input } from '@/components/ui';
 import { applyServerErrors } from '@/lib/forms';
@@ -31,8 +34,11 @@ export function SignupPage() {
 
   const { register, handleSubmit, control, setError, getValues, trigger, formState } = useForm<SignupForm>({
     resolver: zodResolver(signupFormSchema),
-    defaultValues: { role: roleFromQuery(params.get('role')), name: '', email: '', password: '', acceptTerms: false as unknown as true },
+    defaultValues: { role: roleFromQuery(params.get('role')), name: '', email: '', password: '', acceptTerms: false as unknown as true, referralCode: (params.get('ref') ?? '').toUpperCase().slice(0, 20) },
   });
+  // v3.3: "invited by" banner for links like /signup?role=brand&ref=MAYA7K2Q.
+  const refParam = params.get('ref');
+  const invite = useQuery({ queryKey: ['referrals', 'invite', refParam], queryFn: () => api.referrals.invite(refParam!), enabled: !!refParam, retry: false });
   const { errors } = formState;
   const password = useWatch({ control, name: 'password' }) ?? '';
   const role = useWatch({ control, name: 'role' });
@@ -40,10 +46,10 @@ export function SignupPage() {
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
     try {
-      await registerUser.mutateAsync(v);
+      await registerUser.mutateAsync({ ...v, referralCode: v.referralCode || null });
       navigate('/verify-email', { replace: true });
     } catch (e) {
-      setFormError(applyServerErrors(e, setError, ['role', 'name', 'email', 'password', 'acceptTerms']));
+      setFormError(applyServerErrors(e, setError, ['role', 'name', 'email', 'password', 'acceptTerms', 'referralCode']));
     }
   });
 
@@ -68,6 +74,16 @@ export function SignupPage() {
       tagline={creator ? t('List your packages, accept orders, and get paid as soon as the brand approves.') : undefined}
     >
       <form className="auth__form" onSubmit={onSubmit} noValidate>
+        {invite.data && (
+          <div className="note note--info small" role="status">
+            <LuGift aria-hidden />{' '}
+            <span>
+              {invite.data.welcomeCreditCents > 0
+                ? t('{name} invited you. Sign up as a brand and get {amount} off your first booking.', { name: invite.data.referrerName, amount: formatMoney(invite.data.welcomeCreditCents) })
+                : t('{name} invited you to join as a creator.', { name: invite.data.referrerName })}
+            </span>
+          </div>
+        )}
         <div>
           <h2>{t('Create your account')}</h2>
           <p className="muted small">
@@ -102,6 +118,7 @@ export function SignupPage() {
         <Input label={t(creator ? 'Your name' : 'Your full name')} autoComplete="name" error={errors.name?.message && t(errors.name.message)} {...register('name')} />
         <Input label={t(creator ? 'Email' : 'Work email')} type="email" autoComplete="email" inputMode="email" error={errors.email?.message && t(errors.email.message)} {...register('email')} />
         <PasswordField label={t('Password')} autoComplete="new-password" error={errors.password?.message && t(errors.password.message)} rulesFor={password} {...register('password')} />
+        <Input label={t('Referral code (optional)')} autoComplete="off" maxLength={20} error={errors.referralCode?.message && t(errors.referralCode.message)} {...register('referralCode')} />
 
         <div className="field">
           <label className="check small">

@@ -2,8 +2,8 @@
 import { toast } from '@/components/feedback';
 import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, newIdempotencyKey } from '@/api/client';
-import type { DeliverRequest, OrderBrief, OrderCreateRequest, OrderDetail, PostMetricsInput, ReviewRequest } from '@/types';
+import { api, newIdempotencyKey, type QuoteQuery } from '@/api/client';
+import type { DeliverRequest, DisputeEvidenceInput, DisputeReasonCode, OrderBrief, OrderCreateRequest, OrderDetail, PostMetricsInput, ReviewRequest } from '@/types';
 
 export const orderKeys = {
   all: ['orders'] as const,
@@ -17,7 +17,7 @@ export const useOrders = (status: string, page: number) =>
 
 export const useOrder = (id: string) => useQuery({ queryKey: orderKeys.detail(id), queryFn: () => api.orders.get(id) });
 
-export const useOrderQuote = (q: { packageId?: string; creatorUsername?: string; priceCents?: number; addonIds?: string }, enabled = true) =>
+export const useOrderQuote = (q: QuoteQuery, enabled = true) =>
   useQuery({ queryKey: orderKeys.quote(q), queryFn: () => api.orders.quote(q), enabled, placeholderData: keepPreviousData, retry: false });
 
 /**
@@ -61,7 +61,7 @@ export type OrderActionInput =
   | { type: 'decline'; reason: string | null }
   | { type: 'cancel'; reason: string | null }
   | { type: 'request-revision'; note: string }
-  | { type: 'dispute'; note: string }
+  | { type: 'dispute'; note: string; reasonCode?: DisputeReasonCode }
   | { type: 'deliver'; body: DeliverRequest };
 
 const ACTION_DONE: Record<OrderActionInput['type'], string> = {
@@ -92,7 +92,7 @@ export function useOrderAction(id: string) {
         case 'request-revision':
           return api.orders.requestRevision(id, a.note, k);
         case 'dispute':
-          return api.orders.dispute(id, a.note, k);
+          return api.orders.dispute(id, a.note, k, a.reasonCode);
         case 'deliver':
           return api.orders.deliver(id, a.body, k);
       }
@@ -105,6 +105,15 @@ export function useOrderAction(id: string) {
     // A 409 means the order moved on (e.g. auto-approved meanwhile): show the fresh state.
     onError: () => refresh(),
   });
+}
+
+/** v3.1: the creator's response to a dispute and evidence from either side (no money moves). */
+export function useDisputeActions(id: string) {
+  const refresh = useRefreshOrders();
+  return {
+    respond: useMutation({ mutationFn: (response: string) => api.orders.respondToDispute(id, response), onSuccess: (d) => refresh(d), onError: () => refresh() }),
+    addEvidence: useMutation({ mutationFn: (body: DisputeEvidenceInput) => api.orders.addDisputeEvidence(id, body), onSuccess: (d) => refresh(d), onError: () => refresh() }),
+  };
 }
 
 export function useUpdateBrief(id: string) {

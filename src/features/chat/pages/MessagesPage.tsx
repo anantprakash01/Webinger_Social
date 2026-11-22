@@ -36,7 +36,7 @@ export function MessagesPage() {
           ) : list.isPending ? (
             <div className="skeleton" style={{ height: 240 }} />
           ) : list.data.content.length === 0 ? (
-            <EmptyState title="No conversations yet">Every order gets its own chat with the other side.</EmptyState>
+            <EmptyState title="No conversations yet">Every order gets its own chat with the other side. Brands can also message a creator from their profile before booking.</EmptyState>
           ) : (
             <ul className="convs">
               {list.data.content.map((c) => (
@@ -78,10 +78,10 @@ function ConversationRow({ c, active }: { c: Conversation; active: boolean }) {
         <CreatorPhoto name={c.counterparty.name} url={c.counterparty.photoUrl} seed={c.counterparty.username ?? c.counterparty.name} size={40} className="order__photo" />
         <span className="conv__main">
           <span className="conv__top">
-            <span className="conv__name">{c.orderTitle}</span>
+            <span className="conv__name">{c.kind === 'INQUIRY' ? c.counterparty.name : c.orderTitle}</span>
             {c.lastMessage && <span className="conv__time">{timeLabel(c.lastMessage.createdAt)}</span>}
           </span>
-          <span className="conv__order">{c.counterparty.name}</span>
+          <span className="conv__order">{c.kind === 'INQUIRY' ? 'Before booking' : c.counterparty.name}</span>
           <span className="conv__last">{c.lastMessage ? `${c.lastMessage.mine ? 'You: ' : ''}${c.lastMessage.body}` : 'No messages yet'}</span>
         </span>
         {c.unreadCount > 0 && (
@@ -107,7 +107,8 @@ function Thread({ c }: { c: Conversation }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const count = msgs.data?.messages.length ?? 0;
-  const orderPath = `/${user?.role === 'CREATOR' ? 'creator' : 'brand'}/orders/${c.orderId}`;
+  const orderPath = c.orderId ? `/${user?.role === 'CREATOR' ? 'creator' : user?.role === 'ADMIN' ? 'admin' : 'brand'}/orders/${c.orderId}` : null;
+  const creatorName = c.counterparty.name.split(' ')[0];
 
   // Opening a thread (or new messages arriving in it) marks it read.
   const { mutate: markReadMutate } = markRead;
@@ -160,17 +161,48 @@ function Thread({ c }: { c: Conversation }) {
         <CreatorPhoto name={c.counterparty.name} url={c.counterparty.photoUrl} seed={c.counterparty.username ?? c.counterparty.name} size={36} className="order__photo" />
         <div className="thread__who">
           <div className="list__title">{c.counterparty.name}</div>
-          <Link to={orderPath} className="list__meta link">
-            {c.orderTitle}
-          </Link>
+          {orderPath ? (
+            <Link to={orderPath} className="list__meta link">
+              {c.orderTitle}
+            </Link>
+          ) : c.counterparty.username ? (
+            <Link to={`/u/${c.counterparty.username}`} className="list__meta link">
+              Before booking · view profile
+            </Link>
+          ) : (
+            <span className="list__meta">Before booking</span>
+          )}
         </div>
-        <OrderStatusBadge status={c.orderStatus} />
+        {c.orderStatus ? <OrderStatusBadge status={c.orderStatus} /> : <Badge>Inquiry</Badge>}
       </header>
+
+      {c.kind === 'INQUIRY' && user?.role === 'BRAND' && c.counterparty.username && (
+        <div className="thread__book">
+          <span className="small">Agreed on the details? Book so the work and payment are protected.</span>
+          <span className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <Link to={`/u/${c.counterparty.username}#packages-h`} className="btn btn--secondary btn--sm">
+              See packages
+            </Link>
+            <Link to={`/checkout/offer/${c.counterparty.username}`} className="btn btn--primary btn--sm">
+              Send {creatorName} an offer
+            </Link>
+          </span>
+        </div>
+      )}
+      {c.kind === 'INQUIRY' && user?.role === 'CREATOR' && (
+        <div className="thread__book">
+          <span className="small">This brand hasn’t booked yet. Answer their questions here; they can book one of your packages or send you a custom offer.</span>
+        </div>
+      )}
 
       {c.contactsHidden && (
         <div className="thread__notice" role="note">
           <LuEyeOff aria-hidden />
-          <span>Email addresses and phone numbers are hidden until the order is completed. Keep payments on the platform so they stay protected by escrow.</span>
+          <span>
+            {c.kind === 'INQUIRY'
+              ? 'Email addresses and phone numbers are hidden. Book through the platform so your payment is held in escrow.'
+              : 'Email addresses and phone numbers are hidden until the order is completed. Keep payments on the platform so they stay protected by escrow.'}
+          </span>
         </div>
       )}
 

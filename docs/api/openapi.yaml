@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.6.0
+  version: 3.4.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -543,12 +543,104 @@ paths:
         - { name: creatorUsername, in: query, schema: { type: string } }
         - { name: priceCents, in: query, schema: { type: integer, minimum: 1000 } }
         - { name: addonIds, in: query, description: 'Comma-separated package add-on ids (v2.4).', schema: { type: string } }
+        - { name: promoCode, in: query, description: 'A promo code to apply (v3.3). An invalid code answers 422 with a field error on promoCode.', schema: { type: string } }
+        - { name: useCredits, in: query, description: 'Apply the brand''s referral credits (v3.3).', schema: { type: boolean } }
       responses:
         '200': { description: The quote., content: { application/json: { schema: { $ref: '#/components/schemas/OrderQuote' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /referrals/{code}:
+    get:
+      tags: [Referrals]
+      summary: Who invited you (public, for the sign-up page) (v3.3)
+      operationId: getReferralInvite
+      parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ReferralInvite' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /me/referrals:
+    get:
+      tags: [Referrals]
+      summary: Your referral code, the people you invited, and (brands) your credits (v3.3)
+      description: |
+        Brands invite brands: the new brand gets ₹500 credit at sign-up; you get ₹1,000 credit when their first order is completed.
+        Creators invite creators: you get a ₹500 bonus in your balance when their first order is completed.
+        Credits are promotional: they only reduce the price of orders, cannot be bought, withdrawn or transferred.
+      operationId: getMyReferrals
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ReferralOverview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/finance:
+    get:
+      tags: [Admin]
+      summary: Finance dashboard — money through the platform, balances, payouts needing attention, reconciliation (v3.4)
+      description: |
+        Figures come from the double-entry ledger. Flows are for the period (`days`, default 30); balances are as of now.
+        Reconciliation compares the ledger with payment, payout and subscription records (the backend also compares them
+        with Razorpay's settlement and payout reports in the hourly reconciliation job).
+      operationId: getFinanceOverview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FinanceOverview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/payouts/{id}/retry:
+    post:
+      tags: [Admin]
+      summary: Send a failed payout again to the creator's current payout account (v3.4)
+      description: "Only FAILED payouts, once (409 NOT_FAILED / ALREADY_RETRIED), and only to a VERIFIED account (409 PAYOUT_ACCOUNT_NOT_VERIFIED). The money went back to the creator's balance when the payout failed; the retry takes it out again."
+      operationId: retryPayout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: The new payout., content: { application/json: { schema: { $ref: '#/components/schemas/Payout' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/promo-codes:
+    get:
+      tags: [Admin]
+      summary: Promo codes with their use (v3.3)
+      operationId: listPromoCodes
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { type: object, required: [content], properties: { content: { type: array, items: { $ref: '#/components/schemas/PromoCode' } } } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admin]
+      summary: Create a promo code (platform-funded discount for brands) (v3.3)
+      operationId: createPromoCode
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PromoCodeInput' } } } }
+      responses:
+        '201': { description: Created., content: { application/json: { schema: { $ref: '#/components/schemas/PromoCode' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /admin/promo-codes/{id}:
+    patch:
+      tags: [Admin]
+      summary: Turn a promo code on or off (v3.3)
+      operationId: updatePromoCode
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [active], properties: { active: { type: boolean } } } } } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/PromoCode' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /orders:
     post:
@@ -704,15 +796,47 @@ paths:
     post:
       tags: [Orders]
       summary: Brand opens a dispute (FR-35)
-      description: DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81).
+      description: "DELIVERED → DISPUTED within the review window. Money stays in escrow until an admin decides (FR-81). v3.1: an optional `reasonCode`; the creator then has 48 hours to respond."
       operationId: disputeOrder
       security: [{ bearerAuth: [] }]
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NoteRequest' } } } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DisputeRequest' } } } }
       responses:
         '200': { description: The order after the change., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/dispute/response:
+    post:
+      tags: [Orders]
+      summary: Creator answers a dispute (v3.1)
+      description: Once, within 48 hours of the dispute being opened (409 ALREADY_RESPONDED, RESPONSE_WINDOW_PASSED). Shown to the brand and the admin.
+      operationId: respondToDispute
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DisputeResponseInput' } } } }
+      responses:
+        '200': { description: The order., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /orders/{id}/dispute/evidence:
+    post:
+      tags: [Orders]
+      summary: Brand or creator adds evidence to an open dispute (v3.1)
+      description: "A file (image or PDF, uploaded with presign purpose DISPUTE_EVIDENCE) or a link, with an optional note. Up to 5 items per side (409 EVIDENCE_LIMIT); only while the dispute is open (409 DISPUTE_RESOLVED)."
+      operationId: addDisputeEvidence
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DisputeEvidenceInput' } } } }
+      responses:
+        '200': { description: The order., content: { application/json: { schema: { $ref: '#/components/schemas/OrderDetail' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -1117,6 +1241,34 @@ paths:
       responses:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ConversationList' } } } }
 
+  /conversations/inquiries:
+    post:
+      tags: [Chat]
+      summary: Brand messages a creator before booking (v3.0)
+      description: |
+        Opens (or reuses) the brand's pre-booking conversation with an approved creator and sends the first message.
+        Contact details are always masked in inquiries. New inquiries per rolling 30 days are limited by the brand's
+        plan (FREE 5, PRO 50, PREMIUM unlimited); writing in an existing inquiry is not limited. 429 `INQUIRY_LIMIT`.
+      operationId: startInquiry
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InquiryInput' } } } }
+      responses:
+        '201': { description: Opened (or an existing inquiry, with the message added)., content: { application/json: { schema: { $ref: '#/components/schemas/Conversation' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { description: Monthly inquiry limit reached (INQUIRY_LIMIT)., content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+
+  /conversations/inquiries/allowance:
+    get:
+      tags: [Chat]
+      summary: How many new inquiries the brand can still start in the current 30 days
+      operationId: getInquiryAllowance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/InquiryAllowance' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /conversations/{id}/messages:
     get:
       tags: [Chat]
@@ -1251,6 +1403,18 @@ paths:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/AdminDisputeList' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /admin/disputes/report:
+    get:
+      tags: [Admin]
+      summary: Refund-reason log — resolved disputes by outcome and reason (v3.1)
+      operationId: getDisputeReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 90 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/DisputeReport' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /admin/orders/{id}/cancel:
     post:
       tags: [Admin]
@@ -1334,7 +1498,7 @@ paths:
   /admin/fees:
     get:
       tags: [Admin]
-      summary: Current fees and their history (FR-83)
+      summary: Current fees per plan and their history (FR-83, FR-66)
       operationId: getFees
       security: [{ bearerAuth: [] }]
       responses:
@@ -1342,8 +1506,8 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Admin]
-      summary: Change the fees for new orders (FR-83)
-      description: "Takes effect immediately for new orders; existing orders keep the fees copied onto them at checkout."
+      summary: Change one plan's fees for new orders (FR-83)
+      description: "Takes effect immediately for new orders placed by brands on that plan (`plan`, default FREE); existing orders keep the fees copied onto them at checkout."
       operationId: updateFees
       security: [{ bearerAuth: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FeeUpdate' } } } }
@@ -1355,10 +1519,58 @@ paths:
   /fees:
     get:
       tags: [Payouts]
-      summary: The current public fee rates, for explanatory copy in the UI
+      summary: The current public fee rates (Free plan) and the brand plans on offer, for explanatory copy and the pricing page
       operationId: getCurrentFees
       responses:
-        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FeeRates' } } } }
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/PublicFees' } } } }
+
+  /brands/me/subscription:
+    get:
+      tags: [Brands]
+      summary: The brand's plan, billing period and invoices (FR-66, v3.2)
+      operationId: getMySubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Brands]
+      summary: Subscribe, upgrade or schedule a downgrade (FR-66, v3.2)
+      description: |
+        A higher plan (or another billing cycle) starts now and is paid now: open a payment session with purpose SUBSCRIPTION
+        for `priceCents + gstCents` from `GET /fees`, pay it, and send the proof as `payment`. No proration in MVP: the new
+        period starts today. A lower plan is scheduled for the end of the current period (no payment). Renewals charge the
+        saved method automatically (Razorpay Subscriptions). GST 18% (CGST + SGST or IGST by the brand's state).
+      operationId: changeMySubscription
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionRequest' } } } }
+      responses:
+        '200': { description: The subscription after the change., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '402': { description: Payment failed (PAYMENT_FAILED)., content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /brands/me/subscription/cancel:
+    post:
+      tags: [Brands]
+      summary: Cancel at the end of the paid period (back to Free then)
+      operationId: cancelMySubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /brands/me/subscription/resume:
+    post:
+      tags: [Brands]
+      summary: Undo a cancellation or a scheduled downgrade before the period ends
+      operationId: resumeMySubscription
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/BrandSubscription' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /admin/audit-logs:
     get:
@@ -2102,6 +2314,7 @@ components:
             vettingStatus:
               $ref: '#/components/schemas/VettingStatus'
               description: Always APPROVED for the public; other values only in an owner or admin preview.
+            myInquiryId: { type: [string, 'null'], description: "The signed-in brand's pre-booking conversation with this creator, if any (v3.0)." }
 
     # ---------- Creator workspace (Week 3) ----------
     CreatorProfileInput:
@@ -2245,7 +2458,7 @@ components:
         logoUrl: { type: [string, 'null'] }
         industry: { oneOf: [{ $ref: '#/components/schemas/BrandIndustry' }, { type: 'null' }] }
         country: { type: [string, 'null'] }
-        plan: { type: string, enum: [FREE], description: Pro / Premium arrive in v2. }
+        plan: { $ref: '#/components/schemas/BrandPlan' }
 
     BrandProfileInput:
       type: object
@@ -2263,9 +2476,9 @@ components:
       type: object
       required: [purpose, fileName, contentType, sizeBytes]
       properties:
-        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE, MESSAGE_ATTACHMENT] }
+        purpose: { type: string, enum: [AVATAR, COVER, PORTFOLIO, BRAND_LOGO, BRIEF_REFERENCE, DELIVERABLE, MESSAGE_ATTACHMENT, DISPUTE_EVIDENCE] }
         fileName: { type: string, maxLength: 200 }
-        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf], description: 'PDF only for MESSAGE_ATTACHMENT (v2.5).' }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf], description: 'PDF only for MESSAGE_ATTACHMENT (v2.5) and DISPUTE_EVIDENCE (v3.1).' }
         sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
 
     PresignResponse:
@@ -2323,8 +2536,15 @@ components:
 
     AdminDispute:
       type: object
-      required: [id, orderId, orderTitle, brand, creator, money, reason, status, openedAt, resolution, refundCents, resolvedAt, resolutionNote]
+      required: [id, orderId, orderTitle, brand, creator, money, reason, status, openedAt, resolution, refundCents, resolvedAt, resolutionNote, reasonCode, respondBy, creatorResponse, respondedAt, evidence, resolutionReason, brandPlan]
       properties:
+        reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+        respondBy: { type: string, format: date-time }
+        creatorResponse: { type: [string, 'null'] }
+        respondedAt: { type: [string, 'null'], format: date-time }
+        evidence: { type: array, items: { $ref: '#/components/schemas/DisputeEvidence' } }
+        resolutionReason: { oneOf: [{ $ref: '#/components/schemas/ResolutionReason' }, { type: 'null' }] }
+        brandPlan: { $ref: '#/components/schemas/BrandPlan', description: Premium brands' disputes are listed first. }
         id: { $ref: '#/components/schemas/Ulid' }
         orderId: { $ref: '#/components/schemas/Ulid' }
         orderTitle: { type: string }
@@ -2345,11 +2565,88 @@ components:
       properties:
         content: { type: array, items: { $ref: '#/components/schemas/AdminDispute' } }
 
+    DisputeReasonCode:
+      type: string
+      description: What the brand says went wrong (v3.1).
+      enum: [NOT_DELIVERED, NOT_AS_BRIEFED, LOW_QUALITY, LATE, POST_REMOVED, OTHER]
+
+    ResolutionReason:
+      type: string
+      description: Why the admin decided as they did — the refund-reason log (v3.1).
+      enum: [WORK_NOT_DELIVERED, BRIEF_NOT_FOLLOWED, QUALITY_BELOW_STANDARD, DELIVERED_LATE, POST_TAKEN_DOWN, WORK_MATCHES_BRIEF, BRAND_UNRESPONSIVE, CREATOR_UNRESPONSIVE, SETTLED_BY_PARTIES, OTHER]
+
+    DisputeRequest:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string, minLength: 10, maxLength: 2000 }
+        reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+
+    DisputeResponseInput:
+      type: object
+      required: [response]
+      properties:
+        response: { type: string, minLength: 20, maxLength: 2000 }
+
+    DisputeEvidenceInput:
+      type: object
+      required: [kind, url]
+      properties:
+        kind: { type: string, enum: [FILE, LINK] }
+        url: { type: string, description: 'https link, or the uploaded file URL.' }
+        name: { type: [string, 'null'], maxLength: 200 }
+        note: { type: [string, 'null'], maxLength: 500 }
+
+    DisputeEvidence:
+      type: object
+      required: [id, by, kind, url, name, note, at]
+      properties:
+        id: { type: string }
+        by: { type: string, enum: [BRAND, CREATOR] }
+        kind: { type: string, enum: [FILE, LINK] }
+        url: { type: string }
+        name: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+
+    DisputeReport:
+      type: object
+      required: [days, resolved, open, released, fullRefunds, partialRefunds, refundedCents, avgHoursToResolve, byReason, byBrandReason]
+      properties:
+        days: { type: integer }
+        resolved: { type: integer }
+        open: { type: integer }
+        released: { type: integer }
+        fullRefunds: { type: integer }
+        partialRefunds: { type: integer }
+        refundedCents: { type: integer, format: int64 }
+        avgHoursToResolve: { type: [number, 'null'] }
+        byReason:
+          type: array
+          description: Resolved disputes by the admin's reason, most frequent first.
+          items:
+            type: object
+            required: [reason, count, refundedCents]
+            properties:
+              reason: { $ref: '#/components/schemas/ResolutionReason' }
+              count: { type: integer }
+              refundedCents: { type: integer, format: int64 }
+        byBrandReason:
+          type: array
+          description: Disputes opened in the period by the brand's reason.
+          items:
+            type: object
+            required: [reasonCode, count]
+            properties:
+              reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+              count: { type: integer }
+
     ResolveDisputeRequest:
       type: object
-      required: [resolution, note]
+      required: [resolution, note, resolutionReason]
       properties:
         resolution: { type: string, enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND] }
+        resolutionReason: { $ref: '#/components/schemas/ResolutionReason' }
         refundCents: { type: [integer, 'null'], format: int64, description: Required for PARTIAL_REFUND. }
         note: { type: string, minLength: 10, maxLength: 1000, description: Shown to both sides and kept in the audit log. }
 
@@ -2387,7 +2684,7 @@ components:
       type: object
       required: [plan, brandFeeBps, creatorFeeBps]
       properties:
-        plan: { type: string, enum: [FREE] }
+        plan: { $ref: '#/components/schemas/BrandPlan' }
         brandFeeBps: { type: integer, minimum: 0, maximum: 3000 }
         creatorFeeBps: { type: integer, minimum: 0, maximum: 3000 }
 
@@ -2402,21 +2699,165 @@ components:
 
     FeeSettings:
       type: object
-      required: [current, history]
+      required: [current, plans, history]
       properties:
-        current: { $ref: '#/components/schemas/FeeConfigEntry' }
+        current: { $ref: '#/components/schemas/FeeConfigEntry', description: The Free plan's fees. }
+        plans: { type: array, description: 'Current fees for FREE, PRO and PREMIUM (v3.2).', items: { $ref: '#/components/schemas/FeeConfigEntry' } }
         history: { type: array, description: Newest first., items: { $ref: '#/components/schemas/FeeConfigEntry' } }
+
+    PlanOffer:
+      type: object
+      required: [plan, name, tagline, monthlyCents, yearlyCents, gstBps, brandFeeBps, creatorFeeBps, inquiryLimit, features]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        name: { type: string }
+        tagline: { type: string }
+        monthlyCents: { type: integer, format: int64, description: Excluding GST. 0 for Free. }
+        yearlyCents: { type: integer, format: int64, description: Excluding GST (two months free). }
+        gstBps: { type: integer, examples: [1800] }
+        brandFeeBps: { type: integer, description: Service fee on orders for brands on this plan. }
+        creatorFeeBps: { type: integer }
+        inquiryLimit: { type: [integer, 'null'], description: 'New pre-booking conversations per 30 days; null = unlimited.' }
+        features: { type: array, items: { type: string } }
+
+    PublicFees:
+      allOf:
+        - $ref: '#/components/schemas/FeeRates'
+        - type: object
+          required: [plans]
+          properties:
+            plans: { type: array, items: { $ref: '#/components/schemas/PlanOffer' } }
+
+    BillingCycle:
+      type: string
+      enum: [MONTHLY, YEARLY]
+
+    SubscriptionRequest:
+      type: object
+      required: [plan, cycle]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        cycle: { $ref: '#/components/schemas/BillingCycle' }
+        payment: { oneOf: [{ $ref: '#/components/schemas/OrderPaymentInput' }, { type: 'null' }], description: Required when the change is paid now. }
+
+    SubscriptionInvoice:
+      type: object
+      required: [id, number, plan, cycle, periodStart, periodEnd, priceCents, gstCents, totalCents, intraState, methodLabel, kind, createdAt]
+      properties:
+        id: { type: string }
+        number: { type: string, examples: ['WC/2026-27/S0001'] }
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        cycle: { $ref: '#/components/schemas/BillingCycle' }
+        periodStart: { type: string, format: date-time }
+        periodEnd: { type: string, format: date-time }
+        priceCents: { type: integer, format: int64 }
+        gstCents: { type: integer, format: int64 }
+        totalCents: { type: integer, format: int64 }
+        intraState: { type: boolean }
+        methodLabel: { type: string }
+        kind: { type: string, enum: [NEW, UPGRADE, RENEWAL] }
+        createdAt: { type: string, format: date-time }
+
+    BrandSubscription:
+      type: object
+      required: [plan, cycle, status, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, nextPlan, nextCycle, renewalCents, methodLabel, brandFeeBps, inquiries, invoices]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        cycle: { oneOf: [{ $ref: '#/components/schemas/BillingCycle' }, { type: 'null' }] }
+        status: { type: string, enum: [FREE, ACTIVE, CANCELLING], description: 'CANCELLING: paid until the period ends, then Free.' }
+        currentPeriodStart: { type: [string, 'null'], format: date-time }
+        currentPeriodEnd: { type: [string, 'null'], format: date-time }
+        cancelAtPeriodEnd: { type: boolean }
+        nextPlan: { oneOf: [{ $ref: '#/components/schemas/BrandPlan' }, { type: 'null' }], description: A downgrade scheduled for the end of the period. }
+        nextCycle: { oneOf: [{ $ref: '#/components/schemas/BillingCycle' }, { type: 'null' }] }
+        renewalCents: { type: [integer, 'null'], format: int64, description: 'What the next renewal charges, incl. GST; null when nothing renews.' }
+        methodLabel: { type: [string, 'null'] }
+        brandFeeBps: { type: integer, description: The service fee the brand pays on new orders now. }
+        inquiries: { $ref: '#/components/schemas/InquiryAllowance' }
+        invoices: { type: array, description: Newest first., items: { $ref: '#/components/schemas/SubscriptionInvoice' } }
 
     FeeUpdate:
       type: object
       required: [brandFeeBps, creatorFeeBps]
       properties:
+        plan: { $ref: '#/components/schemas/BrandPlan', description: 'Default FREE (v3.2).' }
         brandFeeBps: { type: integer, minimum: 0, maximum: 3000, description: 'Basis points: 1000 = 10%. At most 30%.' }
         creatorFeeBps: { type: integer, minimum: 0, maximum: 3000 }
 
     AuditAction:
       type: string
-      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT, ORDER_CANCELLED, ACCOUNT_DELETION_REQUESTED]
+      enum: [CREATOR_APPROVED, CREATOR_REJECTED, DISPUTE_RESOLVED, USER_STATUS_CHANGED, IMPERSONATION_STARTED, FEES_CHANGED, REPORT_RESOLVED, MONEY_MOVEMENT, PAYOUT_SENT, ORDER_CANCELLED, ACCOUNT_DELETION_REQUESTED, PROMO_CHANGED, PAYOUT_RETRIED]
+
+    PromoCodeInput:
+      type: object
+      required: [code, description, kind]
+      properties:
+        code: { type: string, pattern: '^[A-Z0-9]{4,20}$' }
+        description: { type: string, minLength: 3, maxLength: 120 }
+        kind: { type: string, enum: [PERCENT, FLAT] }
+        percentBps: { type: [integer, 'null'], minimum: 100, maximum: 5000, description: 'PERCENT: share of the order price.' }
+        flatCents: { type: [integer, 'null'], format: int64, minimum: 1000 }
+        maxDiscountCents: { type: [integer, 'null'], format: int64 }
+        minOrderCents: { type: [integer, 'null'], format: int64, description: Minimum order price (before fees). }
+        firstOrderOnly: { type: boolean }
+        maxRedemptions: { type: [integer, 'null'], minimum: 1, description: 'Total uses across all brands; null = no cap.' }
+        validUntil: { type: [string, 'null'], format: date, description: 'Last day the code works (inclusive).' }
+
+    PromoCode:
+      allOf:
+        - $ref: '#/components/schemas/PromoCodeInput'
+        - type: object
+          required: [id, active, redemptions, discountGivenCents, createdAt, status]
+          properties:
+            id: { type: string }
+            active: { type: boolean }
+            status: { type: string, enum: [ACTIVE, PAUSED, EXPIRED, USED_UP] }
+            redemptions: { type: integer, description: Orders that used it (not counting released ones). }
+            discountGivenCents: { type: integer, format: int64 }
+            createdAt: { type: string, format: date-time }
+
+    ReferralInvite:
+      type: object
+      required: [code, referrerName, role, welcomeCreditCents]
+      properties:
+        code: { type: string }
+        referrerName: { type: string }
+        role: { $ref: '#/components/schemas/SignupRole' }
+        welcomeCreditCents: { type: integer, format: int64, description: Credit the new account gets (brands); 0 for creators. }
+
+    CreditEntry:
+      type: object
+      required: [id, deltaCents, reason, note, orderId, createdAt]
+      properties:
+        id: { type: string }
+        deltaCents: { type: integer, format: int64, description: '+ granted, − used.' }
+        reason: { type: string, enum: [REFERRAL_WELCOME, REFERRAL_REWARD, ORDER_USED, ORDER_RETURNED, ADMIN_GRANT] }
+        note: { type: string }
+        orderId: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    ReferralOverview:
+      type: object
+      required: [code, shareUrl, role, refereeRewardCents, referrerRewardCents, referred, creditBalanceCents, credits, earnedCents]
+      properties:
+        code: { type: string, examples: [MAYA7K2Q] }
+        shareUrl: { type: string }
+        role: { $ref: '#/components/schemas/SignupRole' }
+        refereeRewardCents: { type: integer, format: int64 }
+        referrerRewardCents: { type: integer, format: int64 }
+        referred:
+          type: array
+          items:
+            type: object
+            required: [name, joinedAt, status, rewardCents]
+            properties:
+              name: { type: string }
+              joinedAt: { type: string, format: date-time }
+              status: { type: string, enum: [JOINED, REWARDED] }
+              rewardCents: { type: [integer, 'null'], format: int64 }
+        creditBalanceCents: { type: integer, format: int64, description: Brands only; 0 for creators. }
+        credits: { type: array, description: Newest first (brands)., items: { $ref: '#/components/schemas/CreditEntry' } }
+        earnedCents: { type: integer, format: int64, description: Total referral rewards so far. }
 
     AdminCancelResult:
       type: object
@@ -2522,9 +2963,94 @@ components:
         feeCents: { type: integer, format: int64, description: Instant payout fee; the creator receives amount − fee. }
         speed: { type: string, enum: [SCHEDULED, STANDARD, INSTANT] }
         destinationLabel: { type: string, examples: ['HDFC Bank •••• 4321'] }
-        status: { type: string, enum: [IN_TRANSIT, PAID] }
+        status: { type: string, enum: [IN_TRANSIT, PAID, FAILED], description: 'FAILED (v3.4): the bank rejected it; the money is back in the balance.' }
         createdAt: { type: string, format: date-time }
         arrivalDate: { type: string, format: date-time }
+        failureReason: { type: [string, 'null'], description: 'v3.4.' }
+
+    FinanceOverview:
+      type: object
+      required: [days, from, to, flows, balances, byMonth, payoutsNeedingAttention, inTransit, reconciliation]
+      properties:
+        days: { type: integer }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        flows:
+          type: object
+          description: Money that moved in the period.
+          required: [gmvCents, ordersCaptured, subscriptionsCents, platformRevenueCents, refundsCents, promotionsCents, gstCollectedCents, taxWithheldCents, paidOutCents, payoutFeesCents]
+          properties:
+            gmvCents: { type: integer, format: int64, description: 'Order totals captured (brand payments + platform-funded discounts).' }
+            ordersCaptured: { type: integer }
+            subscriptionsCents: { type: integer, format: int64, description: Plan charges incl. GST. }
+            platformRevenueCents: { type: integer, format: int64, description: 'Fees, plan prices and instant-payout fees earned (excl. GST).' }
+            refundsCents: { type: integer, format: int64, description: Back to brands' payment methods. }
+            promotionsCents: { type: integer, format: int64, description: 'Promo codes, credits and referral bonuses paid for by the platform (net of returns).' }
+            gstCollectedCents: { type: integer, format: int64 }
+            taxWithheldCents: { type: integer, format: int64, description: TDS and TCS withheld from creators. }
+            paidOutCents: { type: integer, format: int64, description: Sent to creators' banks (after instant fees). }
+            payoutFeesCents: { type: integer, format: int64 }
+        balances:
+          type: object
+          description: As of now.
+          required: [escrowCents, creatorBalancesCents, gstPayableCents, taxWithheldCents, authorisedHoldsCents]
+          properties:
+            escrowCents: { type: integer, format: int64, description: Held for accepted orders not yet approved or refunded. }
+            creatorBalancesCents: { type: integer, format: int64, description: Owed to creators (released, not yet paid out). }
+            gstPayableCents: { type: integer, format: int64 }
+            taxWithheldCents: { type: integer, format: int64, description: TDS/TCS to deposit with the government. }
+            authorisedHoldsCents: { type: integer, format: int64, description: Payments authorised on orders waiting for acceptance (not captured). }
+        byMonth:
+          type: array
+          description: Last 6 months, oldest first.
+          items:
+            type: object
+            required: [month, gmvCents, revenueCents, refundsCents]
+            properties:
+              month: { type: string, examples: ['2026-11'] }
+              gmvCents: { type: integer, format: int64 }
+              revenueCents: { type: integer, format: int64 }
+              refundsCents: { type: integer, format: int64 }
+        payoutsNeedingAttention:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Payout'
+              - type: object
+                required: [creatorName, creatorUsername, accountStatus, retriedAs]
+                properties:
+                  creatorName: { type: string }
+                  creatorUsername: { type: [string, 'null'] }
+                  accountStatus: { type: [string, 'null'], enum: [VERIFYING, VERIFIED, FAILED, null] }
+                  retriedAs: { type: [string, 'null'], description: The payout that retried this one. }
+        inTransit: { type: object, required: [count, cents], properties: { count: { type: integer }, cents: { type: integer, format: int64 } } }
+        reconciliation:
+          type: object
+          required: [checkedAt, ok, checks, mismatches]
+          properties:
+            checkedAt: { type: string, format: date-time }
+            ok: { type: boolean }
+            checks:
+              type: array
+              items:
+                type: object
+                required: [id, label, ok, detail]
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  ok: { type: boolean }
+                  detail: { type: string }
+            mismatches:
+              type: array
+              items:
+                type: object
+                required: [check, ref, expectedCents, actualCents, note]
+                properties:
+                  check: { type: string }
+                  ref: { type: string }
+                  expectedCents: { type: integer, format: int64 }
+                  actualCents: { type: integer, format: int64 }
+                  note: { type: string }
 
     PayoutOverview:
       type: object
@@ -2559,7 +3085,7 @@ components:
       type: object
       required: [purpose, amountCents]
       properties:
-        purpose: { type: string, enum: [ORDER] }
+        purpose: { type: string, enum: [ORDER, SUBSCRIPTION] }
         amountCents: { type: integer, format: int64, minimum: 100, description: 'The quoted total (price + brand fee); the server rechecks it when the order is placed.' }
 
     PaymentSession:
@@ -2567,7 +3093,7 @@ components:
       required: [id, purpose, amountCents, currency, razorpayOrderId, razorpayKeyId, expiresAt]
       properties:
         id: { type: string }
-        purpose: { type: string, enum: [ORDER] }
+        purpose: { type: string, enum: [ORDER, SUBSCRIPTION] }
         amountCents: { type: integer, format: int64 }
         currency: { type: string, examples: [INR] }
         razorpayOrderId: { type: string, examples: [order_Mock123] }
@@ -2660,7 +3186,7 @@ components:
 
     CampaignSummary:
       type: object
-      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, myInvite, brandRating, createdAt]
+      required: [id, brand, title, platforms, niches, budgetPerCreatorCents, currency, deadline, status, open, applicationCount, myApplication, myInvite, brandRating, brandPlan, createdAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         brand: { $ref: '#/components/schemas/OrderParty' }
@@ -2676,6 +3202,7 @@ components:
         myApplication: { oneOf: [{ $ref: '#/components/schemas/Application' }, { type: 'null' }], description: "The creator's own application, if any." }
         myInvite: { oneOf: [{ $ref: '#/components/schemas/CampaignInvite' }, { type: 'null' }], description: 'Creators: the invitation to this campaign, if any (v2.5).' }
         brandRating: { $ref: '#/components/schemas/BrandRating' }
+        brandPlan: { $ref: '#/components/schemas/BrandPlan', description: 'Shown to creators as a "Pro brand" / "Premium brand" badge (v3.2).' }
         createdAt: { type: string, format: date-time }
 
     CampaignDetail:
@@ -2767,17 +3294,39 @@ components:
 
     Conversation:
       type: object
-      required: [id, orderId, orderTitle, orderStatus, counterparty, lastMessage, unreadCount, contactsHidden, updatedAt]
+      description: "One per order (FR-50), or a pre-booking inquiry between a brand and a creator (v3.0: kind INQUIRY, orderId and orderStatus null)."
+      required: [id, kind, orderId, orderTitle, orderStatus, counterparty, lastMessage, unreadCount, contactsHidden, updatedAt]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
-        orderId: { $ref: '#/components/schemas/Ulid' }
-        orderTitle: { type: string }
-        orderStatus: { $ref: '#/components/schemas/OrderStatus' }
+        kind: { type: string, enum: [ORDER, INQUIRY] }
+        orderId: { oneOf: [{ $ref: '#/components/schemas/Ulid' }, { type: 'null' }] }
+        orderTitle: { type: string, description: 'The order title, or "Before booking" for inquiries.' }
+        orderStatus: { oneOf: [{ $ref: '#/components/schemas/OrderStatus' }, { type: 'null' }] }
         counterparty: { $ref: '#/components/schemas/OrderParty' }
         lastMessage: { oneOf: [{ $ref: '#/components/schemas/ChatMessage' }, { type: 'null' }] }
         unreadCount: { type: integer }
         contactsHidden: { type: boolean }
         updatedAt: { type: string, format: date-time }
+
+    InquiryInput:
+      type: object
+      required: [creatorUsername, body]
+      properties:
+        creatorUsername: { type: string }
+        body: { type: string, minLength: 10, maxLength: 2000 }
+
+    InquiryAllowance:
+      type: object
+      required: [plan, used, limit, resetsAt]
+      properties:
+        plan: { $ref: '#/components/schemas/BrandPlan' }
+        used: { type: integer, description: New inquiries started in the last 30 days. }
+        limit: { type: [integer, 'null'], description: 'Null = unlimited.' }
+        resetsAt: { type: [string, 'null'], format: date-time, description: When the oldest counted inquiry stops counting. }
+
+    BrandPlan:
+      type: string
+      enum: [FREE, PRO, PREMIUM]
 
     ConversationList:
       type: object
@@ -2789,7 +3338,7 @@ components:
     # ---------- Notifications (Week 5) ----------
     NotificationType:
       type: string
-      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT, CAMPAIGN_INVITE]
+      enum: [ORDER_EVENT, NEW_APPLICATION, APPLICATION_ACCEPTED, APPLICATION_REJECTED, PROFILE_APPROVED, PROFILE_REJECTED, PAYOUT_SENT, CAMPAIGN_INVITE, NEW_INQUIRY, DISPUTE_UPDATE, PLAN_CHANGED, REFERRAL_REWARD]
 
     Notification:
       type: object
@@ -2870,7 +3419,7 @@ components:
     OrderAction:
       type: string
       description: What the viewer may do now. The UI offers only these; the server checks again.
-      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY, ADMIN_CANCEL]
+      enum: [ACCEPT, DECLINE, CANCEL, DELIVER, EDIT_BRIEF, APPROVE, REQUEST_REVISION, DISPUTE, REVIEW, REPLY, ADMIN_CANCEL, DISPUTE_RESPOND, ADD_EVIDENCE]
 
     OrderKind:
       type: string
@@ -2919,11 +3468,23 @@ components:
         brief: { $ref: '#/components/schemas/OrderBrief' }
         payment: { $ref: '#/components/schemas/OrderPaymentInput' }
         addonIds: { type: array, items: { type: string }, description: 'Package add-ons chosen at checkout (v2.4).' }
+        promoCode: { type: [string, 'null'], description: 'v3.3. The payment must then be for amountDueCents from the quote.' }
+        useCredits: { type: boolean, description: 'v3.3: apply referral credits.' }
+
+    OrderDiscount:
+      type: object
+      description: "Platform-funded discount fixed at checkout (v3.3): the brand pays totalCents − promoCents − creditCents; the creator's payout and the fees are unchanged."
+      required: [promoCode, promoCents, creditCents]
+      properties:
+        promoCode: { type: [string, 'null'] }
+        promoCents: { type: integer, format: int64 }
+        creditCents: { type: integer, format: int64 }
 
     OrderCreated:
       type: object
-      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy]
+      required: [orderId, status, priceCents, brandFeeCents, totalCents, currency, acceptBy, paidCents]
       properties:
+        paidCents: { type: integer, format: int64, description: What the brand was charged after discounts (v3.3). }
         orderId: { $ref: '#/components/schemas/Ulid' }
         status: { $ref: '#/components/schemas/OrderStatus' }
         priceCents: { type: integer, format: int64 }
@@ -2934,8 +3495,12 @@ components:
 
     OrderQuote:
       type: object
-      required: [kind, creator, package, priceCents, brandFeeCents, totalCents, brandFeeBps, currency, acceptWindowHours, taxes]
+      required: [kind, creator, package, priceCents, brandFeeCents, totalCents, brandFeeBps, currency, acceptWindowHours, taxes, discount, amountDueCents, creditBalanceCents, promoDescription]
       properties:
+        discount: { $ref: '#/components/schemas/OrderDiscount' }
+        amountDueCents: { type: integer, format: int64, description: 'What the brand pays now: totalCents minus discounts (at least ₹1).' }
+        creditBalanceCents: { type: integer, format: int64, description: "The brand's unused referral credit." }
+        promoDescription: { type: [string, 'null'], examples: ['₹500 off your first order'] }
         kind: { $ref: '#/components/schemas/OrderKind' }
         creator: { $ref: '#/components/schemas/OrderParty' }
         package: { oneOf: [{ $ref: '#/components/schemas/Package' }, { type: 'null' }] }
@@ -2976,8 +3541,10 @@ components:
     OrderMoney:
       type: object
       description: Copied onto the order at checkout; later fee changes never alter it.
-      required: [currency, priceCents, brandFeeCents, totalCents, creatorFeeCents, creatorPayoutCents, taxes]
+      required: [currency, priceCents, brandFeeCents, totalCents, creatorFeeCents, creatorPayoutCents, taxes, discount, paidCents]
       properties:
+        discount: { $ref: '#/components/schemas/OrderDiscount' }
+        paidCents: { type: integer, format: int64, description: 'What the brand paid: totalCents minus discounts (v3.3).' }
         currency: { type: string }
         priceCents: { type: integer, format: int64 }
         brandFeeCents: { type: integer, format: int64 }
@@ -3068,13 +3635,20 @@ components:
 
     DisputeView:
       type: object
-      required: [reason, status, openedAt, resolution, refundCents]
+      required: [reason, status, openedAt, resolution, refundCents, reasonCode, respondBy, creatorResponse, respondedAt, evidence, resolutionReason, resolutionNote]
       properties:
         reason: { type: string }
         status: { type: string, enum: [OPEN, RESOLVED] }
         openedAt: { type: string, format: date-time }
         resolution: { type: [string, 'null'], enum: [RELEASE, FULL_REFUND, PARTIAL_REFUND, null] }
         refundCents: { type: [integer, 'null'] }
+        reasonCode: { $ref: '#/components/schemas/DisputeReasonCode' }
+        respondBy: { type: string, format: date-time, description: The creator's 48-hour window to respond (v3.1). }
+        creatorResponse: { type: [string, 'null'] }
+        respondedAt: { type: [string, 'null'], format: date-time }
+        evidence: { type: array, description: Oldest first., items: { $ref: '#/components/schemas/DisputeEvidence' } }
+        resolutionReason: { oneOf: [{ $ref: '#/components/schemas/ResolutionReason' }, { type: 'null' }] }
+        resolutionNote: { type: [string, 'null'], description: "The admin's explanation, shown to both sides." }
 
     OrderDetail:
       allOf:
@@ -3171,6 +3745,7 @@ components:
           maxLength: 128
           description: At least 8 characters with a letter and a number.
         acceptTerms: { type: boolean, const: true }
+        referralCode: { type: [string, 'null'], description: 'Someone else''s referral code, same role (v3.3).' }
 
     LoginRequest:
       type: object

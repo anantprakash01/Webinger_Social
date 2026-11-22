@@ -114,9 +114,9 @@ describe('chat (FR-50, FR-51)', () => {
     await asLeo();
     const list = await api.chat.conversations();
     const leoOrders = getDb().orders.filter((o) => o.creatorUserId === leoId());
-    expect(list.content.length).toBe(leoOrders.length);
+    expect(list.content.filter((c) => c.kind === 'ORDER').length).toBe(leoOrders.length);
     expect(list.unreadTotal).toBeGreaterThan(0);
-    const other = getDb().conversations.find((c) => !leoOrders.some((o) => o.id === c.orderId))!;
+    const other = getDb().conversations.find((c) => c.orderId !== null && !leoOrders.some((o) => o.id === c.orderId))!;
     await expectError(api.chat.messages(other.id), 404);
   });
 

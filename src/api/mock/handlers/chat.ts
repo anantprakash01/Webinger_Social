@@ -2,14 +2,18 @@
  * Mock for Chat (FR-50, FR-51) and Notifications (FR-52), plus the polling stand-in for STOMP.
  * Contact details are masked before a message is stored while the order is not completed.
  */
-import { markReadSchema, maskContacts, messageInputSchema } from '@/features/chat/schemas';
-import type { AppNotification, ChatMessage, Conversation, ConversationList, MessageList, NotificationPage } from '@/types';
+import { inquiryInputSchema, markReadSchema, maskContacts, messageInputSchema } from '@/features/chat/schemas';
+import { INQUIRY_WINDOW_DAYS, PLANS } from '@/lib/plans';
+import type { AppNotification, ChatMessage, Conversation, ConversationList, InquiryAllowance, MessageList, NotificationPage } from '@/types';
+import { deliver } from '../deliver';
 import { getDb, now, ulid, type ConversationRow, type MessageRow, type NotificationRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
 
 /* ---------- Helpers ---------- */
 
+/** Order conversations take their sides from the order; inquiries (v3.0) store them. */
 function participants(conv: ConversationRow) {
+  if (conv.orderId === null) return { order: null, brandId: conv.brandUserId!, creatorId: conv.creatorUserId! };
   const o = getDb().orders.find((x) => x.id === conv.orderId)!;
   return { order: o, brandId: o.brandUserId, creatorId: o.creatorUserId };
 }
@@ -22,7 +26,8 @@ function myConversation(user: UserRow, id: string): ConversationRow {
   return c;
 }
 
-const contactsHidden = (c: ConversationRow) => participants(c).order.status !== 'COMPLETED';
+/** FR-51: hidden until the order is completed; always hidden in inquiries (no order yet). */
+const contactsHidden = (c: ConversationRow) => participants(c).order?.status !== 'COMPLETED';
 
 function senderName(userId: string) {
   const db = getDb();
@@ -49,7 +54,7 @@ const unreadFor = (c: ConversationRow, viewer: UserRow) => getDb().messages.filt
 function toConversation(c: ConversationRow, viewer: UserRow): Conversation {
   const db = getDb();
   const { order, brandId, creatorId } = participants(c);
-  const info = db.orderInfo.find((i) => i.orderId === order.id)!;
+  const info = order ? db.orderInfo.find((i) => i.orderId === order.id) : null;
   const msgs = db.messages.filter((m) => m.conversationId === c.id);
   const last = msgs[msgs.length - 1];
   const otherId = viewer.id === brandId ? creatorId : brandId;
@@ -57,9 +62,10 @@ function toConversation(c: ConversationRow, viewer: UserRow): Conversation {
   const brand = db.brandProfiles.find((b) => b.userId === otherId);
   return {
     id: c.id,
-    orderId: order.id,
-    orderTitle: info.title,
-    orderStatus: order.status,
+    kind: order ? 'ORDER' : 'INQUIRY',
+    orderId: order?.id ?? null,
+    orderTitle: info?.title ?? 'Before booking',
+    orderStatus: order?.status ?? null,
     counterparty: creator ? { name: creator.displayName, photoUrl: creator.photoUrl, username: creator.username } : { name: brand?.companyName ?? senderName(otherId), photoUrl: brand?.logoUrl ?? null, username: null },
     lastMessage: last ? toMessage(last, viewer) : null,
     unreadCount: unreadFor(c, viewer),
@@ -71,8 +77,68 @@ function toConversation(c: ConversationRow, viewer: UserRow): Conversation {
 function myConversations(user: UserRow) {
   const db = getDb();
   const orderIds = new Set(db.orders.filter((o) => user.role === 'ADMIN' || o.brandUserId === user.id || o.creatorUserId === user.id).map((o) => o.id));
-  return db.conversations.filter((c) => orderIds.has(c.orderId));
+  return db.conversations.filter((c) => (c.orderId === null ? user.role === 'ADMIN' || c.brandUserId === user.id || c.creatorUserId === user.id : orderIds.has(c.orderId)));
 }
+
+/* ---------- Pre-booking inquiries (v3.0) ---------- */
+
+const DAY = 86_400_000;
+
+/** New inquiries the brand started in the rolling window, against its plan's limit. */
+export function inquiryAllowance(user: UserRow): InquiryAllowance {
+  const db = getDb();
+  const plan = db.brandProfiles.find((b) => b.userId === user.id)?.plan ?? 'FREE';
+  const since = new Date(now().getTime() - INQUIRY_WINDOW_DAYS * DAY).toISOString();
+  const counted = db.conversations.filter((c) => c.orderId === null && c.brandUserId === user.id && c.createdAt >= since).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return {
+    plan,
+    used: counted.length,
+    limit: PLANS[plan].inquiryLimit,
+    resetsAt: counted.length ? new Date(new Date(counted[0].createdAt).getTime() + INQUIRY_WINDOW_DAYS * DAY).toISOString() : null,
+  };
+}
+
+/** The brand's inquiry with a creator, if any (shown on the creator's profile). */
+export const inquiryBetween = (brandUserId: string, creatorUserId: string) =>
+  getDb().conversations.find((c) => c.orderId === null && c.brandUserId === brandUserId && c.creatorUserId === creatorUserId) ?? null;
+
+function storeMessage(c: ConversationRow, user: UserRow, body: string, attachment: MessageRow['attachment'] = null): MessageRow {
+  // FR-51: hide contact details before storing, until the order is completed.
+  const m = contactsHidden(c) ? maskContacts(body) : { text: body, masked: false };
+  const row: MessageRow = { id: ulid(now().getTime()), conversationId: c.id, senderUserId: user.id, body: m.text, masked: m.masked, attachment: attachment ?? null, createdAt: now().toISOString(), readAt: null };
+  getDb().messages.push(row);
+  return row;
+}
+
+export const getInquiryAllowance: Handler = ({ user }) => {
+  if (user.role !== 'BRAND') fail(403, 'Only brands start inquiries.', 'ROLE_NOT_ALLOWED');
+  return ok(inquiryAllowance(user));
+};
+
+export const startInquiry: Handler = ({ req, user }) => {
+  if (user.role !== 'BRAND') fail(403, 'Only brands can message creators before booking.', 'ROLE_NOT_ALLOWED');
+  if (!user.emailVerifiedAt) fail(403, 'Verify your email before messaging creators.', 'EMAIL_NOT_VERIFIED');
+  const body = parseBody(inquiryInputSchema, req.body);
+  const db = getDb();
+  const p = db.creatorProfiles.find((c) => c.username?.toLowerCase() === body.creatorUsername.toLowerCase());
+  const owner = p && db.users.find((u) => u.id === p.userId);
+  if (!p || p.vettingStatus !== 'APPROVED' || owner?.status !== 'ACTIVE') fail(404, 'No creator with that username.', 'CREATOR_NOT_FOUND');
+  let c = inquiryBetween(user.id, p.userId);
+  const isNew = !c;
+  if (!c) {
+    const a = inquiryAllowance(user);
+    if (a.limit !== null && a.used >= a.limit)
+      fail(429, `Your ${PLANS[a.plan].name} plan includes ${a.limit} new conversations every ${INQUIRY_WINDOW_DAYS} days. Upgrade your plan, or book the creator directly.`, 'INQUIRY_LIMIT');
+    c = { id: ulid(now().getTime()), orderId: null, brandUserId: user.id, creatorUserId: p.userId, createdAt: now().toISOString() };
+    db.conversations.push(c);
+  }
+  storeMessage(c, user, body.body);
+  if (isNew) {
+    const brand = db.brandProfiles.find((b) => b.userId === user.id)?.companyName ?? user.name;
+    deliver(p.userId, { type: 'NEW_INQUIRY', title: `${brand} wants to talk before booking`, body: body.body.length > 120 ? `${body.body.slice(0, 117)}…` : body.body, link: `/messages/${c.id}` }, 'ORDERS');
+  }
+  return ok(toConversation(c, user), 201);
+};
 
 /* ---------- Chat ---------- */
 
@@ -97,11 +163,7 @@ export const sendMessage: Handler = ({ req, params, user }) => {
   const c = myConversation(user, params.id);
   if (user.role === 'ADMIN') fail(403, 'Admins can read but not post in order chats.', 'ROLE_NOT_ALLOWED');
   const { body, attachment } = parseBody(messageInputSchema, req.body);
-  // FR-51: hide contact details until the order is completed, before storing.
-  const m = contactsHidden(c) ? maskContacts(body) : { text: body, masked: false };
-  const row: MessageRow = { id: ulid(now().getTime()), conversationId: c.id, senderUserId: user.id, body: m.text, masked: m.masked, attachment: attachment ?? null, createdAt: now().toISOString(), readAt: null };
-  getDb().messages.push(row);
-  return ok(toMessage(row, user), 201);
+  return ok(toMessage(storeMessage(c, user, body, attachment), user), 201);
 };
 
 export const markConversationRead: Handler = ({ params, user }) => {

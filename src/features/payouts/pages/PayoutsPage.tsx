@@ -114,8 +114,9 @@ export function PayoutsPage() {
                       {SPEED_LABEL[p.speed]} to {p.destinationLabel} · {day(p.createdAt)}
                       {p.feeCents > 0 && ` · fee ${formatMoney(p.feeCents, cur)}`}
                     </div>
+                    {p.status === 'FAILED' && <div className="small field__error">{p.failureReason ?? 'The bank rejected this payout.'} The money is back in your balance; our team will send it again.</div>}
                   </div>
-                  <Badge tone={p.status === 'PAID' ? 'ok' : 'info'}>{p.status === 'PAID' ? 'Paid' : 'On its way'}</Badge>
+                  <Badge tone={p.status === 'PAID' ? 'ok' : p.status === 'FAILED' ? 'danger' : 'info'}>{p.status === 'PAID' ? 'Paid' : p.status === 'FAILED' ? 'Failed' : 'On its way'}</Badge>
                 </li>
               ))}
             </ul>

@@ -50,7 +50,9 @@ import {
   type AdminUser,
   type AdminUserPage,
   type AuditPage,
-  type FeeRates,
+  type PublicFees,
+  type BrandSubscription,
+  type SubscriptionRequest,
   type FeeSettings,
   type FeeUpdate,
   type PayoutOverview,
@@ -65,7 +67,17 @@ import {
   type CampaignInput,
   type CampaignPage,
   type ChatMessage,
+  type Conversation,
   type ConversationList,
+  type DisputeEvidenceInput,
+  type FinanceOverview,
+  type PromoCode,
+  type PromoCodeInput,
+  type ReferralInvite,
+  type ReferralOverview,
+  type DisputeReasonCode,
+  type DisputeReport,
+  type InquiryAllowance,
   type MarkReadRequest,
   type MessageList,
   type NotificationPage,
@@ -272,8 +284,18 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
 
 const enc = encodeURIComponent;
 
+/** GET /orders/quote parameters (v2.4 add-ons, v3.3 promo code and credits). */
+export type QuoteQuery = {
+  packageId?: string;
+  creatorUsername?: string;
+  priceCents?: number;
+  addonIds?: string;
+  promoCode?: string;
+  useCredits?: 'true';
+};
+
 /** Longest side per upload purpose, so demo images stay small enough for sessionStorage. */
-const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600, MESSAGE_ATTACHMENT: 1600 };
+const DEMO_MAX_SIDE: Record<PresignRequest['purpose'], number> = { AVATAR: 480, BRAND_LOGO: 480, PORTFOLIO: 1080, COVER: 1600, BRIEF_REFERENCE: 1080, DELIVERABLE: 1600, MESSAGE_ATTACHMENT: 1600, DISPUTE_EVIDENCE: 1600 };
 
 /** Mock mode only: the file as a data URL (PDF chat attachments). */
 function readAsDataUrl(file: File): Promise<string> {
@@ -390,7 +412,13 @@ export const api = {
       clearSession(null);
     },
   },
+  /** v3.3 referrals: who invited you (public, for the sign-up page). */
+  referrals: {
+    invite: (code: string) => request<ReferralInvite>('GET', `/referrals/${enc(code)}`, { auth: false }),
+  },
   me: {
+    /** v3.3: your referral code, invitees and credits. */
+    referrals: () => request<ReferralOverview>('GET', '/me/referrals'),
     async get(): Promise<Me> {
       const user = await request<Me>('GET', '/me');
       setUser(user);
@@ -456,6 +484,12 @@ export const api = {
     updateProfile: (body: BrandProfileInput) => request<BrandProfile>('PUT', '/brands/me/profile', { body }),
     /** FR-71 dashboard numbers. */
     stats: () => request<BrandStats>('GET', '/brands/me/stats'),
+    /** FR-66 plans (v3.2). Paid changes carry an Idempotency-Key. */
+    subscription: () => request<BrandSubscription>('GET', '/brands/me/subscription'),
+    changeSubscription: (body: SubscriptionRequest, idempotencyKey: string) =>
+      request<BrandSubscription>('POST', '/brands/me/subscription', { body, headers: { 'idempotency-key': idempotencyKey } }),
+    cancelSubscription: () => request<BrandSubscription>('POST', '/brands/me/subscription/cancel'),
+    resumeSubscription: () => request<BrandSubscription>('POST', '/brands/me/subscription/resume'),
   },
   payouts: {
     /** FR-63: balance, transfers, payouts, payout account and settings. */
@@ -469,7 +503,7 @@ export const api = {
   },
   /** Razorpay payment sessions and saved methods (v2.0). */
   payments: {
-    session: (amountCents: number) => request<PaymentSession>('POST', '/payments/sessions', { body: { purpose: 'ORDER', amountCents } }),
+    session: (amountCents: number, purpose: 'ORDER' | 'SUBSCRIPTION' = 'ORDER') => request<PaymentSession>('POST', '/payments/sessions', { body: { purpose, amountCents } }),
     methods: () => request<{ content: SavedPaymentMethod[] }>('GET', '/payments/methods'),
     removeMethod: (id: string) => request<void>('DELETE', `/payments/methods/${enc(id)}`),
   },
@@ -493,7 +527,7 @@ export const api = {
   },
   /** Orders (Week 4). Money-moving calls send an Idempotency-Key; reuse it when retrying the same action. */
   orders: {
-    quote: (q: { packageId?: string; creatorUsername?: string; priceCents?: number; addonIds?: string }) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
+    quote: (q: QuoteQuery) => request<OrderQuote>('GET', '/orders/quote', { query: q }),
     create: (body: OrderCreateRequest, idempotencyKey: string) =>
       request<OrderCreated>('POST', '/orders', { body, headers: { 'idempotency-key': idempotencyKey } }),
     list: (q: { status?: string; page?: number; size?: number } = {}) => request<OrderPage>('GET', '/orders', { query: q }),
@@ -504,7 +538,10 @@ export const api = {
     deliver: (id: string, body: DeliverRequest, key: string) => orderAction(id, 'deliver', body, key),
     approve: (id: string, key: string) => orderAction(id, 'approve', undefined, key),
     requestRevision: (id: string, note: string, key: string) => orderAction(id, 'request-revision', { note }, key),
-    dispute: (id: string, note: string, key: string) => orderAction(id, 'dispute', { note }, key),
+    dispute: (id: string, note: string, key: string, reasonCode?: DisputeReasonCode) => orderAction(id, 'dispute', { note, reasonCode }, key),
+    /** v3.1: the creator's answer (once, within 48 h) and evidence from either side. */
+    respondToDispute: (id: string, response: string) => request<OrderDetail>('POST', `/orders/${enc(id)}/dispute/response`, { body: { response } }),
+    addDisputeEvidence: (id: string, body: DisputeEvidenceInput) => request<OrderDetail>('POST', `/orders/${enc(id)}/dispute/evidence`, { body }),
     updateBrief: (id: string, brief: OrderBrief) => request<OrderDetail>('POST', `/orders/${enc(id)}/brief`, { body: brief }),
     /* Collaboration (phase C) */
     shareDraft: (id: string, body: DeliverRequest) => request<OrderDetail>('POST', `/orders/${enc(id)}/drafts`, { body }),
@@ -543,6 +580,9 @@ export const api = {
     messages: (id: string, after?: string) => request<MessageList>('GET', `/conversations/${enc(id)}/messages`, { query: { after } }),
     send: (id: string, body: string, attachment: MessageAttachment | null = null) => request<ChatMessage>('POST', `/conversations/${enc(id)}/messages`, { body: { body, attachment } }),
     markRead: (id: string) => request<void>('POST', `/conversations/${enc(id)}/read`),
+    /** v3.0: message a creator before booking (opens or reuses the inquiry). */
+    startInquiry: (body: { creatorUsername: string; body: string }) => request<Conversation>('POST', '/conversations/inquiries', { body }),
+    inquiryAllowance: () => request<InquiryAllowance>('GET', '/conversations/inquiries/allowance'),
   },
   /** Saved lists of creators (FR-25, v2.5). Brands only. */
   lists: {
@@ -569,6 +609,15 @@ export const api = {
     approveCreator: (id: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/approve`),
     rejectCreator: (id: string, reason: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/reject`, { body: { reason } }),
     disputes: (status?: string) => request<{ content: AdminDispute[] }>('GET', '/admin/disputes', { query: { status } }),
+    /** v3.4 finance dashboard and failed-payout retry (moves money: Idempotency-Key). */
+    finance: (days = 30) => request<FinanceOverview>('GET', '/admin/finance', { query: { days } }),
+    retryPayout: (id: string, idempotencyKey: string) => request<Payout>('POST', `/admin/payouts/${enc(id)}/retry`, { headers: { 'idempotency-key': idempotencyKey } }),
+    /** v3.3 promo codes. */
+    promos: () => request<{ content: PromoCode[] }>('GET', '/admin/promo-codes'),
+    createPromo: (body: PromoCodeInput) => request<PromoCode>('POST', '/admin/promo-codes', { body }),
+    setPromoActive: (id: string, active: boolean) => request<PromoCode>('PATCH', `/admin/promo-codes/${enc(id)}`, { body: { active } }),
+    /** v3.1 refund-reason log. */
+    disputeReport: (days = 90) => request<DisputeReport>('GET', '/admin/disputes/report', { query: { days } }),
     /** FR-37: cancel an accepted order with a full refund. */
     cancelOrder: (id: string, reason: string, idempotencyKey: string) =>
       request<{ orderId: string; status: string; refundedCents: number }>('POST', `/admin/orders/${enc(id)}/cancel`, { body: { reason }, headers: { 'idempotency-key': idempotencyKey } }),
@@ -601,7 +650,7 @@ export const api = {
   },
   fees: {
     /** Current public rates, for explanatory copy (the server always calculates the real fees). */
-    current: () => request<FeeRates>('GET', '/fees', { auth: false }),
+    current: () => request<PublicFees>('GET', '/fees', { auth: false }),
   },
   /** Mock-only helpers. Calling them in http mode is a programming error. */
   dev: {

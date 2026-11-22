@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/money';
 import { ApiError, type DeliveryItem, type OrderDetail, type Role } from '@/types';
 import { countdown, formatDay, serverNow } from '../format';
 import { useCollab, useOrderAction, useTicker, type OrderActionInput } from '../hooks';
+import { DISPUTE_REASONS, type DisputeReasonValue } from '../schemas';
 
 type Dialog = 'accept' | 'decline' | 'cancel' | 'approve' | 'revision' | 'dispute' | 'deliver' | null;
 
@@ -119,11 +120,7 @@ export function ActionPanel({ o, role, fetchedAt }: { o: OrderDetail; role: Role
           {when}
           {o.late && role === 'BRAND' && <Badge tone="danger">Late</Badge>}
           <p className="small">{text}</p>
-          {o.dispute && (
-            <p className="small">
-              <strong>Dispute reason:</strong> {o.dispute.reason}
-            </p>
-          )}
+
         </div>
       </div>
 
@@ -199,6 +196,7 @@ const DIALOGS = {
 function ConfirmDialog({ o, kind, first, onClose }: { o: OrderDetail; kind: Exclude<Dialog, 'deliver'>; first: string; onClose: () => void }) {
   const action = useOrderAction(o.id);
   const [note, setNote] = useState('');
+  const [reasonCode, setReasonCode] = useState<DisputeReasonValue>('NOT_AS_BRIEFED');
   const [error, setError] = useState<string | null>(null);
   const cfg = kind ? DIALOGS[kind] : null;
   const m = o.money;
@@ -221,7 +219,7 @@ function ConfirmDialog({ o, kind, first, onClose }: { o: OrderDetail; kind: Excl
       decline: { type: 'decline', reason: note.trim() || null },
       cancel: { type: 'cancel', reason: note.trim() || null },
       revision: { type: 'request-revision', note },
-      dispute: { type: 'dispute', note },
+      dispute: { type: 'dispute', note, reasonCode },
     };
     try {
       await action.mutateAsync(map[kind]);
@@ -237,6 +235,21 @@ function ConfirmDialog({ o, kind, first, onClose }: { o: OrderDetail; kind: Excl
       {kind && cfg && (
         <div className="form-stack">
           <p className="small">{explain[kind]}</p>
+          {kind === 'dispute' && (
+            <div className="field">
+              <label className="field__label" htmlFor="dispute-reason">
+                What is the problem?
+              </label>
+              <select id="dispute-reason" className="field__input" value={reasonCode} onChange={(e) => setReasonCode(e.target.value as DisputeReasonValue)}>
+                {DISPUTE_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <span className="field__hint">{first} gets 48 hours to respond, and both of you can add evidence.</span>
+            </div>
+          )}
           {cfg.note && (
             <TextArea
               label={cfg.note}

@@ -7,12 +7,14 @@ import { feeUpdateSchema, reportInputSchema, reportResolveSchema, requiredReason
 import { formatMoney } from '@/lib/money';
 import type { AdminDispute, AdminSummary, AdminUser, AdminUserPage, AuditPage, FeeSettings, Report, VettingItem } from '@/types';
 import { audit } from '../audit';
-import { getDb, now, ulid, type DisputeRow, type FeeConfigRow, type ReportRow, type UserRow } from '../db';
+import { getDb, now, ulid, type DisputeRow, type ReportRow, type UserRow } from '../db';
 import { fail, ok, parseBody, type Handler } from '../http';
-import { brandTotalCents, creatorPayoutCents } from '../orderMachine';
-import { NO_TAXES } from '../tax';
+import { brandPaidCents } from '../orderMachine';
 import { decideVetting, toCreatorMe } from './creatorMe';
-import { applyTransition } from './orders';
+import { applyTransition, moneyOf } from './orders';
+import { toDisputeView } from './disputes';
+import { feeConfigFor, toFeeEntry } from './plans';
+import { PLAN_ORDER, PLANS } from '@/lib/plans';
 import { issueSession, revokeAllSessions } from './session';
 
 function requireAdmin(user: UserRow) {
@@ -118,22 +120,10 @@ function toDispute(d: DisputeRow): AdminDispute {
     orderTitle: info.title,
     brand: party(o.brandUserId),
     creator: party(o.creatorUserId),
-    money: {
-      currency: o.currency,
-      priceCents: o.priceCents,
-      brandFeeCents: o.brandFeeCents,
-      totalCents: brandTotalCents(o),
-      creatorFeeCents: o.creatorFeeCents,
-      creatorPayoutCents: creatorPayoutCents(o),
-      taxes: o.taxes ?? NO_TAXES,
-    },
-    reason: d.reason,
-    status: d.status,
-    openedAt: d.createdAt,
-    resolution: d.resolution,
-    refundCents: d.refundCents,
+    money: moneyOf(o),
+    ...toDisputeView(d),
     resolvedAt: d.resolvedAt,
-    resolutionNote: d.resolutionNote ?? null,
+    brandPlan: db.brandProfiles.find((b) => b.userId === o.brandUserId)?.plan ?? 'FREE',
   };
 }
 
@@ -142,8 +132,14 @@ export const listDisputes: Handler = ({ req, user }) => {
   const status = req.query.get('status');
   const rows = getDb()
     .disputes.filter((d) => !status || d.status === status)
-    .sort((a, b) => Number(a.status === 'RESOLVED') - Number(b.status === 'RESOLVED') || a.createdAt.localeCompare(b.createdAt));
-  return ok({ content: rows.map(toDispute) });
+    .map(toDispute)
+    // Open first; among open ones Premium brands first (plan benefit), then oldest. Resolved: newest first.
+    .sort(
+      (a, b) =>
+        Number(a.status === 'RESOLVED') - Number(b.status === 'RESOLVED') ||
+        (a.status === 'OPEN' ? Number(b.brandPlan === 'PREMIUM') - Number(a.brandPlan === 'PREMIUM') || a.openedAt.localeCompare(b.openedAt) : (b.resolvedAt ?? '').localeCompare(a.resolvedAt ?? '')),
+    );
+  return ok({ content: rows });
 };
 
 export const resolveDispute: Handler = ({ req, params, user }) => {
@@ -154,19 +150,19 @@ export const resolveDispute: Handler = ({ req, params, user }) => {
   if (d.status !== 'OPEN') fail(409, 'This dispute is already resolved.', 'DISPUTE_RESOLVED');
   const body = parseBody(resolveDisputeSchema, req.body);
   const order = db.orders.find((o) => o.id === d.orderId)!;
-  const total = brandTotalCents(order);
-  const refund = body.resolution === 'FULL_REFUND' ? total : body.resolution === 'PARTIAL_REFUND' ? body.refundCents! : 0;
+  // A full refund returns what the brand paid (after any promo or credit, v3.3).
+  const refund = body.resolution === 'FULL_REFUND' ? brandPaidCents(order) : body.resolution === 'PARTIAL_REFUND' ? body.refundCents! : 0;
   // The state machine validates the amount (1 cent .. creator payout, or the full total).
   if (body.resolution === 'RELEASE') applyTransition(order, { type: 'ADMIN_RELEASE', note: body.note }, actor(user));
   else applyTransition(order, { type: 'ADMIN_REFUND', refundCents: refund, note: body.note }, actor(user));
-  Object.assign(d, { status: 'RESOLVED', resolution: body.resolution, refundCents: refund, resolvedBy: user.id, resolvedAt: now().toISOString(), resolutionNote: body.note });
+  Object.assign(d, { status: 'RESOLVED', resolution: body.resolution, resolutionReason: body.resolutionReason, refundCents: refund, resolvedBy: user.id, resolvedAt: now().toISOString(), resolutionNote: body.note });
   audit(user, {
     action: 'DISPUTE_RESOLVED',
     entityType: 'ORDER',
     entityId: order.id,
     summary: `Dispute resolved: ${body.resolution.toLowerCase().replace('_', ' ')}${refund ? `, ${formatMoney(refund)} refunded` : ''}`,
     before: { status: 'DISPUTED' },
-    after: { resolution: body.resolution, refundCents: refund, note: body.note },
+    after: { resolution: body.resolution, resolutionReason: body.resolutionReason, refundCents: refund, note: body.note },
   });
   return ok(toDispute(d));
 };
@@ -240,41 +236,30 @@ export const impersonateUser: Handler = ({ params, user }) => {
 
 /* ---------- Fees (FR-83) ---------- */
 
-const currentFees = () => {
-  const rows = getDb().feeConfigs;
-  return rows[rows.length - 1];
-};
-const toEntry = (r: FeeConfigRow) => ({
-  plan: 'FREE' as const,
-  brandFeeBps: r.brandFeeBps,
-  creatorFeeBps: r.creatorFeeBps,
-  effectiveFrom: r.effectiveFrom,
-  changedBy: r.changedBy ? (getDb().users.find((u) => u.id === r.changedBy)?.name ?? null) : null,
+const feeSettings = (): FeeSettings => ({
+  current: toFeeEntry(feeConfigFor('FREE')),
+  plans: PLAN_ORDER.map((p) => toFeeEntry(feeConfigFor(p))),
+  history: [...getDb().feeConfigs].reverse().map(toFeeEntry),
 });
-const feeSettings = (): FeeSettings => ({ current: toEntry(currentFees()), history: [...getDb().feeConfigs].reverse().map(toEntry) });
 
 export const getFees: Handler = ({ user }) => {
   requireAdmin(user);
   return ok(feeSettings());
 };
 
-export const getCurrentFees: Handler = () => {
-  const f = currentFees();
-  return ok({ plan: 'FREE', brandFeeBps: f.brandFeeBps, creatorFeeBps: f.creatorFeeBps });
-};
-
 export const updateFees: Handler = ({ req, user }) => {
   requireAdmin(user);
   const body = parseBody(feeUpdateSchema, req.body);
-  const before = currentFees();
-  getDb().feeConfigs.push({ plan: 'FREE', brandFeeBps: body.brandFeeBps, creatorFeeBps: body.creatorFeeBps, effectiveFrom: now().toISOString(), changedBy: user.id });
+  const plan = body.plan ?? 'FREE';
+  const before = feeConfigFor(plan);
+  getDb().feeConfigs.push({ plan, brandFeeBps: body.brandFeeBps, creatorFeeBps: body.creatorFeeBps, effectiveFrom: now().toISOString(), changedBy: user.id });
   audit(user, {
     action: 'FEES_CHANGED',
     entityType: 'FEE_CONFIG',
-    entityId: 'FREE',
-    summary: `Fees: brand ${before.brandFeeBps / 100}% → ${body.brandFeeBps / 100}%, creator ${before.creatorFeeBps / 100}% → ${body.creatorFeeBps / 100}%`,
+    entityId: plan,
+    summary: `${PLANS[plan].name} plan fees: brand ${before.brandFeeBps / 100}% → ${body.brandFeeBps / 100}%, creator ${before.creatorFeeBps / 100}% → ${body.creatorFeeBps / 100}%`,
     before: { brandFeeBps: before.brandFeeBps, creatorFeeBps: before.creatorFeeBps },
-    after: body,
+    after: { plan, brandFeeBps: body.brandFeeBps, creatorFeeBps: body.creatorFeeBps },
   });
   return ok(feeSettings());
 };

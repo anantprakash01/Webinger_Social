@@ -1,0 +1,74 @@
+/* v3.0 growth features: pre-booking inquiries, disputes, plans, promos and referrals, finance. */
+
+/* Inquiry threads: "book now" strip under the header. */
+.thread__book { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; justify-content: space-between; padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.thread__book > .small { flex: 1 1 220px; min-width: 0; color: var(--ink-2); }
+
+/* Disputes (v3.1) */
+.dispute__side { display: grid; gap: var(--s-1); padding-top: var(--s-3); border-top: 1px solid var(--border); }
+.dispute__side p { margin: 0; overflow-wrap: anywhere; }
+.dispute__h { display: flex; align-items: center; gap: var(--s-1); margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
+.dispute__decision { background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--s-3); border-top: 0; }
+.evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.evidence__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); min-width: 0; }
+.evidence__link { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.evidence__note { flex-basis: 100%; }
+.evidence__add { padding-top: var(--s-2); }
+.evidence__row { display: flex; gap: var(--s-2); align-items: flex-end; flex-wrap: wrap; }
+.evidence__row > .field { flex: 1 1 200px; min-width: 0; }
+.reason-bar { height: 4px; margin-top: 6px; background: var(--surface-2); border-radius: 2px; overflow: hidden; max-width: 240px; }
+.reason-bar > span { display: block; height: 100%; background: var(--navy); border-radius: 2px; }
+.reason-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+
+/* Plans (v3.2) */
+.plan-page { display: grid; gap: var(--s-4); }
+.plan-current > .card__body { display: grid; gap: var(--s-3); justify-items: start; }
+.plan-current__row { display: flex; flex-wrap: wrap; gap: var(--s-4); justify-content: space-between; width: 100%; }
+.plan-current__row > div { min-width: 0; flex: 1 1 260px; }
+.plan-current__name { font-size: var(--fs-xl); font-weight: 800; color: var(--ink); }
+.plan-current__facts { display: grid; grid-template-columns: auto auto; gap: 2px var(--s-4); margin: 0; font-size: var(--fs-sm); }
+.plan-current__facts dt { color: var(--ink-3); }
+.plan-current__facts dd { margin: 0; font-weight: 700; text-align: right; }
+.plan-cycle { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+.plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); align-items: stretch; }
+@media (max-width: 900px) { .plan-grid { grid-template-columns: minmax(0, 1fr); } }
+.plan-card { display: flex; flex-direction: column; gap: var(--s-2); }
+.plan-card > .card__body { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; }
+.plan-card--featured { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy); }
+.plan-card.is-current { background: var(--surface-2); }
+.plan-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.plan-card__name { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-lg); font-weight: 800; }
+.plan-card__price strong { font-size: var(--fs-2xl); font-weight: 800; color: var(--ink); }
+.plan-card__fee { margin: 0; font-size: var(--fs-sm); }
+.plan-card__fee strong { color: var(--brand-red); font-size: var(--fs-md); }
+.plan-card__features { list-style: none; margin: 0 0 var(--s-2); padding: 0; display: grid; gap: 6px; font-size: var(--fs-sm); flex: 1; }
+.plan-card__features li { display: flex; gap: 6px; align-items: flex-start; }
+.plan-card__features svg { flex: none; margin-top: 3px; color: var(--ok); }
+.brand-plan-badge { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Promo codes and referrals (v3.3) */
+.money__discount { color: var(--ok); }
+.promo { display: grid; gap: var(--s-2); }
+.promo__row { display: flex; gap: var(--s-2); align-items: flex-end; }
+.promo__row > .field { flex: 1 1 auto; min-width: 0; }
+.promo__applied { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px dashed var(--ok); border-radius: var(--radius-sm); background: var(--ok-soft); color: var(--ink); }
+.promo__applied > span { min-width: 0; overflow-wrap: anywhere; }
+.promo__toggle { justify-self: start; background: none; border: 0; padding: 0; cursor: pointer; }
+.referral-code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.referral-code__value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xl); font-weight: 800; letter-spacing: 0.08em; padding: var(--s-2) var(--s-3); border: 2px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--ink); }
+.referral-steps { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s-1); font-size: var(--fs-sm); }
+
+/* Finance (v3.4) */
+.finance { display: grid; gap: var(--s-4); }
+.finance__cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+@media (max-width: 900px) { .finance__cols { grid-template-columns: minmax(0, 1fr); } }
+.recon { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.recon__item { display: flex; gap: var(--s-2); align-items: flex-start; font-size: var(--fs-sm); }
+.recon__item svg { flex: none; margin-top: 2px; }
+.recon__item--ok svg { color: var(--ok); }
+.recon__item--bad svg { color: var(--danger); }
+.recon__item > span { min-width: 0; }
+.flows { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-4); font-size: var(--fs-sm); }
+.flows dt { color: var(--ink-2); }
+.flows dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.flows dd.neg { color: var(--ink-2); }

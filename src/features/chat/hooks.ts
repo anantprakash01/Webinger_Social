@@ -28,6 +28,24 @@ export function useSendMessage(id: string) {
   });
 }
 
+/* ---------- Pre-booking inquiries (v3.0) ---------- */
+
+export function useInquiryAllowance() {
+  const { user } = useAuth();
+  return useQuery({ queryKey: [...chatKeys.all, 'allowance'], queryFn: () => api.chat.inquiryAllowance(), enabled: user?.role === 'BRAND' });
+}
+
+export function useStartInquiry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { creatorUsername: string; body: string }) => api.chat.startInquiry(v),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: chatKeys.all });
+      void qc.invalidateQueries({ queryKey: ['creators'] });
+    },
+  });
+}
+
 export function useMarkConversationRead() {
   const qc = useQueryClient();
   return useMutation({

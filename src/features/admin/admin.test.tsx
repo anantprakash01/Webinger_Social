@@ -43,6 +43,7 @@ describe('admin console (Week 6)', () => {
     await screen.findByText('Chat between brand and creator');
     await user.click(screen.getByLabelText(/Partial refund/));
     await user.type(screen.getByLabelText('Refund amount (₹)'), '2000');
+    await user.selectOptions(screen.getByLabelText('Reason (for the refund-reason log)'), 'QUALITY_BELOW_STANDARD');
     await user.type(screen.getByLabelText('Decision note'), 'Two of the three clips were usable.');
     await user.click(screen.getByRole('button', { name: 'Confirm decision' }));
     expect((await screen.findAllByText(/₹2,000\.00 refunded/)).length).toBeGreaterThan(0);
@@ -67,14 +68,15 @@ describe('admin console (Week 6)', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     await signIn('admin@demo.test');
     renderAt('/admin/fees');
-    const brandFee = await screen.findByLabelText('Brand fee (bps)');
+    const brandFee = await screen.findByLabelText('Free: brand fee (bps)');
+    const form = within(brandFee.closest('form')!);
     await user.clear(brandFee);
     await user.type(brandFee, '800');
-    expect(screen.getByText(/brand pays/)).toHaveTextContent('₹10,944.00'); // ₹10,000 + 8% fee + 18% GST on the fee
-    await user.click(screen.getByRole('button', { name: 'Save fees' }));
-    await user.click(within(await screen.findByRole('dialog', { name: 'Apply the new fees?' })).getByRole('button', { name: 'Apply fees' }));
-    expect(await screen.findByText('Fees updated for new orders')).toBeInTheDocument();
-    expect(getDb().feeConfigs.at(-1)).toMatchObject({ brandFeeBps: 800, creatorFeeBps: 1500 });
+    expect(form.getByText(/brand pays/)).toHaveTextContent('₹10,944.00'); // ₹10,000 + 8% fee + 18% GST on the fee
+    await user.click(form.getByRole('button', { name: 'Save fees' }));
+    await user.click(within(await screen.findByRole('dialog', { name: 'Apply the new Free fees?' })).getByRole('button', { name: 'Apply fees' }));
+    expect(await screen.findByText('Free fees updated for new orders')).toBeInTheDocument();
+    expect(getDb().feeConfigs.at(-1)).toMatchObject({ plan: 'FREE', brandFeeBps: 800, creatorFeeBps: 1500 });
   });
 
   it('reports: a brand reports a profile and an admin dismisses it (FR-85)', async () => {

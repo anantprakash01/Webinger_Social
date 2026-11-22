@@ -9,6 +9,7 @@ import { OrderStatusBadge } from '@/components/status';
 import { Badge, Card, ErrorState, PageSkeleton } from '@/components/ui';
 import { ApiError } from '@/types';
 import { ActionPanel } from '../components/ActionPanel';
+import { DisputeCard } from '../components/DisputeCard';
 import { OrderStepper } from '../components/OrderStepper';
 import { DraftsCard, ExtensionCard, ShippingCard } from '../components/Collaboration';
 import { BriefCard, Deliveries, MoneyCard, OrderedCard, ReviewCard, Timeline } from '../components/OrderParts';
@@ -105,6 +106,7 @@ export function OrderDetailPage() {
       <div className="order__layout">
         <div className="order__main">
           <ActionPanel o={o} role={role} fetchedAt={dataUpdatedAt} />
+          {o.dispute && <DisputeCard o={o} d={o.dispute} role={role} />}
           <ReviewCard o={o} role={role} />
           <BrandReviewCard o={o} role={role} />
           <ExtensionCard o={o} role={role} />

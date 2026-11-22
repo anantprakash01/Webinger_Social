@@ -8,6 +8,8 @@ import { assertAvailable, brandRatingOf, brandReviewOf } from './retention';
 import { calculateTaxes, NO_TAXES, PLATFORM_GSTIN, PLATFORM_STATE } from '../tax';
 import {
   briefSchema,
+  DISPUTE_RESPONSE_HOURS,
+  disputeRequestSchema,
   deliverRequestSchema,
   noteRequestSchema,
   orderCreateRequestSchema,
@@ -16,12 +18,15 @@ import {
   replyRequestSchema,
   reviewRequestSchema,
 } from '@/features/orders/schemas';
-import type { OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
+import type { DisputeReasonCode, OrderAction, OrderCreated, OrderDetail, OrderEventView, OrderMoney, OrderPage, OrderParty, OrderQuote, OrderSummary, Platform, Review } from '@/types';
 import { orderEventNotifications } from '../notify';
+import { disputeActionsFor, toDisputeView } from './disputes';
 import { auditLedger } from '../audit';
 import { runPayouts } from '../payoutsCore';
 import { resolveOrderPayment } from './payments';
 import { runAccountDeletions } from './account';
+import { feeConfigFor, planOf, runSubscriptions } from './plans';
+import { afterTransition, commitDiscount, computeDiscount } from './promos';
 import { calculateFees } from '../fees';
 import { getDb, now, ulid, type CreatorProfileRow, type OrderBriefRow, type PackageRow, type ReviewRow, type UserRow } from '../db';
 import type { PackageAddon } from '@/types';
@@ -29,6 +34,8 @@ import { fail, ok, parseBody, type Handler } from '../http';
 import {
   ACCEPT_WINDOW_HOURS,
   brandTotalCents,
+  brandPaidCents,
+  NO_DISCOUNT,
   creatorPayoutCents,
   allowedEvents,
   createOrder as machineCreate,
@@ -69,11 +76,8 @@ function approvedCreator(username: string): CreatorProfileRow {
   return p;
 }
 
-/** The newest fee config applies to new orders (FR-83); it is copied onto the order. */
-const feeConfig = () => {
-  const rows = getDb().feeConfigs;
-  return rows[rows.length - 1];
-};
+/** The newest fee config for the brand's plan applies to new orders (FR-83, FR-66); it is copied onto the order. */
+const feeConfig = (brand: UserRow) => feeConfigFor(planOf(brand.id));
 
 /** Runs one transition and stores everything it produced. */
 export function applyTransition(order: MockOrder, e: OrderEventInput, actor: Actor): MockOrder {
@@ -83,6 +87,7 @@ export function applyTransition(order: MockOrder, e: OrderEventInput, actor: Act
   db.orderEvents.push(res.event);
   db.ledgerEntries.push(...res.ledger);
   auditLedger(res.ledger, actor.kind === 'USER' ? (db.users.find((u) => u.id === actor.userId) ?? null) : null);
+  afterTransition(res.order);
   if (e.type === 'DISPUTE' && actor.kind === 'USER') {
     db.disputes.push({ id: ulid(now().getTime()), orderId: order.id, openedBy: actor.userId, reason: e.note ?? '', status: 'OPEN', resolution: null, refundCents: null, resolvedBy: null, createdAt: now().toISOString(), resolvedAt: null });
   }
@@ -118,6 +123,7 @@ export function runScheduledJobs(): { expired: number; autoApproved: number } {
   }
   runPayouts();
   runAccountDeletions();
+  runSubscriptions();
   return counts;
 }
 
@@ -130,6 +136,19 @@ function brandParty(userId: string): OrderParty {
   const b = db.brandProfiles.find((x) => x.userId === userId);
   return { name: b?.companyName ?? db.users.find((u) => u.id === userId)?.name ?? 'Brand', photoUrl: b?.logoUrl ?? null, username: null };
 }
+
+/** OrderMoney: fixed at checkout; v3.3 adds the discount and what the brand actually paid. */
+export const moneyOf = (o: MockOrder): OrderMoney => ({
+  currency: o.currency,
+  priceCents: o.priceCents,
+  brandFeeCents: o.brandFeeCents,
+  totalCents: brandTotalCents(o),
+  creatorFeeCents: o.creatorFeeCents,
+  creatorPayoutCents: creatorPayoutCents(o),
+  taxes: o.taxes ?? NO_TAXES,
+  discount: o.discount ?? NO_DISCOUNT,
+  paidCents: brandPaidCents(o),
+});
 
 const reviewOf = (orderId: string) => getDb().reviews.find((r) => r.orderId === orderId) ?? null;
 const toReview = (r: ReviewRow): Review => ({ id: r.id, rating: r.rating, comment: r.comment, brandName: r.brandName, createdAt: r.createdAt, creatorReply: r.creatorReply, repliedAt: r.repliedAt });
@@ -144,6 +163,7 @@ function actionsFor(o: MockOrder, user: UserRow): OrderAction[] {
   if (user.role === 'BRAND' && (o.status === 'PENDING_ACCEPTANCE' || o.status === 'IN_PROGRESS')) out.push('EDIT_BRIEF');
   if (user.role === 'BRAND' && o.status === 'COMPLETED' && !review) out.push('REVIEW');
   if (user.role === 'CREATOR' && review && !review.creatorReply) out.push('REPLY');
+  out.push(...disputeActionsFor(o.id, user));
   return out;
 }
 
@@ -164,15 +184,7 @@ function toSummary(o: MockOrder, user: UserRow): OrderSummary {
     counterparty: user.role === 'CREATOR' ? brandParty(o.brandUserId) : creatorParty(o.creatorUserId),
     brand: brandParty(o.brandUserId),
     creator: creatorParty(o.creatorUserId),
-    money: {
-      currency: o.currency,
-      priceCents: o.priceCents,
-      brandFeeCents: o.brandFeeCents,
-      totalCents: brandTotalCents(o),
-      creatorFeeCents: o.creatorFeeCents,
-      creatorPayoutCents: creatorPayoutCents(o),
-      taxes: o.taxes ?? NO_TAXES,
-    },
+    money: moneyOf(o),
     nextDeadline,
     late: o.status === 'IN_PROGRESS' && !!o.dueAt && new Date(o.dueAt).getTime() < t,
     needsAction: actionsFor(o, user).some((a) => NEEDS_ACTION.includes(a)),
@@ -215,7 +227,7 @@ export function toDetail(o: MockOrder, user: UserRow): OrderDetail {
     events: db.orderEvents
       .filter((e) => e.orderId === o.id)
       .map((e) => ({ type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, actor: actorRole(e.actorId), note: e.note, at: e.at })),
-    dispute: dispute ? { reason: dispute.reason, status: dispute.status, openedAt: dispute.createdAt, resolution: dispute.resolution, refundCents: dispute.refundCents } : null,
+    dispute: dispute ? toDisputeView(dispute) : null,
     review: review ? toReview(review) : null,
     allowedActions: actionsFor(o, user),
     serverTime: now().toISOString(),
@@ -285,16 +297,22 @@ export const quoteOrder: Handler = ({ req, user }) => {
     creator = approvedCreator(q.creatorUsername!);
     priceCents = q.priceCents!;
   }
-  const f = calculateFees(priceCents, feeConfig());
+  const f = calculateFees(priceCents, feeConfig(user));
   const taxes = calculateTaxes(f, taxContext(user, creator.userId));
+  const total = brandTotalCents({ ...f, taxes });
+  const d = computeDiscount(user, { priceCents: f.priceCents, totalCents: total }, { promoCode: q.promoCode, useCredits: q.useCredits === 'true' });
   const body: OrderQuote = {
+    discount: d.discount,
+    amountDueCents: total - d.discount.promoCents - d.discount.creditCents,
+    creditBalanceCents: d.creditBalanceCents,
+    promoDescription: d.promoDescription,
     kind: pkg ? 'PACKAGE' : 'CUSTOM_OFFER',
     creator: creatorParty(creator.userId),
     package: pkg,
     priceCents: f.priceCents,
     brandFeeCents: f.brandFeeCents,
     totalCents: brandTotalCents({ ...f, taxes }),
-    brandFeeBps: feeConfig().brandFeeBps,
+    brandFeeBps: feeConfig(user).brandFeeBps,
     taxes,
     currency: CURRENCY,
     acceptWindowHours: ACCEPT_WINDOW_HOURS,
@@ -321,7 +339,7 @@ export const createOrder: Handler = ({ req, user }) => {
     const o = body.offer!;
     line = { kind: 'CUSTOM_OFFER', packageId: null, campaignId: null, title: o.title, platform: o.platform, deliverables: o.deliverables, priceCents: o.priceCents, deliveryDays: o.deliveryDays };
   }
-  return ok(placeOrder(user, creator, line, normaliseBrief(body.brief), body.payment), 201);
+  return ok(placeOrder(user, creator, line, normaliseBrief(body.brief), body.payment, { promoCode: body.promoCode ?? null, useCredits: body.useCredits ?? false }), 201);
 };
 
 /**
@@ -369,22 +387,33 @@ export interface OrderLine {
  * Checkout core shared by packages, custom offers and accepted campaign applications (FR-42: same flow).
  * FR-30: authorise, don't capture. The machine checks role, verified email (FR-02), price and days.
  */
-export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: OrderLine, brief: Omit<OrderBriefRow, 'orderId' | 'updatedAt'>, payment: unknown): OrderCreated {
+export function placeOrder(
+  user: UserRow,
+  creator: CreatorProfileRow,
+  line: OrderLine,
+  brief: Omit<OrderBriefRow, 'orderId' | 'updatedAt'>,
+  payment: unknown,
+  discountRequest: { promoCode?: string | null; useCredits?: boolean } = {},
+): OrderCreated {
   assertAvailable(creator);
   if (creator.payoutStatus !== 'ENABLED') fail(409, 'This creator cannot take paid orders yet.', 'CREATOR_PAYOUTS_DISABLED');
   if (!user.emailVerifiedAt) fail(403, 'Verify your email before placing orders.', 'EMAIL_NOT_VERIFIED');
   const db = getDb();
   // v2.0: verify the payment (Razorpay proof or wallet balance) for the exact total before the order exists.
-  const fees = feeConfig();
+  const fees = feeConfig(user);
   const tax = taxContext(user, creator.userId);
   const f = calculateFees(line.priceCents, fees);
-  const pay = resolveOrderPayment(user, payment, brandTotalCents({ ...f, taxes: calculateTaxes(f, tax) }));
+  const total = brandTotalCents({ ...f, taxes: calculateTaxes(f, tax) });
+  // v3.3: promo code and referral credit, checked again here; the payment must be for what is left.
+  const { discount } = computeDiscount(user, { priceCents: f.priceCents, totalCents: total }, discountRequest);
+  const pay = resolveOrderPayment(user, payment, total - discount.promoCents - discount.creditCents);
   const { order, event } = machineCreate(
-    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees, payment: pay.info, tax, maxRevisions: line.maxRevisions },
+    { id: ulid(now().getTime()), creatorUserId: creator.userId, packageId: line.packageId, campaignId: line.campaignId, priceCents: line.priceCents, deliveryDays: line.deliveryDays, fees, payment: pay.info, tax, maxRevisions: line.maxRevisions, discount },
     actorOf(user),
     { now: now() },
   );
   pay.commit(order.id);
+  commitDiscount(user, order.id, discount);
   const paymentIntentId = `pay_mock${order.id.slice(-12).toLowerCase()}`;
   db.orders.push(order);
   db.orderEvents.push(event);
@@ -398,6 +427,7 @@ export function placeOrder(user: UserRow, creator: CreatorProfileRow, line: Orde
     priceCents: order.priceCents,
     brandFeeCents: order.brandFeeCents,
     totalCents: brandTotalCents(order),
+    paidCents: brandPaidCents(order),
     currency: order.currency,
     acceptBy: order.acceptBy,
   };
@@ -443,9 +473,18 @@ function act(type: 'ACCEPT' | 'DECLINE' | 'CANCEL' | 'APPROVE' | 'REQUEST_REVISI
   return ({ req, params, user }) => {
     const order = visibleOrder(user, params.id);
     let note: string | undefined;
-    if (type === 'REQUEST_REVISION' || type === 'DISPUTE') note = parseBody(noteRequestSchema, req.body).note;
+    let reasonCode: DisputeReasonCode | undefined;
+    if (type === 'REQUEST_REVISION') note = parseBody(noteRequestSchema, req.body).note;
+    if (type === 'DISPUTE') ({ note, reasonCode } = parseBody(disputeRequestSchema, req.body));
     if (type === 'DECLINE' || type === 'CANCEL') note = parseBody(reasonRequestSchema, req.body ?? {}).reason ?? undefined;
     const next = applyTransition(order, { type, note } as OrderEventInput, actorOf(user));
+    if (type === 'DISPUTE') {
+      // v3.1: the brand's reason and the creator's 48-hour window to respond.
+      const d = getDb().disputes.find((x) => x.orderId === order.id)!;
+      d.reasonCode = reasonCode ?? 'OTHER';
+      d.respondBy = new Date(now().getTime() + DISPUTE_RESPONSE_HOURS * 3_600_000).toISOString();
+      d.evidence = [];
+    }
     return ok(toDetail(next, user));
   };
 }

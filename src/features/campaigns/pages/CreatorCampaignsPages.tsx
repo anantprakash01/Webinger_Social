@@ -14,7 +14,7 @@ import { NICHE_LABEL, NICHES, PLATFORM_LABEL, PLATFORMS } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { applyServerErrors } from '@/lib/forms';
 import { ApiError, type ApplicationInput, type CampaignDetail } from '@/types';
-import { ApplicationBadge, CampaignCard, CampaignStatusBadge, formatDeadline } from '../components/CampaignParts';
+import { ApplicationBadge, BrandPlanBadge, CampaignCard, CampaignStatusBadge, formatDeadline } from '../components/CampaignParts';
 import { useApply, useCampaign, useCampaigns, useWithdrawApplication } from '../hooks';
 import { applicationFormSchema, type ApplicationFormValues } from '../schemas';
 
@@ -125,6 +125,7 @@ export function CreatorCampaignDetailPage() {
             <div className="list__meta">Brand</div>
             <div className="list__title">{c.brand.name}</div>
             <Rating avg={c.brandRating.ratingAvg} count={c.brandRating.ratingCount} />
+            <BrandPlanBadge plan={c.brandPlan} />
           </div>
         </div>
       </div>
