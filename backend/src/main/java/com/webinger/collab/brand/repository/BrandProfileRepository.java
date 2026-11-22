@@ -1,4 +1,6 @@
-package com.webinger.collab.brand;
+package com.webinger.collab.brand.repository;
+
+import com.webinger.collab.brand.domain.BrandProfile;
 
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

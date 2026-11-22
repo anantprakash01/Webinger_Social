@@ -1,4 +1,4 @@
-package com.webinger.collab.brand;
+package com.webinger.collab.brand.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
