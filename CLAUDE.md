@@ -3,7 +3,7 @@
 One repository, two apps (decided 22 Nov 2026):
 
 - `frontend/` — React app and in-browser mock API. **Read `frontend/CLAUDE.md` first**: it holds every product decision, requirement (FR ids), the order state machine, money rules and the current state.
-- `collab/` — Spring Boot backend (Java 21, Spring Boot 4.2, MySQL 8, Flyway). Package `com.webinger.collab`.
+- `backend/` — Spring Boot backend (Java 21, Spring Boot 4.2, MySQL 8, Flyway). Package `com.webinger.collab`.
 
 ## Rules for the backend
 
@@ -22,5 +22,5 @@ One repository, two apps (decided 22 Nov 2026):
 
 ## Commands
 
-- Backend: `cd collab && ./mvnw test` · run `./mvnw spring-boot:run -Dspring-boot.run.profiles=h2` (in-memory DB + demo accounts) or with MySQL via `docker compose up -d`.
+- Backend: `cd backend && ./mvnw test` · run `./mvnw spring-boot:run -Dspring-boot.run.profiles=h2` (in-memory DB + demo accounts) or with MySQL via `docker compose up -d`.
 - Frontend: see `frontend/CLAUDE.md` (`npm test`, `npm run build`, `npm run check:contract`, …).
