@@ -57,3 +57,18 @@
 .referral-code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .referral-code__value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xl); font-weight: 800; letter-spacing: 0.08em; padding: var(--s-2) var(--s-3); border: 2px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--ink); }
 .referral-steps { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s-1); font-size: var(--fs-sm); }
+
+/* Finance (v3.4) */
+.finance { display: grid; gap: var(--s-4); }
+.finance__cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+@media (max-width: 900px) { .finance__cols { grid-template-columns: minmax(0, 1fr); } }
+.recon { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.recon__item { display: flex; gap: var(--s-2); align-items: flex-start; font-size: var(--fs-sm); }
+.recon__item svg { flex: none; margin-top: 2px; }
+.recon__item--ok svg { color: var(--ok); }
+.recon__item--bad svg { color: var(--danger); }
+.recon__item > span { min-width: 0; }
+.flows { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-4); font-size: var(--fs-sm); }
+.flows dt { color: var(--ink-2); }
+.flows dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.flows dd.neg { color: var(--ink-2); }

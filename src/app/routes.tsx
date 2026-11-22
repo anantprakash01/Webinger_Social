@@ -61,6 +61,7 @@ const AdminFees = area(admin, 'AdminFees');
 const AdminAudit = area(admin, 'AdminAudit');
 const AdminOrders = area(admin, 'AdminOrders');
 const AdminPromos = area(admin, 'AdminPromos');
+const AdminFinance = area(admin, 'AdminFinance');
 
 const MessagesPage = area(() => import('@/features/chat/pages/MessagesPage'), 'MessagesPage');
 const SettingsPage = area(() => import('@/features/account/pages/SettingsPage'), 'SettingsPage');
@@ -134,6 +135,7 @@ export function AppRoutes() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="promos" element={<AdminPromos />} />
+            <Route path="finance" element={<AdminFinance />} />
           </Route>
         </Route>
 

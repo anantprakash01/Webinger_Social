@@ -216,7 +216,7 @@ export function AdminFeesPage() {
         <Card title="History">
           <ul className="list">
             {data.history.map((h) => (
-              <li key={h.effectiveFrom} className="list__item">
+              <li key={`${h.plan}-${h.effectiveFrom}`} className="list__item">
                 <div className="list__main">
                   <div className="list__title">
                     {PLANS[h.plan].name}: brand {h.brandFeeBps / 100}% · creator {h.creatorFeeBps / 100}%

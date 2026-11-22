@@ -28,7 +28,7 @@ export function creatorMoney(creatorId: string) {
   return {
     availableCents: entries.reduce((s, e) => s + e.debitCents - e.creditCents, 0),
     lifetimeEarnedCents: entries.filter((e) => !e.orderId.startsWith('payout_')).reduce((s, e) => s + e.debitCents, 0),
-    paidOutCents: db.payouts.filter((p) => p.creatorId === creatorId).reduce((s, p) => s + p.amountCents, 0),
+    paidOutCents: db.payouts.filter((p) => p.creatorId === creatorId && p.status !== 'FAILED').reduce((s, p) => s + p.amountCents, 0),
     inEscrowCents: db.orders
       .filter((o) => o.creatorUserId === creatorId && (o.status === 'IN_PROGRESS' || o.status === 'DELIVERED' || o.status === 'DISPUTED'))
       .reduce((s, o) => s + creatorPayoutCents(o), 0),

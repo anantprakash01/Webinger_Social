@@ -412,9 +412,12 @@ export interface PayoutRow {
   feeCents?: number;
   speed?: 'SCHEDULED' | 'STANDARD' | 'INSTANT';
   destinationLabel?: string;
-  status: 'IN_TRANSIT' | 'PAID';
+  status: 'IN_TRANSIT' | 'PAID' | 'FAILED';
   createdAt: string;
   arrivalDate: string;
+  /** v3.4: why the bank rejected it, and the payout that retried it. */
+  failureReason?: string | null;
+  retriedAs?: string | null;
 }
 
 /* ---------- Payments (v2.0, Razorpay) ---------- */
@@ -655,7 +658,7 @@ export function mockHash(password: string): string {
 /* ---------- Seed ---------- */
 
 /** Bump whenever row shapes or the seed change; older sessionStorage data is then discarded. */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 /** Fixed ids so tests and links stay stable across resets. */
 export const SEED_IDS = {

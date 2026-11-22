@@ -2,3 +2,4 @@
 export { AdminDisputeDetailPage as AdminDisputeDetail, AdminDisputesPage as AdminDisputes, AdminReportsPage as AdminReports, AdminVettingPage as AdminVetting } from '@/features/admin/pages/AdminQueues';
 export { AdminAuditPage as AdminAudit, AdminFeesPage as AdminFees, AdminOrdersPage as AdminOrders, AdminUsersPage as AdminUsers } from '@/features/admin/pages/AdminManage';
 export { AdminPromosPage as AdminPromos } from '@/features/promos/pages/AdminPromosPage';
+export { AdminFinancePage as AdminFinance } from '@/features/admin/pages/AdminFinancePage';

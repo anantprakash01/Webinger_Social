@@ -184,3 +184,4 @@ export type PromoCodeInput = S['PromoCodeInput'];
 export type ReferralInvite = S['ReferralInvite'];
 export type ReferralOverview = S['ReferralOverview'];
 export type CreditEntry = S['CreditEntry'];
+export type FinanceOverview = S['FinanceOverview'];

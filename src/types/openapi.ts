@@ -644,6 +644,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/finance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Finance dashboard — money through the platform, balances, payouts needing attention, reconciliation (v3.4)
+         * @description Figures come from the double-entry ledger. Flows are for the period (`days`, default 30); balances are as of now.
+         *     Reconciliation compares the ledger with payment, payout and subscription records (the backend also compares them
+         *     with Razorpay's settlement and payout reports in the hourly reconciliation job).
+         */
+        get: operations["getFinanceOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/payouts/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a failed payout again to the creator's current payout account (v3.4)
+         * @description Only FAILED payouts, once (409 NOT_FAILED / ALREADY_RETRIED), and only to a VERIFIED account (409 PAYOUT_ACCOUNT_NOT_VERIFIED). The money went back to the creator's balance when the payout failed; the retry takes it out again.
+         */
+        post: operations["retryPayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/promo-codes": {
         parameters: {
             query?: never;
@@ -3091,12 +3133,136 @@ export interface components {
             speed: "SCHEDULED" | "STANDARD" | "INSTANT";
             /** @example HDFC Bank •••• 4321 */
             destinationLabel: string;
-            /** @enum {string} */
-            status: "IN_TRANSIT" | "PAID";
+            /**
+             * @description FAILED (v3.4): the bank rejected it; the money is back in the balance.
+             * @enum {string}
+             */
+            status: "IN_TRANSIT" | "PAID" | "FAILED";
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             arrivalDate: string;
+            /** @description v3.4. */
+            failureReason?: string | null;
+        };
+        FinanceOverview: {
+            days: number;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** @description Money that moved in the period. */
+            flows: {
+                /**
+                 * Format: int64
+                 * @description Order totals captured (brand payments + platform-funded discounts).
+                 */
+                gmvCents: number;
+                ordersCaptured: number;
+                /**
+                 * Format: int64
+                 * @description Plan charges incl. GST.
+                 */
+                subscriptionsCents: number;
+                /**
+                 * Format: int64
+                 * @description Fees, plan prices and instant-payout fees earned (excl. GST).
+                 */
+                platformRevenueCents: number;
+                /**
+                 * Format: int64
+                 * @description Back to brands' payment methods.
+                 */
+                refundsCents: number;
+                /**
+                 * Format: int64
+                 * @description Promo codes, credits and referral bonuses paid for by the platform (net of returns).
+                 */
+                promotionsCents: number;
+                /** Format: int64 */
+                gstCollectedCents: number;
+                /**
+                 * Format: int64
+                 * @description TDS and TCS withheld from creators.
+                 */
+                taxWithheldCents: number;
+                /**
+                 * Format: int64
+                 * @description Sent to creators' banks (after instant fees).
+                 */
+                paidOutCents: number;
+                /** Format: int64 */
+                payoutFeesCents: number;
+            };
+            /** @description As of now. */
+            balances: {
+                /**
+                 * Format: int64
+                 * @description Held for accepted orders not yet approved or refunded.
+                 */
+                escrowCents: number;
+                /**
+                 * Format: int64
+                 * @description Owed to creators (released
+                 */
+                creatorBalancesCents: number;
+                /** Format: int64 */
+                gstPayableCents: number;
+                /**
+                 * Format: int64
+                 * @description TDS/TCS to deposit with the government.
+                 */
+                taxWithheldCents: number;
+                /**
+                 * Format: int64
+                 * @description Payments authorised on orders waiting for acceptance (not captured).
+                 */
+                authorisedHoldsCents: number;
+            };
+            /** @description Last 6 months, oldest first. */
+            byMonth: {
+                /** @example 2026-11 */
+                month: string;
+                /** Format: int64 */
+                gmvCents: number;
+                /** Format: int64 */
+                revenueCents: number;
+                /** Format: int64 */
+                refundsCents: number;
+            }[];
+            payoutsNeedingAttention: (components["schemas"]["Payout"] & {
+                creatorName: string;
+                creatorUsername: string | null;
+                /** @enum {string|null} */
+                accountStatus: "VERIFYING" | "VERIFIED" | "FAILED" | null;
+                /** @description The payout that retried this one. */
+                retriedAs: string | null;
+            })[];
+            inTransit: {
+                count: number;
+                /** Format: int64 */
+                cents: number;
+            };
+            reconciliation: {
+                /** Format: date-time */
+                checkedAt: string;
+                ok: boolean;
+                checks: {
+                    id: string;
+                    label: string;
+                    ok: boolean;
+                    detail: string;
+                }[];
+                mismatches: {
+                    check: string;
+                    ref: string;
+                    /** Format: int64 */
+                    expectedCents: number;
+                    /** Format: int64 */
+                    actualCents: number;
+                    note: string;
+                }[];
+            };
         };
         PayoutOverview: {
             currency: string;
@@ -4856,6 +5022,57 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getFinanceOverview: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceOverview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    retryPayout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Unique per user action (a UUID). Retrying with the same key returns the first result instead of acting twice. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new payout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listPromoCodes: {

@@ -8,6 +8,7 @@ import * as collab from './handlers/collab';
 import * as disputes from './handlers/disputes';
 import * as plans from './handlers/plans';
 import * as promos from './handlers/promos';
+import * as finance from './handlers/finance';
 import { ApiError } from '@/types';
 import { getDb, saveDb } from './db';
 import { HttpError, type Handler, type MockRequest, type MockResponse } from './http';
@@ -148,6 +149,8 @@ const ROUTES: Route[] = [
   { method: 'GET', path: '/fees', auth: false, handler: plans.getPublicFees },
   { method: 'GET', path: '/referrals/:code', auth: false, handler: promos.getReferralInvite },
   { method: 'GET', path: '/me/referrals', auth: true, handler: promos.getMyReferrals },
+  { method: 'GET', path: '/admin/finance', auth: true, handler: finance.getFinanceOverview },
+  { method: 'POST', path: '/admin/payouts/:id/retry', auth: true, handler: finance.retryPayout, idempotent: true },
   { method: 'GET', path: '/admin/promo-codes', auth: true, handler: promos.listPromoCodes },
   { method: 'POST', path: '/admin/promo-codes', auth: true, handler: promos.createPromoCode },
   { method: 'PATCH', path: '/admin/promo-codes/:id', auth: true, handler: promos.updatePromoCode },

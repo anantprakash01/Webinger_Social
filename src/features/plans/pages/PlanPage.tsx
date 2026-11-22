@@ -102,7 +102,7 @@ export function PlanPage() {
                   <strong>₹0</strong>
                 ) : (
                   <>
-                    <strong>{formatMoney(price)}</strong>
+                    <strong>{formatMoney(price).replace(/\.00$/, '')}</strong>
                     <span className="small muted"> /{cycle === 'YEARLY' ? 'year' : 'month'} + 18% GST</span>
                   </>
                 )}

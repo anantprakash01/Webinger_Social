@@ -70,6 +70,7 @@ import {
   type Conversation,
   type ConversationList,
   type DisputeEvidenceInput,
+  type FinanceOverview,
   type PromoCode,
   type PromoCodeInput,
   type ReferralInvite,
@@ -608,6 +609,9 @@ export const api = {
     approveCreator: (id: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/approve`),
     rejectCreator: (id: string, reason: string) => request<VettingItem>('POST', `/admin/creators/${enc(id)}/reject`, { body: { reason } }),
     disputes: (status?: string) => request<{ content: AdminDispute[] }>('GET', '/admin/disputes', { query: { status } }),
+    /** v3.4 finance dashboard and failed-payout retry (moves money: Idempotency-Key). */
+    finance: (days = 30) => request<FinanceOverview>('GET', '/admin/finance', { query: { days } }),
+    retryPayout: (id: string, idempotencyKey: string) => request<Payout>('POST', `/admin/payouts/${enc(id)}/retry`, { headers: { 'idempotency-key': idempotencyKey } }),
     /** v3.3 promo codes. */
     promos: () => request<{ content: PromoCode[] }>('GET', '/admin/promo-codes'),
     createPromo: (body: PromoCodeInput) => request<PromoCode>('POST', '/admin/promo-codes', { body }),

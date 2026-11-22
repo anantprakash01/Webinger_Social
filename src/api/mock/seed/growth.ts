@@ -6,7 +6,8 @@ import { PLANS, planPriceCents, type BillingCycle, type BrandPlan } from '@/lib/
 import { formatMoney } from '@/lib/money';
 import type { Db } from '../db';
 import { applyBps } from '../fees';
-import { postTxn, subscriptionLines } from '../ledger';
+import { payoutLines, postTxn, subscriptionLines } from '../ledger';
+import { failPayout } from '../handlers/finance';
 import { GST_BPS, PLATFORM_STATE } from '../tax';
 
 const HOUR = 3_600_000;
@@ -164,6 +165,21 @@ export function seedGrowth(db: Db, now: Date, ids: { brandId: string; leoId: str
   const ivy = db.users.find((u) => u.email === 'newcreator@demo.test')!;
   ivy.referredBy = ids.leoId;
 
+  // A failed bank payout (v3.4) for the finance queue: a creator (not Leo) with money released to them;
+  // the bank rejected last week's payout, the money is back in the balance, and the account is verified again.
+  const balanceOf = (creatorId: string) =>
+    db.ledgerEntries.filter((e) => e.account === 'CREATOR_BALANCE' && db.orders.some((o) => o.id === e.orderId && o.creatorUserId === creatorId)).reduce((s, e) => s + e.debitCents - e.creditCents, 0);
+  const payee = db.creatorProfiles.find((p) => p.userId !== ids.leoId && p.payoutStatus === 'ENABLED' && balanceOf(p.userId) >= 1_000_00 && db.payoutAccounts.some((a) => a.creatorId === p.userId && a.status === 'VERIFIED'));
+  if (payee) {
+    const account = db.payoutAccounts.find((a) => a.creatorId === payee.userId)!;
+    const amount = balanceOf(payee.userId);
+    const at = new Date(now.getTime() - 6 * 24 * HOUR);
+    const payout = { id: 'pout_mockfailed01', creatorId: payee.userId, amountCents: amount, feeCents: 0, speed: 'SCHEDULED' as const, destinationLabel: `SBI •••• ${(account.accountNumber ?? '0000').slice(-4)}`, status: 'IN_TRANSIT' as const, createdAt: at.toISOString(), arrivalDate: new Date(at.getTime() + 24 * HOUR).toISOString() };
+    db.payouts.push(payout);
+    db.ledgerEntries.push(...postTxn(payoutLines(amount, 0), { txnId: seedId('txn-failed-payout'), orderId: `payout_${payout.id}`, memo: 'Weekly payout', at: payout.createdAt }));
+    failPayout(db, db.payouts.at(-1)!, 'Bank rejected the transfer: account closed. The creator has since added a new account.', seedId('txn-failed-payout-back'), new Date(at.getTime() + 20 * HOUR));
+  }
+
   db.notifications.push({
     id: seedId('note-inquiry-leo'),
     userId: ids.leoId,
@@ -174,4 +190,25 @@ export function seedGrowth(db: Db, now: Date, ids: { brandId: string; leoId: str
     readAt: null,
     createdAt: ago(30),
   });
+
+  // FR-84: one MONEY_MOVEMENT audit entry per ledger transaction, including the ones seeded here.
+  const audited = new Set(db.auditLogs.filter((a) => a.action === 'MONEY_MOVEMENT').map((a) => (a.after as { txnId?: string } | null)?.txnId));
+  const byTxn = new Map<string, typeof db.ledgerEntries>();
+  for (const e of db.ledgerEntries) if (!audited.has(e.txnId)) byTxn.set(e.txnId, [...(byTxn.get(e.txnId) ?? []), e]);
+  for (const [txnId, lines] of byTxn) {
+    const ref = lines[0].orderId;
+    db.auditLogs.push({
+      id: seedId(`audit-${txnId}`),
+      actorId: null,
+      actorName: 'SYSTEM',
+      action: 'MONEY_MOVEMENT',
+      entityType: ref.startsWith('payout_') ? 'PAYOUT' : ref.startsWith('sub_') ? 'SUBSCRIPTION' : 'ORDER',
+      entityId: ref,
+      summary: `${lines[0].memo}: ${formatMoney(lines.reduce((s, l) => s + l.debitCents, 0))}`,
+      before: null,
+      after: { txnId, lines: lines.map((l) => ({ account: l.account, debitCents: l.debitCents, creditCents: l.creditCents })) },
+      ip: null,
+      at: lines[0].createdAt,
+    });
+  }
 }

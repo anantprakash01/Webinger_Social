@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 3.3.0
+  version: 3.4.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -575,6 +575,38 @@ paths:
       responses:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/ReferralOverview' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/finance:
+    get:
+      tags: [Admin]
+      summary: Finance dashboard — money through the platform, balances, payouts needing attention, reconciliation (v3.4)
+      description: |
+        Figures come from the double-entry ledger. Flows are for the period (`days`, default 30); balances are as of now.
+        Reconciliation compares the ledger with payment, payout and subscription records (the backend also compares them
+        with Razorpay's settlement and payout reports in the hourly reconciliation job).
+      operationId: getFinanceOverview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }
+      responses:
+        '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/FinanceOverview' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/payouts/{id}/retry:
+    post:
+      tags: [Admin]
+      summary: Send a failed payout again to the creator's current payout account (v3.4)
+      description: "Only FAILED payouts, once (409 NOT_FAILED / ALREADY_RETRIED), and only to a VERIFIED account (409 PAYOUT_ACCOUNT_NOT_VERIFIED). The money went back to the creator's balance when the payout failed; the retry takes it out again."
+      operationId: retryPayout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: The new payout., content: { application/json: { schema: { $ref: '#/components/schemas/Payout' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /admin/promo-codes:
     get:
@@ -2931,9 +2963,94 @@ components:
         feeCents: { type: integer, format: int64, description: Instant payout fee; the creator receives amount − fee. }
         speed: { type: string, enum: [SCHEDULED, STANDARD, INSTANT] }
         destinationLabel: { type: string, examples: ['HDFC Bank •••• 4321'] }
-        status: { type: string, enum: [IN_TRANSIT, PAID] }
+        status: { type: string, enum: [IN_TRANSIT, PAID, FAILED], description: 'FAILED (v3.4): the bank rejected it; the money is back in the balance.' }
         createdAt: { type: string, format: date-time }
         arrivalDate: { type: string, format: date-time }
+        failureReason: { type: [string, 'null'], description: 'v3.4.' }
+
+    FinanceOverview:
+      type: object
+      required: [days, from, to, flows, balances, byMonth, payoutsNeedingAttention, inTransit, reconciliation]
+      properties:
+        days: { type: integer }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        flows:
+          type: object
+          description: Money that moved in the period.
+          required: [gmvCents, ordersCaptured, subscriptionsCents, platformRevenueCents, refundsCents, promotionsCents, gstCollectedCents, taxWithheldCents, paidOutCents, payoutFeesCents]
+          properties:
+            gmvCents: { type: integer, format: int64, description: 'Order totals captured (brand payments + platform-funded discounts).' }
+            ordersCaptured: { type: integer }
+            subscriptionsCents: { type: integer, format: int64, description: Plan charges incl. GST. }
+            platformRevenueCents: { type: integer, format: int64, description: 'Fees, plan prices and instant-payout fees earned (excl. GST).' }
+            refundsCents: { type: integer, format: int64, description: Back to brands' payment methods. }
+            promotionsCents: { type: integer, format: int64, description: 'Promo codes, credits and referral bonuses paid for by the platform (net of returns).' }
+            gstCollectedCents: { type: integer, format: int64 }
+            taxWithheldCents: { type: integer, format: int64, description: TDS and TCS withheld from creators. }
+            paidOutCents: { type: integer, format: int64, description: Sent to creators' banks (after instant fees). }
+            payoutFeesCents: { type: integer, format: int64 }
+        balances:
+          type: object
+          description: As of now.
+          required: [escrowCents, creatorBalancesCents, gstPayableCents, taxWithheldCents, authorisedHoldsCents]
+          properties:
+            escrowCents: { type: integer, format: int64, description: Held for accepted orders not yet approved or refunded. }
+            creatorBalancesCents: { type: integer, format: int64, description: Owed to creators (released, not yet paid out). }
+            gstPayableCents: { type: integer, format: int64 }
+            taxWithheldCents: { type: integer, format: int64, description: TDS/TCS to deposit with the government. }
+            authorisedHoldsCents: { type: integer, format: int64, description: Payments authorised on orders waiting for acceptance (not captured). }
+        byMonth:
+          type: array
+          description: Last 6 months, oldest first.
+          items:
+            type: object
+            required: [month, gmvCents, revenueCents, refundsCents]
+            properties:
+              month: { type: string, examples: ['2026-11'] }
+              gmvCents: { type: integer, format: int64 }
+              revenueCents: { type: integer, format: int64 }
+              refundsCents: { type: integer, format: int64 }
+        payoutsNeedingAttention:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Payout'
+              - type: object
+                required: [creatorName, creatorUsername, accountStatus, retriedAs]
+                properties:
+                  creatorName: { type: string }
+                  creatorUsername: { type: [string, 'null'] }
+                  accountStatus: { type: [string, 'null'], enum: [VERIFYING, VERIFIED, FAILED, null] }
+                  retriedAs: { type: [string, 'null'], description: The payout that retried this one. }
+        inTransit: { type: object, required: [count, cents], properties: { count: { type: integer }, cents: { type: integer, format: int64 } } }
+        reconciliation:
+          type: object
+          required: [checkedAt, ok, checks, mismatches]
+          properties:
+            checkedAt: { type: string, format: date-time }
+            ok: { type: boolean }
+            checks:
+              type: array
+              items:
+                type: object
+                required: [id, label, ok, detail]
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  ok: { type: boolean }
+                  detail: { type: string }
+            mismatches:
+              type: array
+              items:
+                type: object
+                required: [check, ref, expectedCents, actualCents, note]
+                properties:
+                  check: { type: string }
+                  ref: { type: string }
+                  expectedCents: { type: integer, format: int64 }
+                  actualCents: { type: integer, format: int64 }
+                  note: { type: string }
 
     PayoutOverview:
       type: object
