@@ -534,7 +534,9 @@ Source estimate assumes 2 backend, 1 frontend and 1 full-stack/QA engineer; a sm
 
 ## 16. Open questions
 - [x] Launch market: **India-first, INR, Razorpay** (decided 22 Nov 2026).
-- [ ] Tax: GST on platform fees, TDS under section 194-O on creator payouts, and how both show on receipts — confirm with a CA before launch.
+- [ ] Tax: GST on platform fees, TDS under section 194-O on creator payouts, and how both show on receipts — confirm with a CA before launch. (Built with the standard rates in force: see section 17, launch readiness B.)
+- [ ] DPDP: creators can sign up from age 16; under-18s need verifiable parental consent — raise the minimum to 18 or add a consent flow.
+- [ ] SMS / WhatsApp provider and DLT registration for notification templates.
 - [ ] RBI: confirm the escrow model (Razorpay Route on-hold transfers) fits the payment aggregator rules for a marketplace.
 - [ ] Legal entity and licence needed to hold escrow in the launch country?
 - [ ] Final fees: 10% brand + 15% creator, or lower creator fee early?
@@ -655,6 +657,24 @@ Decisions to confirm:
 
 **UI polish (22 Nov 2026, branch `drop-generic-eyebrows`).** Generic "Creator workspace" / "Brand workspace" / "Admin" labels above page titles removed (kept only labels that add information). Account menu behind the avatar (`app/layouts/AccountMenu.tsx`): real picture, Change photo/logo, profile and money links per role, Sign out. Contract **v2.1.0**: `Me.avatarUrl`, `PUT /me/avatar` (creators cannot remove their photo). Page titles stay (orientation on phones, one h1 per page for accessibility).
 
+**Launch readiness (22 Nov 2026, branch `launch-readiness`).** All of section 18 built, phase by phase (one commit each). Contract **v2.6.0** (all additive since v2.1). 244 unit/UI tests, `tsc`, lint, build, `check:contract`, `check:layout` (now incl. saved lists, settings, the 24 h filter and creator invitations), `check:a11y` and the E2E smoke test clean. Backend notes for every new module: `docs/backend-handover.md` → "Launch readiness".
+
+What exists (beyond the earlier weeks):
+- **A:** `/terms`, `/privacy`, `/refunds` (templates for a lawyer); `/settings` (name, email with re-verification, password, sign out other devices, JSON export, delete with 30-day grace); a tab title on every page; admin cancel of an accepted order (FR-37, full refund).
+- **B:** Indian taxes in `src/api/mock/tax.ts` (GST 18% on fees as CGST+SGST or IGST by the brand's state, GST on registered creators' price, TDS 194-O 0.1%, TCS 0.5%), copied onto each order; ledger `GST_PAYABLE` / `TAX_WITHHELD`; tax invoices and creator earnings statements; brand state + GSTIN, creator GSTIN.
+- **C:** package add-ons (usage rights, rush, extra revision) chosen at checkout; drafts before posting; product shipping with tracking; requests for more time; manual post results (order page and brand dashboard). Mock: `handlers/collab.ts`; these are timeline events, not state-machine transitions.
+- **D:** saved lists (`/brand/lists`), campaign invites (profile, lists; creators' Invitations tab), vacation mode (409 `CREATOR_AWAY`), notification preferences per category × email/SMS/WhatsApp (`api/mock/deliver.ts`; SMS/WhatsApp land in the demo outbox), chat attachments (image or PDF), creators rate brands. India-first seed: Indian names, ~85% Indian cities, regional languages. Demo accounts renamed (same emails): Maya Iyer (brand), Leo Fernandes (creator, Mumbai), Ivy Mathew (draft creator), Sam Mehta (admin), Theo Pinto (unverified brand).
+- **E:** calmer workspace titles; `formatMoneyShort` / `<ShortMoney>` (₹82,200 · ₹1.2L · ₹2.5Cr); order progress stepper; search-box suggestions + recent searches + "accepts within 24 h"; notifications grouped by order with "mark as read"; brand "Get started" checklist; Hindi via `src/lib/i18n.tsx` (English text as key; shell, landing, auth, checkout translated; switcher in header/footer, auth pages and settings).
+- Fixed on the way: search match reason split keywords on the letter "s"; the price chip showed `$`; the landing FAQ still mentioned the removed brand wallet; long `<select>` options (state names) widened forms at 360 px.
+- `SCHEMA_VERSION` = 12.
+
+Decisions to confirm:
+- Hindi copy, legal templates and every tax rate need review (native speaker, lawyer, CA).
+- SMS/WhatsApp provider (e.g. MSG91, Gupshup / WhatsApp Business API) and DLT template registration.
+- Add-ons are one of each kind per package; rush must be faster than the package; usage rights 7–365 days.
+- Drafts don't count as revisions; more time is 1–14 days per request, one pending request at a time.
+- Away mode blocks new orders, custom offers, hiring from campaigns and invites; open orders continue.
+
 **Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.
 
 ## 18. Launch-readiness backlog (agreed 22 Nov 2026, branch `launch-readiness`)
@@ -677,25 +697,25 @@ Built in this order; tick when done.
 - [x] Ledger: GST_PAYABLE and TAX_WITHHELD accounts; every transaction still sums to zero.
 
 **Phase C — collaboration flow**
-- [ ] Package add-ons: paid ad-usage rights, rush delivery, extra revision.
-- [ ] Draft approval before posting (share draft → brand approves or asks for changes → final delivery).
-- [ ] Product shipping: courier + tracking from the brand, "received" from the creator.
-- [ ] Deadline extension request (creator asks, brand accepts or declines).
-- [ ] Manual post metrics on delivery (views, likes, comments, reach) shown on the brand dashboard.
+- [x] Package add-ons: paid ad-usage rights, rush delivery, extra revision.
+- [x] Draft approval before posting (share draft → brand approves or asks for changes → final delivery).
+- [x] Product shipping: courier + tracking from the brand, "received" from the creator.
+- [x] Deadline extension request (creator asks, brand accepts or declines).
+- [x] Manual post metrics on delivery (views, likes, comments, reach) shown on the brand dashboard.
 
 **Phase D — retention and trust**
-- [ ] Saved lists (FR-25) and campaign invites (FR-43).
-- [ ] Creator availability (vacation mode).
-- [ ] Notification preferences (FR-53) with email / SMS / WhatsApp channels (mocked).
-- [ ] Chat attachments.
-- [ ] Creators review brands.
-- [ ] India-first demo data (Indian cities and names).
+- [x] Saved lists (FR-25) and campaign invites (FR-43).
+- [x] Creator availability (vacation mode).
+- [x] Notification preferences (FR-53) with email / SMS / WhatsApp channels (mocked).
+- [x] Chat attachments.
+- [x] Creators review brands.
+- [x] India-first demo data (Indian cities and names).
 
 **Phase E — UI**
-- [ ] Smaller page titles on workspace screens and phones.
-- [ ] Rupee shorthand (₹1.2L, ₹2.5Cr) on cards and stat tiles.
-- [ ] Order progress stepper.
-- [ ] Search suggestions, recent searches, "accepts within 24 h" filter.
-- [ ] Notifications grouped by order, mark one as read.
-- [ ] Dashboard setup checklist for new users.
-- [ ] Hindi language option (i18n framework; shell, landing, auth and checkout translated first).
+- [x] Smaller page titles on workspace screens and phones.
+- [x] Rupee shorthand (₹1.2L, ₹2.5Cr) on cards and stat tiles.
+- [x] Order progress stepper.
+- [x] Search suggestions, recent searches, "accepts within 24 h" filter.
+- [x] Notifications grouped by order, mark one as read.
+- [x] Dashboard setup checklist for new users.
+- [x] Hindi language option (i18n framework; shell, landing, auth and checkout translated first).

@@ -297,3 +297,15 @@
 }
 .lang-switch--auth { display: flex; justify-content: flex-end; margin-bottom: var(--s-3); }
 .lang-switch--field select { min-width: 200px; }
+/* The header switcher would crowd phones; there the footer one is used. Fieldsets default to min-width: min-content. */
+.lang-switch--footer { display: none; margin-bottom: var(--s-3); }
+@media (max-width: 640px) {
+  .lang-switch--header { display: none; }
+  .lang-switch--footer { display: block; }
+}
+fieldset { min-width: 0; }
+/* Long option text (e.g. Indian state names) must not widen a form past the screen. */
+.form-optional > *,
+.form-row > * { min-width: 0; }
+select.field__input { max-width: 100%; text-overflow: ellipsis; }
+.field { grid-template-columns: minmax(0, 1fr); }

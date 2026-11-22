@@ -28,6 +28,10 @@ const AS_BRAND = [
   ['brand-profile', '/brand/profile'],
   ['brand-payment-methods', '/brand/payment-methods'],
   ['profile-as-brand', '/u/leomakes'],
+  // Launch readiness: saved lists, settings (language, notifications), search with suggestions filter.
+  ['brand-lists', '/brand/lists'],
+  ['settings', '/settings'],
+  ['search-fast', '/search?fast=1&country=IN'],
 ];
 // Week 3: a draft creator walks the setup wizard; an approved creator sees the workspace.
 const AS_DRAFT_CREATOR = ['profile', 'socials', 'packages', 'portfolio', 'payouts', 'review'].map((s) => [`onboarding-${s}`, `/creator/onboarding?step=${s}`]);
@@ -36,6 +40,7 @@ const AS_CREATOR = [
   ['creator-packages', '/creator/packages'],
   ['creator-onboarding-live', '/creator/onboarding?step=profile'],
   ['creator-payouts', '/creator/payouts'],
+  ['creator-campaigns-invited', '/creator/campaigns?tab=invited'],
 ];
 const AS_ADMIN = [
   ['admin-vetting', '/admin/vetting'],

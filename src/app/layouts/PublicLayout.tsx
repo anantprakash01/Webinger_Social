@@ -20,7 +20,7 @@ export function PublicLayout() {
           <Logo height={22} />
         </Link>
         <nav className="public-nav" aria-label="Site">
-          <LanguageSwitcher />
+          <LanguageSwitcher className="lang-switch lang-switch--header" />
           <NavLink to="/search" className="public-nav__link">
             <LuSearch aria-hidden /> <span className="public-nav__text">{t('Search')}</span>
           </NavLink>
@@ -84,6 +84,7 @@ export function PublicLayout() {
             </ul>
           </div>
         </div>
+        <LanguageSwitcher className="lang-switch lang-switch--footer" />
         <div className="public-footer__legal">© {new Date().getFullYear()} {PRODUCT_NAME}. {t('Prototype — all creators and brands shown are invented.')}</div>
       </footer>
     </div>
