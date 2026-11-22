@@ -9,6 +9,7 @@ import { OrderStatusBadge } from '@/components/status';
 import { Badge, Card, ErrorState, PageSkeleton } from '@/components/ui';
 import { ApiError } from '@/types';
 import { ActionPanel } from '../components/ActionPanel';
+import { OrderStepper } from '../components/OrderStepper';
 import { DraftsCard, ExtensionCard, ShippingCard } from '../components/Collaboration';
 import { BriefCard, Deliveries, MoneyCard, OrderedCard, ReviewCard, Timeline } from '../components/OrderParts';
 import { shortId } from '../format';
@@ -98,6 +99,8 @@ export function OrderDetailPage() {
           )}
         </div>
       </header>
+
+      <OrderStepper o={o} />
 
       <div className="order__layout">
         <div className="order__main">

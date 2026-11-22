@@ -70,6 +70,8 @@ export interface CreatorProfileRow {
   payoutStatus: PayoutStatus;
   /** Pay the whole balance every Monday (default on). */
   autoWeekly?: boolean;
+  /** Phase E: typical hours to accept from before the mock (seed only); used until 3 real orders exist. */
+  historicAcceptHours?: number | null;
   /** Phase D vacation mode. */
   availability?: { away: boolean; until: string | null; message: string | null };
   createdAt: string;

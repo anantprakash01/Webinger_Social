@@ -1,4 +1,5 @@
 /** Campaign card (lists) and the "new campaign" form (FR-40). */
+import { ShortMoney } from '@/components/Money';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +8,6 @@ import { LuCalendar, LuUsers } from 'react-icons/lu';
 import { CreatorPhoto, PlatformIcon, Rating } from '@/components/creator';
 import { Badge, Button, ChipGroup, FormError, Input, TextArea, type Tone } from '@/components/ui';
 import { NICHE_LABEL, NICHES, PLATFORM_LABEL, PLATFORMS } from '@/lib/catalog';
-import { formatMoney } from '@/lib/money';
 import { applyServerErrors } from '@/lib/forms';
 import type { ApplicationStatus, CampaignInput, CampaignSummary } from '@/types';
 import { useCreateCampaign } from '../hooks';
@@ -57,7 +57,7 @@ export function CampaignCard({ c, href, role }: { c: CampaignSummary; href: stri
         <div className="small muted">{c.niches.map((n) => NICHE_LABEL[n]).join(' · ')}</div>
         <div className="campaign-card__foot">
           <span>
-            Up to <strong>{formatMoney(c.budgetPerCreatorCents, c.currency, { whole: true })}</strong> per creator
+            Up to <strong><ShortMoney cents={c.budgetPerCreatorCents} currency={c.currency} /></strong> per creator
           </span>
           <span className="small muted">
             <LuCalendar aria-hidden style={{ verticalAlign: 'middle' }} /> Apply by {formatDeadline(c.deadline)}

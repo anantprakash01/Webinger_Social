@@ -1,8 +1,8 @@
+import { ShortMoney } from '@/components/Money';
 import { SaveToList } from '@/features/retention/components/BrandTools';
 import { Link } from 'react-router-dom';
 import { CreatorPhoto, PlatformIcon, Rating, VerifiedBadge, placeLabel } from '@/components/creator';
 import { COUNTRY_LABEL, formatCompact, NICHE_LABEL, PLATFORM_LABEL } from '@/lib/catalog';
-import { formatMoney } from '@/lib/money';
 import type { CreatorCard as Card } from '@/types';
 
 /** Search result card (FR-24): photo, name, top platform, followers, starting price, rating. */
@@ -51,7 +51,7 @@ export function CreatorCard({ creator: c, q }: { creator: Card; q?: string }) {
             <span className="ccard__price">
               {c.startingPriceCents !== null ? (
                 <>
-                  From <strong>{formatMoney(c.startingPriceCents, c.currency, { whole: true })}</strong>
+                  From <strong><ShortMoney cents={c.startingPriceCents} currency={c.currency} /></strong>
                 </>
               ) : (
                 <span className="muted">No packages yet</span>

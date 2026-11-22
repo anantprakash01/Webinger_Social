@@ -1,4 +1,6 @@
 /** /brand/dashboard (FR-71): spend, orders by status, delivered post links, campaigns. */
+import { SetupChecklist } from '../components/SetupChecklist';
+import { ShortMoney } from '@/components/Money';
 import { MetricsLine } from '@/features/orders/components/Collaboration';
 import type { BrandStats } from '@/types';
 import { Link } from 'react-router-dom';
@@ -6,7 +8,6 @@ import { LuArrowRight, LuExternalLink, LuSearch } from 'react-icons/lu';
 import { useAuth } from '@/app/AuthContext';
 import { orderStatusLabel } from '@/components/status';
 import { Badge, Card, EmptyState, ErrorState, PageHeader, PageSkeleton, Stat } from '@/components/ui';
-import { formatMoney } from '@/lib/money';
 import type { OrderStatus } from '@/api/mock/orderMachine';
 import { ActionQueue } from '@/features/orders/components/ActionQueue';
 import { formatWhen } from '@/lib/dates';
@@ -49,23 +50,14 @@ export function BrandDashboardPage() {
           </div>
         </div>
       )}
-      {!user.brand?.companyName && (
-        <div className="vetting vetting--neutral" role="status">
-          <div>
-            <strong>Add your company details</strong> so creators know who they're working with.{' '}
-            <Link to="/brand/profile" className="link">
-              Company profile
-            </Link>
-          </div>
-        </div>
-      )}
+      <SetupChecklist stats={s} />
 
       <ActionQueue role="BRAND" base="/brand/orders" />
 
       <div className="grid grid--stats">
-        <Stat label="Spent" value={formatMoney(s.spentCents, s.currency)} hint="Charged, minus refunds" accent />
-        <Stat label="In escrow" value={formatMoney(s.inEscrowCents, s.currency)} hint="Released when you approve" />
-        <Stat label="Payment holds" value={formatMoney(s.authorisedCents, s.currency)} hint="Not charged until accepted" />
+        <Stat label="Spent" value={<ShortMoney cents={s.spentCents} currency={s.currency} />} hint="Charged, minus refunds" accent />
+        <Stat label="In escrow" value={<ShortMoney cents={s.inEscrowCents} currency={s.currency} />} hint="Released when you approve" />
+        <Stat label="Payment holds" value={<ShortMoney cents={s.authorisedCents} currency={s.currency} />} hint="Not charged until accepted" />
         <Stat
           label="Open campaigns"
           value={s.openCampaigns}

@@ -39,7 +39,7 @@ describe('search page', () => {
   it('puts the keyword in the URL after typing stops (shareable links)', async () => {
     renderAt('/search');
     const user = userEvent.setup();
-    await user.type(await screen.findByRole('searchbox', { name: 'Search creators' }), 'leomakes');
+    await user.type(await screen.findByRole('combobox', { name: 'Search creators' }), 'leomakes');
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('leomakes'));
     expect(await screen.findByText('1 creator', { selector: 'h2' })).toBeInTheDocument();
     expect(within(cards()[0]).getByText('Leo Fernandes')).toBeInTheDocument();

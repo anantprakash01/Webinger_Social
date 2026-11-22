@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Creator Marketplace API
-  version: 2.5.0
+  version: 2.6.0
   description: |
     **Contract v2.0 — India market (INR, Razorpay), 22 Nov 2026.** v1.0 was frozen at the end of Phase 0; v1.1 added fields (UX pass); v2.0 replaces Stripe with Razorpay and adds payment sessions, saved payment methods, payout accounts and withdrawals. The Spring Boot API (Phase 1) implements
     exactly this contract. Changes after the freeze need a reviewed PR that bumps the version (minor for
@@ -345,6 +345,7 @@ paths:
         - { name: gender, in: query, schema: { $ref: '#/components/schemas/Gender' } }
         - { name: ageMin, in: query, schema: { type: integer, minimum: 13, maximum: 100 } }
         - { name: ageMax, in: query, schema: { type: integer, minimum: 13, maximum: 100 } }
+        - { name: fastAccept, in: query, description: 'Only creators who usually accept within 24 hours (v2.6).', schema: { type: boolean } }
         - name: sort
           in: query
           schema: { type: string, enum: [relevance, price_asc, followers_desc, rating_desc, newest], default: relevance }
@@ -1518,6 +1519,26 @@ paths:
         '200': { description: OK., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutOverview' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /creators/suggestions:
+    get:
+      tags: [Creators]
+      summary: Search-box suggestions (v2.6)
+      description: Up to 8 matches for what is typed so far — approved creators by name or username, niches and cities. Public.
+      operationId: suggestSearch
+      security: []
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 100 } }
+      responses:
+        '200':
+          description: Suggestions, best first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [suggestions]
+                properties:
+                  suggestions: { type: array, maxItems: 8, items: { $ref: '#/components/schemas/SearchSuggestion' } }
+
   /creators/{username}:
     get:
       tags: [Creators]
@@ -1773,6 +1794,15 @@ components:
         away: { type: boolean, description: 'Vacation mode is on: not taking new orders (v2.5).' }
 
     # ---------- Phase D: retention and trust (v2.5) ----------
+    SearchSuggestion:
+      type: object
+      required: [kind, label, value, detail]
+      properties:
+        kind: { type: string, enum: [CREATOR, NICHE, CITY] }
+        label: { type: string }
+        value: { type: string, description: 'CREATOR: username; NICHE: niche code; CITY: "IN:Mumbai".' }
+        detail: { type: [string, 'null'] }
+
     SavedListInput:
       type: object
       required: [name]

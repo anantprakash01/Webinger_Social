@@ -1790,6 +1790,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/creators/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search-box suggestions (v2.6)
+         * @description Up to 8 matches for what is typed so far — approved creators by name or username, niches and cities. Public.
+         */
+        get: operations["suggestSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/creators/{username}": {
         parameters: {
             query?: never;
@@ -1967,6 +1987,14 @@ export interface components {
             verified: boolean;
             /** @description Vacation mode is on: not taking new orders (v2.5). */
             away: boolean;
+        };
+        SearchSuggestion: {
+            /** @enum {string} */
+            kind: "CREATOR" | "NICHE" | "CITY";
+            label: string;
+            /** @description CREATOR: username; NICHE: niche code; CITY: "IN:Mumbai". */
+            value: string;
+            detail: string | null;
         };
         SavedListInput: {
             name: string;
@@ -3840,6 +3868,8 @@ export interface operations {
                 gender?: components["schemas"]["Gender"];
                 ageMin?: number;
                 ageMax?: number;
+                /** @description Only creators who usually accept within 24 hours (v2.6). */
+                fastAccept?: boolean;
                 sort?: "relevance" | "price_asc" | "followers_desc" | "rating_desc" | "newest";
                 page?: number;
                 /** @description FR-23: 24 per page. */
@@ -6107,6 +6137,30 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    suggestSearch: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        suggestions: components["schemas"]["SearchSuggestion"][];
+                    };
+                };
+            };
         };
     };
     getCreatorProfile: {

@@ -163,3 +163,4 @@ export type BrandReview = S['BrandReview'];
 export type NotificationCategory = S['NotificationCategory'];
 export type NotificationPreferences = S['NotificationPreferences'];
 export type MessageAttachment = S['MessageAttachment'];
+export type SearchSuggestion = S['SearchSuggestion'];

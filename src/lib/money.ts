@@ -32,6 +32,23 @@ export function formatMoney(cents: number, currency = CURRENCY, opts: { whole?: 
   return formatter(currency, whole).format(cents / 100);
 }
 
+/**
+ * Indian shorthand for tiles and cards (phase E): under ₹1 lakh the whole-rupee amount (₹82,200);
+ * then lakh (₹1.2L) and crore (₹2.5Cr), one decimal, rounded down so it never overstates.
+ * Other currencies fall back to the whole amount.
+ */
+export function formatMoneyShort(cents: number, currency = CURRENCY): string {
+  assertCents(cents);
+  if (currency !== 'INR') return formatMoney(Math.round(cents / 100) * 100, currency, { whole: true });
+  const rupees = Math.trunc(cents / 100);
+  const abs = Math.abs(rupees);
+  const sign = rupees < 0 ? '−' : '';
+  const one = (n: number) => (Math.floor(n * 10) / 10).toFixed(1).replace(/\.0$/, '');
+  if (abs >= 1_00_00_000) return `${sign}₹${one(abs / 1_00_00_000)}Cr`;
+  if (abs >= 1_00_000) return `${sign}₹${one(abs / 1_00_000)}L`;
+  return formatMoney(rupees * 100, currency, { whole: true });
+}
+
 /** Throws if a value is not a safe integer number of minor units. Use at mock and form boundaries. */
 export function assertCents(cents: number): void {
   if (!Number.isSafeInteger(cents)) throw new Error(`Money must be integer minor units, got ${cents}`);

@@ -61,6 +61,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/creators/me/submit-for-review', auth: true, handler: creatorMe.submitMyProfileForReview },
   { method: 'GET', path: '/creators/me/stats', auth: true, handler: creatorMe.getMyCreatorStats },
   { method: 'GET', path: '/creators', auth: false, handler: creators.searchCreators },
+  { method: 'GET', path: '/creators/suggestions', auth: false, handler: creators.suggestSearch },
   { method: 'GET', path: '/creators/:username', auth: 'optional', handler: creators.getCreatorProfile },
   { method: 'PATCH', path: '/me', auth: true, handler: me.updateMe },
   { method: 'PUT', path: '/me/avatar', auth: true, handler: me.updateMyAvatar },

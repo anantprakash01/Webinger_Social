@@ -176,6 +176,16 @@ function languagesFor(r: Rand, country: string): string[] {
   return [...new Set(langs)];
 }
 
+/** Small stable hash of a string (FNV-1a), for seed values that must not consume the PRNG. */
+function hashOf(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
 function logFollowers(r: Rand, min: number, max: number) {
   return Math.round(Math.exp(Math.log(min) + r() * (Math.log(max) - Math.log(min))));
 }
@@ -228,6 +238,7 @@ function build(spec: Spec, r: Rand, now: Date, out: SeedResult, opts: { photo: s
     // Profiles still in review were submitted recently; decided ones the day after sign-up.
     submittedAt: spec.vetting === 'DRAFT' ? null : new Date(t - (spec.vetting === 'PENDING_REVIEW' ? Math.min(spec.createdDaysAgo - 1, 2) : spec.createdDaysAgo - 1) * DAY).toISOString(),
     profileViews: spec.vetting === 'APPROVED' ? between(r, 40, 2_400) : 0,
+    historicAcceptHours: spec.vetting === 'APPROVED' && opts.reviewCount >= 3 ? 2 + (hashOf(spec.username) % 60) : null,
     // Payouts must be set up before a profile can be submitted (Week 3 rule).
     stripeAccountId: spec.vetting === 'DRAFT' ? null : `acct_demo${spec.username}`,
     payoutStatus: spec.vetting === 'DRAFT' ? 'NOT_STARTED' : 'ENABLED',

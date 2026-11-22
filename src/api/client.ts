@@ -69,7 +69,7 @@ import {
   type MarkReadRequest,
   type MessageList,
   type NotificationPage,
-  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest, type PostMetricsInput, type CampaignInvite, type MessageAttachment, type SavedList, type SavedListDetail, type NotificationPreferences, type BrandReview, type CreatorAvailability } from '@/types';
+  type CreatorProfile, type CreatorSearchPage, type CreatorSearchQuery, type GoogleAuthRequest, type Me, type Problem, type RegisterRequest, type ResetPasswordRequest, type UpdateMeRequest, type PostMetricsInput, type CampaignInvite, type MessageAttachment, type SavedList, type SavedListDetail, type NotificationPreferences, type BrandReview, type CreatorAvailability, type SearchSuggestion } from '@/types';
 
 const MODE = (import.meta.env.VITE_API_MODE ?? 'mock') as 'mock' | 'http';
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -430,6 +430,8 @@ export const api = {
   creators: {
     /** Public search (FR-20 – FR-24). */
     search: (query: CreatorSearchQuery) => request<CreatorSearchPage>('GET', '/creators', { query }),
+    /** v2.6 search-box suggestions. */
+    suggest: (q: string) => request<{ suggestions: SearchSuggestion[] }>('GET', '/creators/suggestions', { query: { q }, auth: false }),
     /** Public profile (FR-15). Sends the token when signed in, so owners and admins can preview. */
     profile: (username: string) => request<CreatorProfile>('GET', `/creators/${encodeURIComponent(username)}`),
   },

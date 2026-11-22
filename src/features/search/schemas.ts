@@ -41,6 +41,8 @@ export const creatorSearchQuerySchema = z
     gender: z.enum(GENDER_VALUES).optional(),
     ageMin: int(13, 100),
     ageMax: int(13, 100),
+    /** v2.6: usually accepts within 24 hours. Query strings carry "true"/"false". */
+    fastAccept: z.preprocess((v) => (v === 'true' || v === true ? true : v === 'false' || v === false ? false : v), z.boolean().optional()),
     sort: z.enum(SORT_VALUES).default('relevance'),
     page: z.coerce.number().int().min(0).default(0),
     size: z.coerce.number().int().min(1).max(PAGE_SIZE).default(PAGE_SIZE),
@@ -76,6 +78,8 @@ export interface SearchState {
   language?: string;
   gender?: Gender;
   age?: (typeof AGE_BUCKETS)[number]['value'];
+  /** Accepts within 24 h (phase E). */
+  fast?: boolean;
   sort?: SortValue;
   /** 1-based in the URL, so links read naturally. */
   page?: number;
@@ -102,6 +106,7 @@ export function parseSearchUrl(sp: URLSearchParams): SearchState {
     language: /^[a-z]{2}$/.test(sp.get('language') ?? '') ? sp.get('language')! : undefined,
     gender: oneOf(GENDER_VALUES, sp.get('gender')?.toUpperCase() ?? null),
     age: oneOf(AGE_BUCKETS.map((b) => b.value), sp.get('age')),
+    fast: sp.get('fast') === '1' || undefined,
     sort: oneOf(SORT_VALUES, sp.get('sort')),
     page: Number.isInteger(page) && page > 1 ? page : undefined,
   };
@@ -126,6 +131,7 @@ export function toSearchUrl(s: SearchState): URLSearchParams {
   put('language', s.language);
   put('gender', s.gender?.toLowerCase());
   put('age', s.age);
+  put('fast', s.fast ? 1 : undefined);
   put('sort', s.sort && s.sort !== 'relevance' ? s.sort : undefined);
   put('page', s.page && s.page > 1 ? s.page : undefined);
   return sp;
@@ -149,6 +155,7 @@ export function toApiQuery(s: SearchState): CreatorSearchQuery {
     gender: s.gender,
     ageMin: a?.min,
     ageMax: a?.max,
+    fastAccept: s.fast || undefined,
     sort: s.sort ?? 'relevance',
     page: (s.page ?? 1) - 1,
     size: PAGE_SIZE,
@@ -157,4 +164,4 @@ export function toApiQuery(s: SearchState): CreatorSearchQuery {
 
 /** Number of active filters (keyword and sort excluded), for the "Filters (n)" button. */
 export const activeFilterCount = (s: SearchState) =>
-  [s.platform, s.niche, s.country, s.followers, s.priceMin ?? s.priceMax, s.language, s.gender, s.age].filter((v) => v !== undefined).length;
+  [s.platform, s.niche, s.country, s.followers, s.priceMin ?? s.priceMax, s.language, s.gender, s.age, s.fast].filter((v) => v !== undefined).length;
