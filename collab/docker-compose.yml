@@ -1,0 +1,14 @@
+# Local services for the API: MySQL 8 (more arrive with their modules: Redis, MinIO, MailHog).
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: collab
+      MYSQL_USER: collab
+      MYSQL_PASSWORD: collab-dev-password
+      MYSQL_ROOT_PASSWORD: collab-dev-root
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--default-time-zone=+00:00"]
+    ports: ["3306:3306"]
+    volumes: [mysql-data:/var/lib/mysql]
+volumes:
+  mysql-data:

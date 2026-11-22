@@ -1,5 +1,8 @@
 # Backend handover — Phase 0 → Phase 1
 
+> **Backend status (22 Nov 2026):** the API lives in `collab/` (repository root `README.md`). Built: foundation, Auth and `/me` (Weeks 7–8). Next: creators, search and vetting. Each section below is ported module by module; tick it here when it lands.
+
+
 For the Spring Boot engineers building the Phase 1 API (CLAUDE.md §11). The React prototype runs entirely on an in-browser mock that follows the same rules the backend must follow. This document lists, per module, what the API must do and where the mock shows the expected behaviour.
 
 - **Contract:** `docs/api/openapi.yaml` **v1.1.0** (v1.0.0 frozen 21 Nov 2026; v1.1 adds fields only, see "Contract v1.1" below). Implement it exactly. Any change needs a PR that bumps the version and regenerates the frontend types (`npm run gen:api`); `npm run check:contract` fails CI on drift.

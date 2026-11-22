@@ -697,7 +697,11 @@ Decisions to confirm:
 
 **Night mode (22 Nov 2026, branch `night-mode`).** Day / night switch (sun/moon) in the public header, the auth pages, the workspace sidebar footer and phone top bar; Settings → Appearance offers Match my device / Day / Night. Preference per device in localStorage `wc.theme` (`src/lib/theme.ts`), applied by an inline script in `index.html` before the first paint. Night palette contrast: body text 15:1, secondary 6.8:1+, red text 6.3:1, white on red 5:1; axe passes in both themes. 269 tests, layout and a11y clean.
 
-**Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.
+**Monorepo + backend foundation (22 Nov 2026, branch `monorepo-backend`).** The repository root is now `d:\Webinger Social`: this app lives in `frontend/` (history kept as renames) and the Spring Boot API in `collab/` (Java 21, Spring Boot 4.2, MySQL 8 + Flyway; H2 in MySQL mode for tests and the `h2` profile). Root `CLAUDE.md` holds the backend rules. Done in the backend (Weeks 7–8): Flyway V1 (users, auth_sessions, refresh_tokens, one_time_tokens, message_outbox, brand/creator profile shells, audit_logs); problem+json errors with the mock's codes and messages; JWT access tokens (HS256, 15 min, `sid` = session) + rotating refresh token in an httpOnly cookie on `/api/v1/auth` with reuse detection; `/auth/*` (register, login, refresh, logout, Google with real ID-token verification and the mock token in demo mode, verify-email + resend 5/h, forgot/reset 30 min) and `/me` (GET, PATCH, PUT avatar); read-only impersonation guard; demo accounts and `/dev/outbox` when `app.demo=true`. 20 JUnit tests (the mock's auth cases ported) pass; the frontend in `VITE_API_MODE=http` signs up, signs in, refreshes, reloads and signs out against it. Gaps on purpose: referral codes at sign-up are ignored until the promos module; login rate limiting (Bucket4j) comes with launch readiness.
+
+**Next: Phase 1, Weeks 9–11 — creator supply in `collab/`** (profiles, packages, socials, portfolio, presigned uploads, vetting, search), then switch those screens to http.
+
+**Earlier plan line (kept for reference): Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.
 
 ## 18. Launch-readiness backlog (agreed 22 Nov 2026, branch `launch-readiness`)
 
