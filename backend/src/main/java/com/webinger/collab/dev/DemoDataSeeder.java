@@ -8,6 +8,9 @@ import com.webinger.collab.creator.repository.PackageRepository;
 import com.webinger.collab.creator.repository.PayoutAccountRepository;
 import com.webinger.collab.creator.repository.PortfolioItemRepository;
 import com.webinger.collab.creator.repository.SocialAccountRepository;
+import com.webinger.collab.order.service.OrderService;
+import com.webinger.collab.payment.service.PaymentService;
+import com.webinger.collab.payout.service.PayoutService;
 import com.webinger.collab.user.domain.Role;
 import com.webinger.collab.user.domain.User;
 import com.webinger.collab.user.domain.UserStatus;
@@ -41,15 +44,22 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final PasswordEncoder passwords;
     private final Clock clock;
     private final CreatorDemoData creatorData;
+    private final OrderDemoData orderData;
+    private final PayoutService payoutService;
+    private final PackageRepository packages;
 
     public DemoDataSeeder(UserRepository users, BrandProfileRepository brands, CreatorProfileRepository creators, PasswordEncoder passwords, Clock clock,
-            SocialAccountRepository socials, PackageRepository packages, PortfolioItemRepository portfolio, PayoutAccountRepository payouts) {
+            SocialAccountRepository socials, PackageRepository packages, PortfolioItemRepository portfolio, PayoutAccountRepository payouts, OrderService orders,
+            PaymentService payments, PayoutService payoutService) {
+        this.payoutService = payoutService;
         this.users = users;
         this.brands = brands;
         this.creators = creators;
         this.passwords = passwords;
         this.clock = clock;
+        this.packages = packages;
         this.creatorData = new CreatorDemoData(users, creators, socials, packages, portfolio, payouts);
+        this.orderData = new OrderDemoData(orders, payments);
     }
 
     @Override
@@ -64,11 +74,14 @@ public class DemoDataSeeder implements ApplicationRunner {
         User theo = user("01JD0000000000000000BRAND2", "unverified@demo.test", "Theo Pinto", Role.BRAND, false, hash, at);
         brand(theo, "Fernhill Tea House", null, "FOOD", "WB", null, at);
         User leo = user("01JD000000000000000CREATR1", "creator@demo.test", "Leo Fernandes", Role.CREATOR, true, hash, at);
-        creatorData.leo(creator(leo, "leomakes", "APPROVED", "ENABLED", at), clock.instant());
+        CreatorProfile leoProfile = creator(leo, "leomakes", "APPROVED", "ENABLED", at);
+        creatorData.leo(leoProfile, clock.instant());
         User ivy = user("01JD000000000000000CREATR2", "newcreator@demo.test", "Ivy Mathew", Role.CREATOR, true, hash, at);
         creator(ivy, null, "DRAFT", "NOT_STARTED", at);
-        user("01JD0000000000000000ADMIN1", "admin@demo.test", "Sam Mehta", Role.ADMIN, true, hash, at);
+        User sam = user("01JD0000000000000000ADMIN1", "admin@demo.test", "Sam Mehta", Role.ADMIN, true, hash, at);
         creatorData.catalogue(hash, clock.instant());
+        orderData.seed(maya, leo, sam, leoProfile, packages.findByCreatorId(leoProfile.getId()), clock.instant());
+        payoutService.startWeeklySchedule(clock.instant());
         log.info("Demo accounts created (password {}): brand@demo.test, unverified@demo.test, creator@demo.test, newcreator@demo.test, admin@demo.test, "
                 + "plus {} invented creators (<username>@creators.demo.test)", DEMO_PASSWORD, CreatorDemoData.PEOPLE.size());
     }

@@ -13,6 +13,8 @@ import com.webinger.collab.creator.web.CreatorDtos.CreatorCardDto;
 import com.webinger.collab.creator.web.CreatorDtos.CreatorProfileDto;
 import com.webinger.collab.creator.web.CreatorDtos.CreatorSearchPageDto;
 import com.webinger.collab.creator.web.CreatorDtos.ReachDto;
+import com.webinger.collab.creator.web.CreatorDtos.ReviewDto;
+import com.webinger.collab.order.service.CreatorTrackRecord;
 import com.webinger.collab.creator.web.CreatorDtos.SuggestionDto;
 import com.webinger.collab.security.AuthUser;
 import com.webinger.collab.user.domain.Role;
@@ -48,15 +50,17 @@ public class CreatorSearchService {
     private final PackageRepository packages;
     private final PortfolioItemRepository portfolio;
     private final UserService users;
+    private final CreatorTrackRecord track;
     private final Clock clock;
 
     public CreatorSearchService(CreatorProfileRepository profiles, SocialAccountRepository socials, PackageRepository packages, PortfolioItemRepository portfolio,
-            UserService users, Clock clock) {
+            UserService users, CreatorTrackRecord track, Clock clock) {
         this.profiles = profiles;
         this.socials = socials;
         this.packages = packages;
         this.portfolio = portfolio;
         this.users = users;
+        this.track = track;
         this.clock = clock;
     }
 
@@ -67,20 +71,22 @@ public class CreatorSearchService {
     /** One creator as seen through an optional platform filter. */
     record Facts(CreatorProfile profile, CreatorCardDto card, Instant listedAt) {}
 
-    /** Socials and active packages of many creators in two queries. */
-    record Loaded(Map<Long, List<SocialAccount>> socials, Map<Long, List<CreatorPackage>> packages) {
-        static Loaded of(Collection<Long> ids, SocialAccountRepository s, PackageRepository k) {
-            if (ids.isEmpty()) return new Loaded(Map.of(), Map.of());
-            return new Loaded(s.findByCreatorIdIn(ids).stream().collect(Collectors.groupingBy(SocialAccount::getCreatorId)),
-                    k.findByCreatorIdInAndActiveTrue(ids).stream().collect(Collectors.groupingBy(CreatorPackage::getCreatorId)));
-        }
+    /** Socials, active packages, ratings and track records of many creators in a few queries. */
+    record Loaded(Map<Long, List<SocialAccount>> socials, Map<Long, List<CreatorPackage>> packages, Map<Long, CreatorTrackRecord.Rating> ratings,
+            Map<Long, CreatorTrackRecord.Track> tracks) {}
+
+    Loaded load(Collection<CreatorProfile> ps) {
+        if (ps.isEmpty()) return new Loaded(Map.of(), Map.of(), Map.of(), Map.of());
+        List<Long> ids = ps.stream().map(CreatorProfile::getId).toList();
+        List<Long> userIds = ps.stream().map(CreatorProfile::getUserId).toList();
+        return new Loaded(socials.findByCreatorIdIn(ids).stream().collect(Collectors.groupingBy(SocialAccount::getCreatorId)),
+                packages.findByCreatorIdInAndActiveTrue(ids).stream().collect(Collectors.groupingBy(CreatorPackage::getCreatorId)), track.ratings(userIds),
+                track.tracks(userIds));
     }
 
-    /**
-     * The card (FR-24). With a platform: that platform's account and packages; empty if the creator has
-     * neither there. Ratings arrive with the reviews module (Weeks 16–18).
-     */
+    /** The card (FR-24). With a platform: that platform's account and packages; empty if the creator has neither there. */
     Optional<Facts> cardFor(CreatorProfile p, String platform, Loaded loaded, LocalDate today) {
+        CreatorTrackRecord.Rating rating = loaded.ratings().getOrDefault(p.getUserId(), CreatorTrackRecord.Rating.NONE);
         List<SocialAccount> mine = loaded.socials().getOrDefault(p.getId(), List.of());
         List<CreatorPackage> pk = loaded.packages().getOrDefault(p.getId(), List.of()).stream().filter(k -> platform == null || k.getPlatform().equals(platform)).toList();
         Optional<SocialAccount> top = mine.stream().max(Comparator.comparingLong(SocialAccount::getFollowers));
@@ -96,8 +102,8 @@ public class CreatorSearchService {
                 reach.map(s -> new ReachDto(s.getPlatform(), s.getHandle(), s.getFollowers())).orElse(null),
                 pk.stream().mapToLong(CreatorPackage::getPriceCents).min().stream().boxed().findFirst().orElse(null),
                 Catalog.CURRENCY,
-                null,
-                0,
+                rating.avg(),
+                rating.count(),
                 mine.stream().anyMatch(s -> s.getVerifiedAt() != null),
                 p.isAwayOn(today));
         return Optional.of(new Facts(p, card, p.getApprovedAt() != null ? p.getApprovedAt() : p.getCreatedAt()));
@@ -110,7 +116,7 @@ public class CreatorSearchService {
         List<CreatorProfile> visible = list.stream()
                 .filter(p -> p.isApproved() && p.getUsername() != null && owners.containsKey(p.getUserId()) && owners.get(p.getUserId()).getStatus() == UserStatus.ACTIVE)
                 .toList();
-        Loaded loaded = Loaded.of(visible.stream().map(CreatorProfile::getId).toList(), socials, packages);
+        Loaded loaded = load(visible);
         LocalDate today = today();
         return visible.stream().map(p -> cardFor(p, null, loaded, today).orElseThrow().card()).toList();
     }
@@ -153,7 +159,7 @@ public class CreatorSearchService {
                 q.niche(), q.language());
         if (q.ageMin() != null || q.ageMax() != null) candidates = candidates.stream().filter(p -> p.getBirthYear() != null).toList();
 
-        Loaded loaded = Loaded.of(candidates.stream().map(CreatorProfile::getId).toList(), socials, packages);
+        Loaded loaded = load(candidates);
         LocalDate today = today();
         List<Scored> scored = new ArrayList<>();
         for (CreatorProfile p : candidates) {
@@ -162,8 +168,11 @@ public class CreatorSearchService {
             CreatorCardDto c = f.get().card();
             if (!inRange(c.reach() == null ? null : c.reach().followers(), q.followersMin(), q.followersMax())) continue;
             if (!inRange(c.startingPriceCents(), q.priceMinCents(), q.priceMaxCents())) continue;
-            // v2.6 "accepts within 24 h": needs the typical acceptance time from orders (Weeks 12–15); none qualify yet.
-            if (Boolean.TRUE.equals(q.fastAccept())) continue;
+            // v2.6 "accepts within 24 h": typical acceptance time from the last orders (null with fewer than 3).
+            if (Boolean.TRUE.equals(q.fastAccept())) {
+                Integer h = loaded.tracks().getOrDefault(p.getUserId(), CreatorTrackRecord.Track.NONE).typicalAcceptHours();
+                if (h == null || h > 24) continue;
+            }
             int score = keywordScore(p, words);
             if (score > 0) scored.add(new Scored(f.get(), score));
         }
@@ -229,15 +238,16 @@ public class CreatorSearchService {
         if (p == null || p.getUsername() == null || (!live && !canPreview)) throw new ApiException(HttpStatus.NOT_FOUND, "No creator with that username.", "CREATOR_NOT_FOUND");
 
         LocalDate today = today();
-        Loaded loaded = Loaded.of(List.of(p.getId()), socials, packages);
+        Loaded loaded = load(List.of(p));
+        CreatorTrackRecord.Track record = loaded.tracks().getOrDefault(p.getUserId(), CreatorTrackRecord.Track.NONE);
         CreatorCardDto c = cardFor(p, null, loaded, today).orElseThrow().card();
 
         List<SocialAccount> mine = loaded.socials().getOrDefault(p.getId(), List.of());
         CreatorProfileDto body = new CreatorProfileDto(
                 c.username(), c.displayName(), c.photoUrl(), c.city(), c.country(), c.niches(), c.reach(), c.startingPriceCents(), c.currency(), c.ratingAvg(),
                 c.ratingCount(), c.verified(), c.away(),
-                0, // completedOrders: orders module
-                null, // typicalAcceptHours: orders module
+                record.completedOrders(),
+                record.typicalAcceptHours(),
                 CreatorService.availabilityOf(p, today),
                 null, // myInquiryId: chat module (pre-booking inquiries)
                 p.getBio(),
@@ -246,7 +256,7 @@ public class CreatorSearchService {
                 mine.stream().sorted(Comparator.comparingLong(SocialAccount::getFollowers).reversed()).map(CreatorService::toSocial).toList(),
                 loaded.packages().getOrDefault(p.getId(), List.of()).stream().sorted(Comparator.comparingLong(CreatorPackage::getPriceCents)).map(CreatorService::toPackage).toList(),
                 portfolio.findByCreatorIdOrderBySortOrderAsc(p.getId()).stream().limit(12).map(CreatorService::toPortfolioItem).toList(),
-                List.of(), // reviews: reviews module
+                track.latestReviews(p.getUserId(), 20).stream().map(r -> new ReviewDto(r.id(), r.rating(), r.comment(), r.brandName(), r.createdAt(), r.creatorReply(), r.repliedAt())).toList(),
                 p.getCreatedAt(),
                 p.getVettingStatus());
         // Counted last: the update clears the persistence context, so nothing above may need it afterwards.

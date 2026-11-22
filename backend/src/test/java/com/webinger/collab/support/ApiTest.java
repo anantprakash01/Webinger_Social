@@ -62,7 +62,13 @@ public abstract class ApiTest {
 
     /** One API call; keeps the tokens a sign-in or refresh hands back. */
     protected Res call(String method, String path, String json) throws Exception {
+        return call(method, path, json, null);
+    }
+
+    /** With an Idempotency-Key header (money-moving calls), like the frontend client. */
+    protected Res call(String method, String path, String json, String idempotencyKey) throws Exception {
         MockHttpServletRequestBuilder b = request(HttpMethod.valueOf(method), "/api/v1" + path).contextPath("/api/v1").accept(MediaType.APPLICATION_JSON);
+        if (idempotencyKey != null) b.header("Idempotency-Key", idempotencyKey);
         if (json != null) b.contentType(MediaType.APPLICATION_JSON).content(json);
         if (accessToken != null) b.header("Authorization", "Bearer " + accessToken);
         if (refreshCookie != null) b.cookie(new Cookie("wc_refresh", refreshCookie));

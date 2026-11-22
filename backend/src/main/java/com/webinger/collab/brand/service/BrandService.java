@@ -40,6 +40,23 @@ public class BrandService {
         return new BrandProfileDto(b.getCompanyName(), b.getWebsite(), b.getLogoUrl(), b.getIndustry(), b.getCountry(), b.getPlan(), b.getState(), b.getGstin());
     }
 
+    /** What orders show and need about a brand: name and logo, plan (fees), state and GSTIN (taxes). */
+    public record BrandInfo(Long userId, String companyName, String logoUrl, String plan, String state, String gstin) {}
+
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, BrandInfo> infoOf(java.util.Collection<Long> brandUserIds) {
+        java.util.Map<Long, BrandInfo> out = new java.util.HashMap<>();
+        for (Long id : brandUserIds) {
+            brands.findByUserId(id).ifPresent(b -> out.put(id, new BrandInfo(id, b.getCompanyName(), b.getLogoUrl(), b.getPlan(), b.getState(), b.getGstin())));
+        }
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public BrandInfo infoOf(Long brandUserId) {
+        return infoOf(java.util.List.of(brandUserId)).getOrDefault(brandUserId, new BrandInfo(brandUserId, null, null, "FREE", null, null));
+    }
+
     @Transactional(readOnly = true)
     public BrandProfileDto get(AuthUser me) {
         return toDto(own(me));
