@@ -53,6 +53,12 @@ app:
   web-base-url: ${WEB_BASE_URL:http://localhost:5173}
   # Uploaded images (POST /files/presign). Local disk until S3 + CloudFront replace it.
   upload-dir: ${UPLOAD_DIR:./data/uploads}
+  # Razorpay. Set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET outside local development; the defaults are for the simulator only.
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_simulated}
+    key-secret: ${RAZORPAY_KEY_SECRET:dev-only-razorpay-secret-change-me}
+  # Expiry and auto-approval jobs (CLAUDE.md §4.3). Off in tests, which run them on demand.
+  jobs-enabled: true
 
 ---
 spring:
@@ -78,6 +84,7 @@ spring:
 app:
   demo: true
   upload-dir: ${java.io.tmpdir}/collab-test-uploads
+  jobs-enabled: false
 
 ---
 # Demo accounts and mock helpers on a real database: --spring.profiles.active=demo

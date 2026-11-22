@@ -38,6 +38,7 @@ import com.webinger.collab.security.AuthUser;
 import com.webinger.collab.user.domain.Role;
 import com.webinger.collab.user.domain.User;
 import com.webinger.collab.user.service.UserService;
+import com.webinger.collab.order.service.CreatorTrackRecord;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -59,25 +60,24 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class CreatorService {
-    /** Every order status, for the dashboard counts (orders arrive with the orders module). */
-    public static final List<String> ORDER_STATUSES = List.of("PENDING_ACCEPTANCE", "IN_PROGRESS", "DELIVERED", "COMPLETED", "DISPUTED", "REFUNDED", "CLOSED");
-
     private final CreatorProfileRepository profiles;
     private final SocialAccountRepository socials;
     private final PackageRepository packages;
     private final PortfolioItemRepository portfolio;
     private final UserService users;
     private final AuditService audit;
+    private final CreatorTrackRecord track;
     private final Clock clock;
 
     public CreatorService(CreatorProfileRepository profiles, SocialAccountRepository socials, PackageRepository packages, PortfolioItemRepository portfolio,
-            UserService users, AuditService audit, Clock clock) {
+            UserService users, AuditService audit, CreatorTrackRecord track, Clock clock) {
         this.profiles = profiles;
         this.socials = socials;
         this.packages = packages;
         this.portfolio = portfolio;
         this.users = users;
         this.audit = audit;
+        this.track = track;
         this.clock = clock;
     }
 
@@ -303,14 +303,15 @@ public class CreatorService {
         return toOwnPackage(k);
     }
 
-    /**
-     * Deletes a package. Once the orders module exists, a package with orders can only be switched off
-     * (409 PACKAGE_HAS_ORDERS, as in the mock); until then no package has orders.
-     */
+    /** Deletes a package. One with orders can only be switched off: orders keep pointing at it. */
     @Transactional
     public void deletePackage(AuthUser me, String id) {
         CreatorProfile p = own(me);
-        packages.delete(ownPackage(p, id));
+        CreatorPackage k = ownPackage(p, id);
+        if (track.packageHasOrders(k.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This package has orders, so it can only be switched off, not deleted.", "PACKAGE_HAS_ORDERS");
+        }
+        packages.delete(k);
         touch(p);
     }
 
@@ -486,19 +487,56 @@ public class CreatorService {
 
     // ---------- Dashboard (FR-70) ----------
 
-    /**
-     * Profile views and active packages are live. Money and order counts are zero until the orders and
-     * ledger modules land (Weeks 12–15); every status is present, as the contract requires.
-     */
+    /** Balance and lifetime earnings from the ledger, escrow and order counts from the orders, views and active packages. */
     @Transactional(readOnly = true)
     public CreatorStatsDto stats(AuthUser me) {
         CreatorProfile p = own(me);
-        Map<String, Integer> byStatus = new LinkedHashMap<>();
-        ORDER_STATUSES.forEach(s -> byStatus.put(s, 0));
-        return new CreatorStatsDto(Catalog.CURRENCY, 0, 0, 0, byStatus, p.getProfileViews(), packages.countByCreatorIdAndActiveTrue(p.getId()));
+        CreatorTrackRecord.Earnings e = track.earnings(p.getUserId());
+        return new CreatorStatsDto(Catalog.CURRENCY, e.availableCents(), e.inEscrowCents(), e.lifetimeEarnedCents(), e.ordersByStatus(), p.getProfileViews(),
+                packages.countByCreatorIdAndActiveTrue(p.getId()));
     }
 
     // ---------- For other modules ----------
+
+    /** An approved creator for checkout (FR-30, FR-31); others answer 404 like an unknown username. */
+    @Transactional(readOnly = true)
+    public CreatorProfile approvedCreator(String username) {
+        return profiles.findByUsername(username == null ? "" : username.trim().toLowerCase(java.util.Locale.ROOT)).filter(CreatorProfile::isApproved)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No creator with that username.", "CREATOR_NOT_FOUND"));
+    }
+
+    /** A package and its owner, for a quote or checkout. */
+    public record PackageOffer(CreatorPackage pkg, CreatorProfile owner) {}
+
+    @Transactional(readOnly = true)
+    public PackageOffer packageForCheckout(String packagePublicId) {
+        CreatorPackage k = packages.findByPublicId(packagePublicId == null ? "" : packagePublicId).orElse(null);
+        CreatorProfile owner = k == null ? null : profiles.findById(k.getCreatorId()).orElse(null);
+        if (k == null || owner == null || !owner.isApproved()) throw new ApiException(HttpStatus.NOT_FOUND, "This package does not exist.", "PACKAGE_NOT_FOUND");
+        if (!k.isActive()) throw new ApiException(HttpStatus.CONFLICT, "This package is no longer offered.", "PACKAGE_UNAVAILABLE");
+        return new PackageOffer(k, owner);
+    }
+
+    /** New work needs the creator to be here and able to be paid (v2.5 away mode, FR-62). */
+    public void assertTakingOrders(CreatorProfile p) {
+        if (p.isAwayOn(today())) {
+            String until = p.getAwayUntil() == null ? "" : " until " + p.getAwayUntil();
+            throw new ApiException(HttpStatus.CONFLICT, p.getDisplayName() + " is away" + until + " and not taking new orders.", "CREATOR_AWAY");
+        }
+        if (!"ENABLED".equals(p.getPayoutStatus())) throw new ApiException(HttpStatus.CONFLICT, "This creator cannot take paid orders yet.", "CREATOR_PAYOUTS_DISABLED");
+    }
+
+    /** The public id of a package (orders keep the internal id). */
+    @Transactional(readOnly = true)
+    public String packagePublicId(Long packageId) {
+        return packages.findById(packageId).map(CreatorPackage::getPublicId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, CreatorProfile> profilesOfUsers(java.util.Collection<Long> userIds) {
+        if (userIds.isEmpty()) return Map.of();
+        return profiles.findByUserIdIn(userIds).stream().collect(java.util.stream.Collectors.toMap(CreatorProfile::getUserId, x -> x));
+    }
 
     /** The creator profile of a user id, if any (payout accounts, saved lists, future orders). */
     @Transactional(readOnly = true)

@@ -34,6 +34,7 @@ public class SecurityConfig {
                         // Public discovery (FR-15, FR-20): the workspace under /creators/me stays signed-in only.
                         .requestMatchers("/creators/me", "/creators/me/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/creators", "/creators/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/fees").permitAll()
                         // Stand-ins for S3: the upload URL is signed, uploaded files are public (like CloudFront).
                         .requestMatchers(HttpMethod.PUT, "/files/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()

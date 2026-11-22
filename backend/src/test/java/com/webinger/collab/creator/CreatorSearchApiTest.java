@@ -79,7 +79,7 @@ class CreatorSearchApiTest extends ApiTest {
         Map<String, Object> leo = all("q=leomakes").getFirst();
         assertThat(leo).containsEntry("username", "leomakes").containsEntry("displayName", "Leo Fernandes").containsEntry("verified", true)
                 .containsEntry("currency", "INR").containsEntry("city", "Mumbai").containsEntry("country", "IN").containsEntry("away", false)
-                .containsEntry("ratingCount", 0).containsEntry("ratingAvg", null);
+                .containsEntry("ratingCount", 1).containsEntry("ratingAvg", 5.0);
         assertThat(leo.get("reach")).isEqualTo(Map.of("platform", "TIKTOK", "handle", "leomakes", "followers", 152_000));
         // Cheapest active package: 3 Instagram Stories at ₹6,000.
         assertThat(num(leo.get("startingPriceCents"))).isEqualTo(600_000);
@@ -147,8 +147,10 @@ class CreatorSearchApiTest extends ApiTest {
         assertThat(prices).isSortedAccordingTo(Comparator.naturalOrder());
         List<Long> reach = all("sort=followers_desc").stream().map(CreatorSearchApiTest::followers).toList();
         assertThat(reach).isSortedAccordingTo(Comparator.reverseOrder());
-        // No reviews yet (reviews module): equal ratings fall back to username order.
-        assertThat(usernames(all("sort=rating_desc"))).isSortedAccordingTo(Comparator.naturalOrder());
+        // Leo has the only review (5 stars, demo orders); everyone else ties at no rating and falls back to username order.
+        List<String> byRating = usernames(all("sort=rating_desc"));
+        assertThat(byRating.getFirst()).isEqualTo("leomakes");
+        assertThat(byRating.subList(1, byRating.size())).isSortedAccordingTo(Comparator.naturalOrder());
         // Newest approval first: Omar joined 30 days ago, Samir 500.
         List<String> newest = usernames(all("sort=newest"));
         assertThat(newest.getFirst()).isEqualTo("omarugc");
@@ -177,8 +179,9 @@ class CreatorSearchApiTest extends ApiTest {
     }
 
     @Test
-    void acceptsWithin24HoursNeedsOrderHistoryNobodyHasYet() throws Exception {
-        assertThat(((Number) call("GET", "/creators?fastAccept=true", null).get("$.totalElements")).intValue()).isZero();
+    void acceptsWithin24HoursUsesTheTypicalAcceptanceTime() throws Exception {
+        // Leo accepted every demo order after 24 hours; nobody else has 3 accepted orders yet.
+        assertThat(usernames(all("fastAccept=true"))).containsExactly("leomakes");
         assertThat(((Number) call("GET", "/creators?fastAccept=false", null).get("$.totalElements")).intValue()).isEqualTo(APPROVED);
     }
 
@@ -212,10 +215,11 @@ class CreatorSearchApiTest extends ApiTest {
         List<Number> prices = p.get("$.packages[*].priceCents") instanceof List<?> l ? (List<Number>) l : List.of();
         assertThat(prices.stream().map(Number::longValue).toList()).containsExactly(600_000L, 1_200_000L, 1_500_000L, 4_000_000L);
         assertThat((List<?>) p.get("$.portfolio")).hasSize(9);
-        assertThat((List<?>) p.get("$.reviews")).isEmpty();
+        assertThat((List<?>) p.get("$.reviews")).hasSize(1);
+        assertThat(p.str("$.reviews[0].brandName")).isEqualTo("Saltbay Supply Co.");
         assertThat((List<?>) p.get("$.packages[0].addons")).isNotEmpty();
         assertThat(p.body()).doesNotContain("\"birthYear\"", "\"gender\"", "\"payoutStatus\"", "\"active\"")
-                .contains("\"completedOrders\":0", "\"typicalAcceptHours\":null", "\"myInquiryId\":null", "\"memberSince\":");
+                .contains("\"completedOrders\":2", "\"typicalAcceptHours\":24", "\"myInquiryId\":null", "\"memberSince\":");
         assertThat(p.str("$.bio")).startsWith("Tech and everyday gear");
     }
 
