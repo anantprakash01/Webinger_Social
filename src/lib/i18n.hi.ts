@@ -215,4 +215,11 @@ export const HI: Record<string, string> = {
   Wallet: 'वॉलेट',
   'Choose a wallet': 'वॉलेट चुनें',
   'Payments are processed by Razorpay. Card details go to Razorpay directly; we never see or store them.': 'भुगतान Razorpay द्वारा प्रोसेस किए जाते हैं। कार्ड विवरण सीधे Razorpay को जाते हैं; हम उन्हें न देखते हैं, न सेव करते हैं।',
+  /* Day / night mode */
+  'Switch to night mode': 'नाइट मोड चालू करें',
+  'Switch to day mode': 'डे मोड चालू करें',
+  Appearance: 'दिखावट',
+  'Match my device': 'डिवाइस के अनुसार',
+  Day: 'दिन',
+  Night: 'रात',
 };

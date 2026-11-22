@@ -57,4 +57,108 @@
   --sidebar-w: 248px;
   --topbar-h: 64px;
   --bottomnav-h: 64px;
+
+  /* Theme roles (night mode). Fills keep white text in both themes; status fills flip. */
+  color-scheme: light;
+  --brand-red-ink: #d40000; /* red used as text: active nav, key numbers */
+  --navy-ink: #0f1b33; /* navy used as text or icon colour */
+  --navy-glow: #23365c;
+  --on-accent: #ffffff; /* text on red / navy fills */
+  --on-ink: #ffffff; /* text on an --ink fill */
+  --on-status: #ffffff; /* text on --ok / --danger fills */
+  --chart-1: #0f1b33;
+  --focus-ring: rgba(17, 17, 17, 0.08);
+  --skeleton-a: #eeeeee;
+  --skeleton-b: #f6f6f6;
+  --unread-hover: #fbdede;
+  --warn-border: #f0dcb4;
+  --frost: rgba(255, 255, 255, 0.85);
+  --shadow-rgb: 15, 27, 51;
+  --scrim: rgba(0, 0, 0, 0.35);
+}
+
+/*
+ * Night mode. Follows the device unless the person picked a theme (html[data-theme]); see src/lib/theme.ts.
+ * Contrast checked for WCAG 2.1 AA: body text 15:1, secondary 6.8:1+, red text 6.3:1, white on red 5:1.
+ * Printing always uses the light (paper) colours.
+ */
+@media screen {
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --brand-red: #d42a2a;
+    --brand-red-hover: #b31f1f;
+    --brand-red-soft: #3a1517;
+    --brand-red-ink: #ff6b6b;
+    --navy: #213563;
+    --navy-soft: #2b4278;
+    --navy-ink: #9db8ef;
+    --navy-glow: #33508c;
+    --ink: #eceef2;
+    --ink-2: #c0c5ce;
+    --ink-3: #9aa2ae;
+    --surface: #161a21;
+    --surface-2: #0d1015;
+    --border: #2b313b;
+    --border-strong: #3d4450;
+    --ok: #4ade80;
+    --ok-soft: #102a1b;
+    --warn: #fbbf24;
+    --warn-soft: #2d2208;
+    --danger: #f87171;
+    --danger-soft: #2f1515;
+    --info: #7fb0ff;
+    --info-soft: #13243f;
+    --on-ink: #0d1015;
+    --on-status: #0d1015;
+    --chart-1: #7aa5ff;
+    --focus-ring: rgba(236, 238, 242, 0.18);
+    --skeleton-a: #1d222b;
+    --skeleton-b: #262c37;
+    --unread-hover: #4a1c1f;
+    --warn-border: #4a3a12;
+    --frost: rgba(13, 16, 21, 0.82);
+    --shadow-rgb: 0, 0, 0;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --brand-red: #d42a2a;
+    --brand-red-hover: #b31f1f;
+    --brand-red-soft: #3a1517;
+    --brand-red-ink: #ff6b6b;
+    --navy: #213563;
+    --navy-soft: #2b4278;
+    --navy-ink: #9db8ef;
+    --navy-glow: #33508c;
+    --ink: #eceef2;
+    --ink-2: #c0c5ce;
+    --ink-3: #9aa2ae;
+    --surface: #161a21;
+    --surface-2: #0d1015;
+    --border: #2b313b;
+    --border-strong: #3d4450;
+    --ok: #4ade80;
+    --ok-soft: #102a1b;
+    --warn: #fbbf24;
+    --warn-soft: #2d2208;
+    --danger: #f87171;
+    --danger-soft: #2f1515;
+    --info: #7fb0ff;
+    --info-soft: #13243f;
+    --on-ink: #0d1015;
+    --on-status: #0d1015;
+    --chart-1: #7aa5ff;
+    --focus-ring: rgba(236, 238, 242, 0.18);
+    --skeleton-a: #1d222b;
+    --skeleton-b: #262c37;
+    --unread-hover: #4a1c1f;
+    --warn-border: #4a3a12;
+    --frost: rgba(13, 16, 21, 0.82);
+    --shadow-rgb: 0, 0, 0;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
 }

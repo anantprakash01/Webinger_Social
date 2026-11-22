@@ -17,7 +17,7 @@
 .evidence__row { display: flex; gap: var(--s-2); align-items: flex-end; flex-wrap: wrap; }
 .evidence__row > .field { flex: 1 1 200px; min-width: 0; }
 .reason-bar { height: 4px; margin-top: 6px; background: var(--surface-2); border-radius: 2px; overflow: hidden; max-width: 240px; }
-.reason-bar > span { display: block; height: 100%; background: var(--navy); border-radius: 2px; }
+.reason-bar > span { display: block; height: 100%; background: var(--chart-1); border-radius: 2px; }
 .reason-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 
 /* Plans (v3.2) */
@@ -40,7 +40,7 @@
 .plan-card__name { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-lg); font-weight: 800; }
 .plan-card__price strong { font-size: var(--fs-2xl); font-weight: 800; color: var(--ink); }
 .plan-card__fee { margin: 0; font-size: var(--fs-sm); }
-.plan-card__fee strong { color: var(--brand-red); font-size: var(--fs-md); }
+.plan-card__fee strong { color: var(--brand-red-ink); font-size: var(--fs-md); }
 .plan-card__features { list-style: none; margin: 0 0 var(--s-2); padding: 0; display: grid; gap: 6px; font-size: var(--fs-sm); flex: 1; }
 .plan-card__features li { display: flex; gap: 6px; align-items: flex-start; }
 .plan-card__features svg { flex: none; margin-top: 3px; color: var(--ok); }

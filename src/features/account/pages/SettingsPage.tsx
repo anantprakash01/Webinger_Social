@@ -3,6 +3,7 @@
  * download my data, delete my account (DPDP Act: access and erasure; FR-06).
  */
 import { LanguageSwitcher } from '@/lib/i18n';
+import { ThemeChoice } from '@/components/ThemeToggle';
 import { NotificationPrefsCard } from '@/features/retention/components/Panels';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -26,6 +27,12 @@ export function SettingsPage() {
       <PageHeader title="Account settings" />
       <NameCard name={user.name} />
       <EmailCard email={user.email} verified={user.emailVerified} />
+      <Card title="Appearance">
+        <div className="form-stack">
+          <p className="small muted">Day or night mode on this device. “Match my device” follows your phone or computer setting.</p>
+          <ThemeChoice />
+        </div>
+      </Card>
       <Card title="Language">
         <div className="form-stack">
           <p className="small muted">Hindi covers the menus, home page, sign-in and checkout so far; other screens stay in English for now.</p>

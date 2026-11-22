@@ -32,7 +32,7 @@
 }
 .search input:focus,
 .select select:focus,
-.inline-select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08); }
+.inline-select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--focus-ring); }
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -60,7 +60,7 @@
 /* ---------- Pagination ---------- */
 .pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 /* ---------- Drawer ---------- */
-.drawer-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.35); }
+.drawer-backdrop { position: fixed; inset: 0; z-index: 50; background: var(--scrim); }
 .drawer {
   position: fixed;
   top: 0;
@@ -108,7 +108,7 @@
   padding: 10px 16px;
   border-radius: var(--radius-sm);
   background: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
   font-weight: 700;
 }
 .skip-link:focus { top: 12px; }

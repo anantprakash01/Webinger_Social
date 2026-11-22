@@ -7,6 +7,7 @@ import { useConfirm } from '@/components/feedback';
 import { Suspense, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LuBell, LuChevronDown, LuEllipsis, LuEye, LuLogOut, LuX } from 'react-icons/lu';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { api, isMock } from '@/api/client';
 import { DEMO_PASSWORD, demoAccounts } from '@/api/mock/demo';
 import { Logo } from '@/components/Logo';
@@ -72,9 +73,12 @@ export function AppShell() {
         </nav>
         <div className="sidebar__foot">
           <AccountMenu user={user} onSignOut={() => void signOut()} placement="up" showName />
-          <Button variant="ghost" size="sm" onClick={() => void signOut()}>
-            <LuLogOut aria-hidden /> {t('Sign out')}
-          </Button>
+          <div className="sidebar__foot-row">
+            <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+              <LuLogOut aria-hidden /> {t('Sign out')}
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
 
@@ -83,6 +87,7 @@ export function AppShell() {
         <header className="topbar">
           <Logo height={20} />
           <span className="spacer" />
+          <ThemeToggle />
           <Bell count={counts.notifications} />
           <AccountMenu user={user} onSignOut={() => void signOut()} placement="down" />
         </header>

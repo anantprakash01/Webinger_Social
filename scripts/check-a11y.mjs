@@ -26,7 +26,7 @@ const PUBLIC = [
 const problems = [];
 const browser = await chromium.launch({ channel: 'msedge' });
 
-async function audit(page, width, name) {
+async function auditPage(page, width, name) {
   await page.waitForTimeout(500);
   await page.waitForFunction(() => !document.querySelector('.skeleton'), null, { timeout: 5000 }).catch(() => {});
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
@@ -39,9 +39,12 @@ async function audit(page, width, name) {
   }
 }
 
-for (const width of [360, 1280]) {
+// Both themes: day, and night mode chosen on the device (contrast is checked separately for each).
+for (const [theme, width] of [['day', 360], ['day', 1280], ['night', 360], ['night', 1280]]) {
   const ctx = await browser.newContext({ viewport: { width, height: 800 } });
+  if (theme === 'night') await ctx.addInitScript(() => localStorage.setItem('wc.theme', 'dark'));
   const page = await ctx.newPage();
+  const audit = (p, w, name) => auditPage(p, w, theme === 'night' ? `${name} (night)` : name);
   for (const [name, path] of PUBLIC) {
     await page.goto(base + path, { waitUntil: 'networkidle' });
     await audit(page, width, name);
@@ -76,4 +79,4 @@ if (problems.length) {
   console.error(problems.join('\n'));
   process.exit(1);
 }
-console.log('Accessibility OK: no WCAG 2.1 A/AA violations found by axe on public pages and checkout.');
+console.log('Accessibility OK: no WCAG 2.1 A/AA violations found by axe on public pages and checkout, in day and night mode.');

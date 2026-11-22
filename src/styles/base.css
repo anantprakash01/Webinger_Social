@@ -64,7 +64,7 @@ button {
 }
 .btn--primary {
   background: var(--brand-red);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn--primary:hover:not(:disabled) {
   background: var(--brand-red-hover);
@@ -167,7 +167,7 @@ button {
 .field__input:focus {
   outline: none;
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .field__input[aria-invalid='true'] {
   border-color: var(--danger);
@@ -209,7 +209,7 @@ button {
   place-items: center;
   border-radius: 50%;
   background: var(--navy);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -235,7 +235,7 @@ button {
   color: var(--ink-3);
 }
 .stat__value--accent {
-  color: var(--brand-red);
+  color: var(--brand-red-ink);
 }
 
 /* ---------- Lists inside cards ---------- */
@@ -381,7 +381,7 @@ button {
 }
 .skeleton {
   border-radius: var(--radius-sm);
-  background: linear-gradient(90deg, #eee 0%, #f6f6f6 50%, #eee 100%);
+  background: linear-gradient(90deg, var(--skeleton-a) 0%, var(--skeleton-b) 50%, var(--skeleton-a) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
