@@ -1,0 +1,83 @@
+# Webinger Collab API. Profiles: (default) MySQL via docker compose · h2 (in-memory, demo data) · test.
+spring:
+  application:
+    name: collab
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/collab?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USER:collab}
+    password: ${DB_PASSWORD:collab-dev-password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: always
+
+server:
+  port: 8080
+  servlet:
+    # Same prefix as the contract (docs/api/openapi.yaml servers: /api/v1).
+    context-path: /api/v1
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+
+app:
+  # HS256 key for access tokens. Set JWT_SECRET (at least 32 characters) outside local development.
+  jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+  access-token-minutes: 15
+  refresh-token-days: 7
+  # Refresh cookie: Secure in every deployed environment.
+  cookie-secure: ${COOKIE_SECURE:false}
+  # Google OAuth client id (ID tokens must be issued for it).
+  google-client-id: ${GOOGLE_CLIENT_ID:}
+  # Demo data and mock helpers (demo accounts, mock Google tokens, /dev/outbox). Never in production.
+  demo: false
+  web-base-url: ${WEB_BASE_URL:http://localhost:5173}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: h2
+  datasource:
+    url: jdbc:h2:mem:collab;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+app:
+  demo: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:collab-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+app:
+  demo: true
+
+---
+# Demo accounts and mock helpers on a real database: --spring.profiles.active=demo
+spring:
+  config:
+    activate:
+      on-profile: demo
+app:
+  demo: true
