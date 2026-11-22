@@ -1,3 +1,4 @@
+import { useT } from '@/lib/i18n';
 import { isMock } from '@/api/client';
 import { Button } from '@/components/ui';
 
@@ -13,11 +14,12 @@ function GoogleMark() {
 }
 
 /** "Continue with Google" (FR-01). Mocked in Phase 0 with an invented Google identity. */
-export function GoogleButton({ onClick, loading, label = 'Continue with Google' }: { onClick: () => void; loading?: boolean; label?: string }) {
+export function GoogleButton({ onClick, loading, label }: { onClick: () => void; loading?: boolean; label?: string }) {
+  const { t } = useT();
   return (
     <>
       <Button variant="google" block onClick={onClick} loading={loading} disabled={!isMock} title={isMock ? 'Demo: signs in as an invented Google account' : undefined}>
-        <GoogleMark /> {label}
+        <GoogleMark /> {label ?? t('Continue with Google')}
       </Button>
       {!isMock && <p className="small muted">Google sign-in is connected when the backend lands (Phase 1).</p>}
     </>

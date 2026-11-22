@@ -2,6 +2,7 @@
  * Money lines with Indian taxes (phase B), shared by checkout, the order page and receipts so every
  * place shows the same breakdown. Renders <dt>/<dd> pairs inside a `dl.money`.
  */
+import { useT } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
 import type { OrderTaxes } from '@/types';
 
@@ -11,24 +12,25 @@ const pct = (bps: number) => `${bps / 100}%`;
 export const gstLabel = (intraState: boolean) => (intraState ? 'GST 18% (CGST 9% + SGST 9%)' : 'IGST 18%');
 
 /** What the brand pays: price, creator's GST, service fee, GST on it, total. */
-export function BrandMoneyLines({ priceCents, brandFeeCents, brandFeeBps, totalCents, taxes, currency, priceLabel = 'Package price', ready = true }: { priceCents: number; brandFeeCents: number; brandFeeBps?: number; totalCents: number; taxes: OrderTaxes; currency: string; priceLabel?: string; ready?: boolean }) {
+export function BrandMoneyLines({ priceCents, brandFeeCents, brandFeeBps, totalCents, taxes, currency, priceLabel, ready = true }: { priceCents: number; brandFeeCents: number; brandFeeBps?: number; totalCents: number; taxes: OrderTaxes; currency: string; priceLabel?: string; ready?: boolean }) {
+  const { t } = useT();
   const m = (c: number) => (ready ? formatMoney(c, currency) : '—');
   return (
     <>
-      <dt>{priceLabel}</dt>
+      <dt>{priceLabel ?? t('Package price')}</dt>
       <dd>{m(priceCents)}</dd>
       {taxes.creatorGstRegistered && (
         <>
-          <dt>GST on creator’s service (18%)</dt>
+          <dt>{t('GST on creator’s service (18%)')}</dt>
           <dd>{m(taxes.creatorGstCents)}</dd>
         </>
       )}
-      <dt>Service fee{brandFeeBps !== undefined ? ` (${pct(brandFeeBps)})` : ''}</dt>
+      <dt>{t('Service fee')}{brandFeeBps !== undefined ? ` (${pct(brandFeeBps)})` : ''}</dt>
       <dd>{m(brandFeeCents)}</dd>
-      <dt>{gstLabel(taxes.intraState)} on service fee</dt>
+      <dt>{t('{gst} on service fee', { gst: gstLabel(taxes.intraState) })}</dt>
       <dd>{m(taxes.brandFeeGstCents)}</dd>
-      <dt className="money__total">Total</dt>
-      <dd className="money__total">{ready ? formatMoney(totalCents, currency) : 'Enter a price'}</dd>
+      <dt className="money__total">{t('Total')}</dt>
+      <dd className="money__total">{ready ? formatMoney(totalCents, currency) : t('Enter a price')}</dd>
     </>
   );
 }

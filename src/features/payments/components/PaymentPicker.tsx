@@ -2,6 +2,7 @@
  * How the brand pays (v2.0, India): UPI, card, netbanking or a wallet app, through Razorpay. Saved cards
  * and UPI IDs come first. Details go to Razorpay (or the mock's stand-in), never to our servers.
  */
+import { useT } from '@/lib/i18n';
 import { useEffect, useId } from 'react';
 import { LuBuilding2, LuCreditCard, LuSmartphone, LuWallet } from 'react-icons/lu';
 import { isMock } from '@/api/client';
@@ -54,6 +55,7 @@ export function validateChoice(c: PayChoice): PayErrors {
 }
 
 export function PaymentPicker({ value, onChange, errors = {} }: { value: PayChoice; onChange: (c: PayChoice) => void; errors?: PayErrors }) {
+  const { t } = useT();
   const name = useId();
   const saved = useSavedMethods().data?.content ?? [];
   const set = (patch: Partial<PayChoice>) => onChange({ ...value, ...patch });
@@ -83,7 +85,7 @@ export function PaymentPicker({ value, onChange, errors = {} }: { value: PayChoi
 
   return (
     <fieldset className="radio-stack pay-picker">
-      <legend className="sr-only">Payment method</legend>
+      <legend className="sr-only">{t('Payment method')}</legend>
       {option('UPI', <LuSmartphone />, 'UPI', 'Google Pay, PhonePe, Paytm or any UPI app')}
       {value.method === 'UPI' && (
         <div className="pay-details">
@@ -96,21 +98,21 @@ export function PaymentPicker({ value, onChange, errors = {} }: { value: PayChoi
           {savedUpi.length > 0 && (
             <label className="check small">
               <input type="radio" name={`${name}-upi`} checked={!value.savedMethodId} onChange={() => set({ savedMethodId: null })} />
-              <span>Another UPI ID</span>
+              <span>{t('Another UPI ID')}</span>
             </label>
           )}
           {!value.savedMethodId && (
             <>
-              <Input label="UPI ID" placeholder="yourname@okhdfcbank" autoComplete="off" value={value.vpa} onChange={(e) => set({ vpa: e.target.value })} error={errors.vpa} hint={isMock ? 'Demo: success@razorpay pays, failure@razorpay is declined.' : 'You approve the payment in your UPI app.'} />
+              <Input label="UPI ID" placeholder="yourname@okhdfcbank" autoComplete="off" value={value.vpa} onChange={(e) => set({ vpa: e.target.value })} error={errors.vpa} hint={isMock ? 'Demo: success@razorpay pays, failure@razorpay is declined.' : t('You approve the payment in your UPI app.')} />
               <label className="check small">
                 <input type="checkbox" checked={value.saveVpa} onChange={(e) => set({ saveVpa: e.target.checked })} />
-                <span>Save this UPI ID for next time</span>
+                <span>{t('Save this UPI ID for next time')}</span>
               </label>
             </>
           )}
         </div>
       )}
-      {option('CARD', <LuCreditCard />, 'Debit or credit card', 'Visa, Mastercard, RuPay, Amex')}
+      {option('CARD', <LuCreditCard />, t('Debit or credit card'), 'Visa, Mastercard, RuPay, Amex')}
       {value.method === 'CARD' && (
         <div className="pay-details">
           {savedCards.map((m) => (
@@ -124,39 +126,39 @@ export function PaymentPicker({ value, onChange, errors = {} }: { value: PayChoi
           {savedCards.length > 0 && (
             <label className="check small">
               <input type="radio" name={`${name}-card`} checked={!value.savedMethodId} onChange={() => set({ savedMethodId: null })} />
-              <span>New card</span>
+              <span>{t('New card')}</span>
             </label>
           )}
           {!value.savedMethodId && (
             <>
               {isMock && <p className="small muted">Demo: 4111 1111 1111 1111 pays, 4000 0000 0000 0002 is declined. Any future expiry and CVC.</p>}
-              <Input label="Card number" inputMode="numeric" autoComplete="cc-number" placeholder="1234 1234 1234 1234" value={value.card.number} onChange={(e) => set({ card: { ...value.card, number: e.target.value } })} error={errors['card.number']} />
+              <Input label={t('Card number')} inputMode="numeric" autoComplete="cc-number" placeholder="1234 1234 1234 1234" value={value.card.number} onChange={(e) => set({ card: { ...value.card, number: e.target.value } })} error={errors['card.number']} />
               <div className="form-row">
-                <Input label="Expiry" placeholder="MM / YY" autoComplete="cc-exp" value={value.card.expiry} onChange={(e) => set({ card: { ...value.card, expiry: e.target.value } })} error={errors['card.expiry']} />
+                <Input label={t('Expiry')} placeholder="MM / YY" autoComplete="cc-exp" value={value.card.expiry} onChange={(e) => set({ card: { ...value.card, expiry: e.target.value } })} error={errors['card.expiry']} />
                 <Input label="CVC" inputMode="numeric" autoComplete="cc-csc" placeholder="123" value={value.card.cvc} onChange={(e) => set({ card: { ...value.card, cvc: e.target.value } })} error={errors['card.cvc']} />
               </div>
               <label className="check small">
                 <input type="checkbox" checked={value.card.save} onChange={(e) => set({ card: { ...value.card, save: e.target.checked } })} />
-                <span>Save this card securely (RBI-compliant token) for next time</span>
+                <span>{t('Save this card securely (RBI-compliant token) for next time')}</span>
               </label>
             </>
           )}
-          <p className="small muted">Your bank may ask for an OTP.</p>
+          <p className="small muted">{t('Your bank may ask for an OTP.')}</p>
         </div>
       )}
-      {option('NETBANKING', <LuBuilding2 />, 'Netbanking', 'All major Indian banks')}
+      {option('NETBANKING', <LuBuilding2 />, t('Netbanking'), t('All major Indian banks'))}
       {value.method === 'NETBANKING' && (
         <div className="pay-details">
-          <ChoiceSelect label="Your bank" value={value.bank} onChange={(bank) => set({ bank })} options={NETBANKING_BANKS.map((b) => ({ value: b.code, label: b.name }))} placeholder="Choose your bank" error={errors.bank} />
+          <ChoiceSelect label={t('Your bank')} value={value.bank} onChange={(bank) => set({ bank })} options={NETBANKING_BANKS.map((b) => ({ value: b.code, label: b.name }))} placeholder={t('Choose your bank')} error={errors.bank} />
         </div>
       )}
-      {option('WALLET_APP', <LuWallet />, 'Wallet app', 'Paytm, PhonePe, Amazon Pay, MobiKwik')}
+      {option('WALLET_APP', <LuWallet />, t('Wallet app'), 'Paytm, PhonePe, Amazon Pay, MobiKwik')}
       {value.method === 'WALLET_APP' && (
         <div className="pay-details">
-          <ChoiceSelect label="Wallet" value={value.app} onChange={(app) => set({ app })} options={WALLET_APPS.map((a) => ({ value: a.code, label: a.name }))} placeholder="Choose a wallet" error={errors.app} />
+          <ChoiceSelect label={t('Wallet')} value={value.app} onChange={(app) => set({ app })} options={WALLET_APPS.map((a) => ({ value: a.code, label: a.name }))} placeholder={t('Choose a wallet')} error={errors.app} />
         </div>
       )}
-      <p className="small muted pay-picker__secure">Payments are processed by Razorpay. Card details go to Razorpay directly; we never see or store them.</p>
+      <p className="small muted pay-picker__secure">{t('Payments are processed by Razorpay. Card details go to Razorpay directly; we never see or store them.')}</p>
     </fieldset>
   );
 }

@@ -1,3 +1,4 @@
+import { useT } from '@/lib/i18n';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,6 +22,7 @@ const ROLES: Array<{ value: SignupRole; title: string; text: string; icon: typeo
 const roleFromQuery = (v: string | null): SignupRole | undefined => (v === 'creator' ? 'CREATOR' : v === 'brand' ? 'BRAND' : undefined);
 
 export function SignupPage() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [formError, setFormError] = useState<string | null>(null);
@@ -61,29 +63,29 @@ export function SignupPage() {
 
   return (
     <AuthLayout
-      pageTitle="Sign up"
-      title={creator ? 'Turn your audience into paid work.' : undefined}
-      tagline={creator ? 'List your packages, accept orders, and get paid as soon as the brand approves.' : undefined}
+      pageTitle={t('Sign up')}
+      title={creator ? t('Turn your audience into paid work.') : undefined}
+      tagline={creator ? t('List your packages, accept orders, and get paid as soon as the brand approves.') : undefined}
     >
       <form className="auth__form" onSubmit={onSubmit} noValidate>
         <div>
-          <h2>Create your account</h2>
+          <h2>{t('Create your account')}</h2>
           <p className="muted small">
-            Already have one? <Link to="/login" className="link">Log in</Link>
+            {t('Already have one?')} <Link to="/login" className="link">{t('Log in')}</Link>
           </p>
         </div>
         <FormError>{formError}</FormError>
 
         <fieldset className="role-choice" aria-invalid={errors.role ? true : undefined} aria-describedby={errors.role ? 'role-err' : undefined}>
-          <legend>I want to join as</legend>
+          <legend>{t('I want to join as')}</legend>
           <div className="role-choice__grid">
             {ROLES.map(({ value, title, text, icon: Icon }) => (
               <label key={value} className="role-card">
                 <input type="radio" value={value} {...register('role')} />
                 <span className="role-card__title">
-                  <Icon aria-hidden /> {title}
+                  <Icon aria-hidden /> {t(title)}
                 </span>
-                <span className="role-card__text">{text}</span>
+                <span className="role-card__text">{t(text)}</span>
               </label>
             ))}
           </div>
@@ -94,12 +96,12 @@ export function SignupPage() {
           )}
         </fieldset>
 
-        <GoogleButton onClick={() => void onGoogle()} loading={google.isPending} label="Sign up with Google" />
-        <div className="divider">or with email</div>
+        <GoogleButton onClick={() => void onGoogle()} loading={google.isPending} label={t('Sign up with Google')} />
+        <div className="divider">{t('or with email')}</div>
 
-        <Input label={creator ? 'Your name' : 'Your full name'} autoComplete="name" error={errors.name?.message} {...register('name')} />
-        <Input label={creator ? 'Email' : 'Work email'} type="email" autoComplete="email" inputMode="email" error={errors.email?.message} {...register('email')} />
-        <PasswordField label="Password" autoComplete="new-password" error={errors.password?.message} rulesFor={password} {...register('password')} />
+        <Input label={t(creator ? 'Your name' : 'Your full name')} autoComplete="name" error={errors.name?.message && t(errors.name.message)} {...register('name')} />
+        <Input label={t(creator ? 'Email' : 'Work email')} type="email" autoComplete="email" inputMode="email" error={errors.email?.message && t(errors.email.message)} {...register('email')} />
+        <PasswordField label={t('Password')} autoComplete="new-password" error={errors.password?.message && t(errors.password.message)} rulesFor={password} {...register('password')} />
 
         <div className="field">
           <label className="check small">
@@ -124,9 +126,9 @@ export function SignupPage() {
         </div>
 
         <Button type="submit" block loading={registerUser.isPending}>
-          Create account
+          {t('Create account')}
         </Button>
-        <p className="small muted">We'll email you a link to confirm your address. You need it before you can {creator ? 'accept' : 'place'} orders.</p>
+        <p className="small muted">{t(creator ? "We'll email you a link to confirm your address. You need it before you can accept orders." : "We'll email you a link to confirm your address. You need it before you can place orders.")}</p>
       </form>
     </AuthLayout>
   );
