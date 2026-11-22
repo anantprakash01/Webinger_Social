@@ -19,7 +19,7 @@ export function Logo({ height = 28, inverse = false }: { height?: number; invers
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ color: 'var(--brand-red)', fontStyle: 'italic', marginRight: 1 }}>W</span>
+      <span style={{ color: inverse ? 'var(--brand-red)' : 'var(--brand-red-ink)', fontStyle: 'italic', marginRight: 1 }}>W</span>
       <span>ebinger</span>{' '}
       <span style={{ fontSize: '0.5em', fontWeight: 700, marginLeft: '0.1em', color: inverse ? 'rgba(255,255,255,0.75)' : 'var(--ink-3)', letterSpacing: '0.02em' }}>
         COLLAB

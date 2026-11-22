@@ -357,6 +357,7 @@ Mock-only endpoint (Phase 0, never in production): `POST /dev/simulate-time { ho
 ### 9.2 Look and layout (reuse exactly)
 - White pages, heavy black geometric headlines (Inter 700–800), one red accent `--brand-red` (#D40000 until the final brand colour is chosen), navy panels, generous white space.
 - Brand red only for primary buttons, active nav, key numbers. Errors use `--danger` with icon and text.
+- **Day and night mode** (22 Nov 2026): every colour comes from `src/styles/tokens.css`, which has a night set (device setting, or the person's choice in `html[data-theme]`; print is always day). Use role tokens, never raw colours: `--brand-red` for fills vs `--brand-red-ink` for red text, `--navy` fills vs `--navy-ink` text, `--on-accent` / `--on-ink` / `--on-status` for text on fills, `--chart-1` for chart marks. `npm run check:a11y` checks both themes.
 - Logged-in areas use the Webinger `AppShell`: sidebar on desktop, bottom nav (4 items + More) under 900 px, demo bar with "View as" switcher in mock mode.
 - Public pages (landing, search, profile) use a `PublicLayout`: top header with logo, Search, Log in, Join as creator; footer.
 - Tables collapse to cards with `data-label`; test at **360 px** (this project's minimum, stricter than Webinger's 390).
@@ -693,6 +694,8 @@ Decisions to confirm:
 - Promo and referral amounts; credits never expire in the prototype (suggest 12 months); referral abuse rules (same device/GSTIN/PAN); referral via Google sign-up not supported yet.
 - GST treatment of platform-funded discounts and referral bonuses (CA): invoices show the full value and the discount "borne by the platform".
 - Dispute response window 48 h; admins may still decide earlier.
+
+**Night mode (22 Nov 2026, branch `night-mode`).** Day / night switch (sun/moon) in the public header, the auth pages, the workspace sidebar footer and phone top bar; Settings → Appearance offers Match my device / Day / Night. Preference per device in localStorage `wc.theme` (`src/lib/theme.ts`), applied by an inline script in `index.html` before the first paint. Night palette contrast: body text 15:1, secondary 6.8:1+, red text 6.3:1, white on red 5:1; axe passes in both themes. 269 tests, layout and a11y clean.
 
 **Next: Phase 1, Weeks 7–8 — backend foundation (section 11)**, starting from `docs/backend-handover.md`. Switch the auth module to http first.
 

@@ -1,4 +1,5 @@
 import { LanguageSwitcher, useT } from '@/lib/i18n';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo, PRODUCT_NAME } from '@/components/Logo';
@@ -24,7 +25,10 @@ export function AuthLayout({ title, tagline, children, pageTitle }: { title?: st
         <span className="auth__dot" aria-hidden />
       </section>
       <main className="auth__form-wrap">
-        <LanguageSwitcher className="lang-switch lang-switch--auth" />
+        <div className="auth__tools">
+          <ThemeToggle />
+          <LanguageSwitcher className="lang-switch lang-switch--auth" />
+        </div>
         {children}
       </main>
     </div>

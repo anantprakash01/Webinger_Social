@@ -25,7 +25,7 @@
 .ref-files { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--s-2); }
 .ref-files li { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); }
 .ref-files img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ref-files button { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(17, 17, 17, 0.72); color: #fff; cursor: pointer; }
+.ref-files button { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(17, 17, 17, 0.72); color: var(--on-accent); cursor: pointer; }
 
 /* Order detail */
 .back-link { display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
@@ -97,7 +97,7 @@
 
 /* Order list */
 .tab-count { display: inline-grid; place-items: center; min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--radius-pill); background: var(--surface-2); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 700; }
-.platform-tab.is-on .tab-count { background: var(--surface); color: var(--brand-red); }
+.platform-tab.is-on .tab-count { background: var(--surface); color: var(--brand-red-ink); }
 .orders-table__row { cursor: pointer; }
 .orders-table.is-stale { opacity: 0.6; }
 .row-link { font-weight: 700; color: var(--ink); text-decoration: none; }

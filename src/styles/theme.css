@@ -1,0 +1,14 @@
+/* Day / night mode controls (src/components/ThemeToggle.tsx). Colours come from tokens.css. */
+.theme-toggle { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); cursor: pointer; }
+.theme-toggle:hover { background: var(--surface-2); color: var(--ink); }
+.theme-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.theme-toggle svg { width: 20px; height: 20px; }
+.sidebar__foot-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.auth__tools { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2); margin-bottom: var(--s-3); }
+.theme-choice { display: inline-flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.theme-choice__opt { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 var(--s-3); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; background: var(--surface); color: var(--ink-2); }
+.theme-choice__opt input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-choice__opt.is-on { border-color: var(--ink); color: var(--ink); background: var(--surface-2); }
+.theme-choice__opt:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Images and demo art keep their colours; soften very bright ones a little at night. */
+@media screen { :root[data-theme='dark'] img:not([src$='.svg']) { filter: brightness(0.92); } }

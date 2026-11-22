@@ -2,7 +2,7 @@
 
 /* Payment picker */
 .pay-picker .radio-card { align-items: center; }
-.pay-option__icon { display: inline-flex; width: 32px; height: 32px; flex: none; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); color: var(--navy); }
+.pay-option__icon { display: inline-flex; width: 32px; height: 32px; flex: none; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); color: var(--navy-ink); }
 .pay-details { display: grid; gap: var(--s-3); padding: var(--s-2) var(--s-3) var(--s-3) calc(var(--s-3) + 44px); }
 @media (max-width: 520px) { .pay-details { padding-left: var(--s-3); } }
 .pay-picker__secure { margin: var(--s-1) 0 0; }
@@ -33,7 +33,7 @@
 .account__who { display: grid; min-width: 0; }
 .account__menu {
   position: absolute; z-index: 60; width: 264px; padding: var(--s-2);
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(15, 27, 51, 0.16);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(var(--shadow-rgb), 0.16);
 }
 .account--up .account__menu { bottom: calc(100% + 6px); left: 0; }
 .account--down .account__menu { top: calc(100% + 8px); right: 0; }
@@ -41,7 +41,7 @@
 .account__photo { position: relative; flex: none; }
 .account__photo-edit {
   position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center; border: 2px solid var(--surface); background: var(--navy); color: #fff; cursor: pointer; padding: 0;
+  display: grid; place-items: center; border: 2px solid var(--surface); background: var(--navy); color: var(--on-accent); cursor: pointer; padding: 0;
 }
 .account__photo-edit svg { width: 12px; height: 12px; }
 .account__name { display: block; font-weight: 700; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -51,7 +51,7 @@
 }
 .navlink.active {
   background: var(--brand-red-soft);
-  color: var(--brand-red);
+  color: var(--brand-red-ink);
   font-weight: 700;
 }
 .sidebar__foot {
@@ -95,7 +95,7 @@
   gap: var(--s-2);
   padding: var(--s-2) var(--s-6);
   background: var(--navy);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--fs-xs);
 }
 .demo-bar select {
@@ -103,7 +103,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.3);
   background: var(--navy-soft);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   padding: 0 var(--s-2);
 }
@@ -115,7 +115,7 @@
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--scrim);
   z-index: 40;
 }
 .sheet {
@@ -187,7 +187,7 @@
     cursor: pointer;
   }
   .bottomnav .active {
-    color: var(--brand-red);
+    color: var(--brand-red-ink);
   }
 }
 
@@ -204,8 +204,8 @@
   flex-direction: column;
   justify-content: space-between;
   padding: var(--s-7);
-  background: radial-gradient(circle at 80% 20%, #23365c 0%, var(--navy) 55%);
-  color: #fff;
+  background: radial-gradient(circle at 80% 20%, var(--navy-glow) 0%, var(--navy) 55%);
+  color: var(--on-accent);
   overflow: hidden;
 }
 .auth__panel h1 {

@@ -8,7 +8,7 @@
 .toast {
   pointer-events: auto; display: flex; align-items: flex-start; gap: var(--s-2);
   padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); border-radius: var(--radius-sm);
-  background: var(--navy); color: #fff; font-size: var(--fs-sm); box-shadow: 0 8px 24px rgba(15, 27, 51, 0.25);
+  background: var(--navy); color: var(--on-accent); font-size: var(--fs-sm); box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.25);
   animation: toast-in 160ms ease-out;
 }
 .toast > svg { flex: none; margin-top: 2px; }
@@ -42,7 +42,7 @@
 .deadline--urgent { color: var(--danger); font-weight: 700; }
 
 /* ---------- Needs your action (item 1) ---------- */
-.tab-count--alert { background: var(--brand-red); color: #fff; }
+.tab-count--alert { background: var(--brand-red); color: var(--on-accent); }
 .action-queue .list__item { gap: var(--s-3); }
 .action-queue .list__title { overflow-wrap: anywhere; }
 .action-queue__item .btn { flex: none; }
@@ -58,7 +58,7 @@
 .spend__value { font-size: var(--fs-xl); font-weight: 800; }
 .spend__plot { display: grid; grid-template-columns: repeat(6, 1fr); height: 160px; border-bottom: 1px solid var(--border); position: relative; }
 .spend__col { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 0 2px; cursor: default; }
-.spend__bar { width: min(28px, 70%); background: var(--navy); border-radius: 4px 4px 0 0; transition: opacity 120ms; }
+.spend__bar { width: min(28px, 70%); background: var(--chart-1); border-radius: 4px 4px 0 0; transition: opacity 120ms; }
 .spend__plot:hover .spend__bar { opacity: 0.45; }
 .spend__plot .spend__col.is-active .spend__bar { opacity: 1; }
 .spend__tick { position: absolute; bottom: -22px; font-size: var(--fs-xs); color: var(--ink-3); }
@@ -92,7 +92,7 @@
   bottom: calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
   display: flex; align-items: center; gap: var(--s-3);
   padding: var(--s-2) var(--s-4); background: var(--surface); border-top: 1px solid var(--border);
-  box-shadow: 0 -4px 16px rgba(15, 27, 51, 0.08);
+  box-shadow: 0 -4px 16px rgba(var(--shadow-rgb), 0.08);
 }
 .sticky-bar--public { bottom: env(safe-area-inset-bottom, 0px); padding-bottom: calc(var(--s-2) + env(safe-area-inset-bottom, 0px)); }
 .sticky-bar__text { flex: 1; min-width: 0; display: grid; font-size: var(--fs-sm); }
@@ -108,7 +108,7 @@
     bottom: calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
     display: flex; align-items: center; gap: var(--s-3);
     padding: var(--s-2) var(--s-4); background: var(--surface); border-top: 1px solid var(--border);
-    box-shadow: 0 -4px 16px rgba(15, 27, 51, 0.08);
+    box-shadow: 0 -4px 16px rgba(var(--shadow-rgb), 0.08);
   }
   .checkout__pay-total { display: grid; flex: none; line-height: 1.2; }
   .checkout__pay .btn { flex: 1; }
@@ -131,7 +131,7 @@
 .creator-photo--pattern { position: relative; display: block; }
 .creator-photo__initials {
   position: absolute; left: 10px; top: 10px; padding: 2px 8px; border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.85); color: var(--ink); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.02em;
+  background: var(--frost); color: var(--ink); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.02em;
 }
 .ccard__why { font-size: var(--fs-xs); color: var(--info); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-page .results-head {
@@ -160,7 +160,7 @@
 .public-nav__brands { margin-right: var(--s-2); }
 .trust { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4); }
 .trust__item { display: grid; gap: var(--s-2); align-content: start; padding: var(--s-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-.trust__item > svg { width: 28px; height: 28px; color: var(--navy); }
+.trust__item > svg { width: 28px; height: 28px; color: var(--navy-ink); }
 .trust__item h3 { margin: 0; font-size: var(--fs-md); }
 .trust__item p { margin: 0; }
 @media (max-width: 1000px) { .trust { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

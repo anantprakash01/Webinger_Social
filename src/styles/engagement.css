@@ -1,14 +1,14 @@
 /* ---------- Week 5: campaigns, chat, notifications, unread badges. Webinger tokens only. ---------- */
 
 /* Unread badges and the bell */
-.count-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: auto; border-radius: var(--radius-pill); background: var(--brand-red); color: #fff; font-size: 11px; font-weight: 800; line-height: 1; }
+.count-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: auto; border-radius: var(--radius-pill); background: var(--brand-red); color: var(--on-accent); font-size: 11px; font-weight: 800; line-height: 1; }
 .count-badge--dot { position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px; margin: 0; border: 2px solid var(--surface); }
 .bottomnav__icon { position: relative; display: inline-grid; }
 .sidebar__brand-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .bell { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--ink-2); }
 .bell:hover { background: var(--surface-2); color: var(--ink); }
-.bell.active { color: var(--brand-red); }
-.bell__count { position: absolute; top: 2px; right: 0; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: var(--radius-pill); border: 2px solid var(--surface); background: var(--brand-red); color: #fff; font-size: 10px; font-weight: 800; }
+.bell.active { color: var(--brand-red-ink); }
+.bell__count { position: absolute; top: 2px; right: 0; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: var(--radius-pill); border: 2px solid var(--surface); background: var(--brand-red); color: var(--on-accent); font-size: 10px; font-weight: 800; }
 
 /* Campaigns */
 .campaign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--s-4); }
@@ -54,10 +54,10 @@
 .bubbles { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 .bubble { display: grid; gap: 4px; max-width: min(80%, 520px); padding: var(--s-2) var(--s-3); border-radius: 16px; font-size: var(--fs-sm); line-height: 1.45; }
 .bubble--theirs { justify-self: start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-.bubble--mine { justify-self: end; background: var(--navy); color: #fff; border-bottom-right-radius: 4px; }
+.bubble--mine { justify-self: end; background: var(--navy); color: var(--on-accent); border-bottom-right-radius: 4px; }
 .bubble__body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble__meta { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2); font-size: 11px; opacity: 0.75; }
-.bubble--mine .badge { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.bubble--mine .badge { background: rgba(255, 255, 255, 0.15); color: var(--on-accent); }
 .composer { display: flex; align-items: flex-end; gap: var(--s-2); padding: var(--s-3); border-top: 1px solid var(--border); background: var(--surface); }
 .composer__input { flex: 1; min-height: 44px; max-height: 160px; resize: none; }
 @media (max-width: 900px) {
@@ -76,9 +76,9 @@
 .note-item { display: flex; align-items: flex-start; gap: var(--s-3); width: 100%; padding: var(--s-3) var(--s-5); border: 0; border-bottom: 1px solid var(--border); background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .note-item:hover { background: var(--surface-2); }
 .note-item.is-unread { background: var(--brand-red-soft); }
-.note-item.is-unread:hover { background: #fbdede; }
+.note-item.is-unread:hover { background: var(--unread-hover); }
 .note-item__icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); }
-.note-item.is-unread .note-item__icon { background: var(--brand-red); color: #fff; }
+.note-item.is-unread .note-item__icon { background: var(--brand-red); color: var(--on-accent); }
 .note-item__main { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .note-item__title { font-weight: 700; font-size: var(--fs-sm); }
 .note-item__body { font-size: var(--fs-sm); color: var(--ink-2); }

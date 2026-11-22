@@ -1,5 +1,6 @@
 /** Public pages (landing, search, profile): top header with logo, Search, Log in, Join as creator; footer. */
 import { LanguageSwitcher, useT } from '@/lib/i18n';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Suspense } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { LuSearch } from 'react-icons/lu';
@@ -20,6 +21,7 @@ export function PublicLayout() {
           <Logo height={22} />
         </Link>
         <nav className="public-nav" aria-label="Site">
+          <ThemeToggle />
           <LanguageSwitcher className="lang-switch lang-switch--header" />
           <NavLink to="/search" className="public-nav__link">
             <LuSearch aria-hidden /> <span className="public-nav__text">{t('Search')}</span>
